@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from lgatr.nets.config import gatr_config
+from lgatr.primitives.config import gatr_config
 from lgatr.primitives.linear import equi_linear, grade_involute, grade_project, reverse
 from tests.helpers import (
     BATCH_DIMS,

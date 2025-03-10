@@ -5,8 +5,8 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from ...nets.config import gatr_config
 from ...primitives import geometric_product
+from ...primitives.config import gatr_config
 from ..layer_norm import EquiLayerNorm
 from ..linear import EquiLinear
 

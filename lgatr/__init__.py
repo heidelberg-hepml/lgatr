@@ -4,6 +4,7 @@ from .interface.vector import embed_vector, extract_vector
 from .layers.attention.config import SelfAttentionConfig
 from .layers.mlp.config import MLPConfig
 from .nets.lgatr import LGATr
+from .primitives.config import gatr_config
 
 __all__ = [
     "LGATr",
@@ -15,5 +16,6 @@ __all__ = [
     "extract_vector",
     "get_num_spurions",
     "get_spurions",
+    "gatr_config",
 ]
 __version__ = "1.0.0"

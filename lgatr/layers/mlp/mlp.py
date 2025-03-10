@@ -5,7 +5,7 @@ from typing import List, Tuple, Union
 import torch
 from torch import nn
 
-from ...nets.config import gatr_config
+from ...primitives.config import gatr_config
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .config import MLPConfig

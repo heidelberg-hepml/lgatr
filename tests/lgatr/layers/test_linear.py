@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from lgatr.layers.linear import EquiLinear
-from lgatr.nets.config import gatr_config
+from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 

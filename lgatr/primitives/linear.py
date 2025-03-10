@@ -3,8 +3,8 @@ from pathlib import Path
 
 import torch
 
-from ..nets.config import gatr_config
 from ..utils.einsum import cached_einsum, custom_einsum
+from .config import gatr_config
 
 
 @lru_cache()

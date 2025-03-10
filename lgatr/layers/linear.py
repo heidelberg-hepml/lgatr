@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from ..interface import embed_scalar
-from ..nets.config import gatr_config
+from ..primitives.config import gatr_config
 from ..primitives.linear import equi_linear
 
 
