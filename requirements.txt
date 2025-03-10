@@ -1,0 +1,4 @@
+black==22.3.0
+torch>=2.6.0  # required for flex-attention
+einops
+opt_einsum
