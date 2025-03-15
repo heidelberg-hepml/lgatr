@@ -21,6 +21,3 @@ dependencies = [
 [project.urls]
 homepage = "https://github.com/heidelberg-hepml/lgatr"
 repository = "https://github.com/heidelberg-hepml/lgatr"
-
-[tool.setuptools]
-packages = ["lgatr"]
