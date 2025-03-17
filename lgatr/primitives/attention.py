@@ -18,7 +18,7 @@ def sdp_attention(
     q_s: Tensor,
     k_s: Tensor,
     v_s: Tensor,
-    attn_mask: Optional[Tensor] = None,
+    **attn_kwargs,
 ) -> Tuple[Tensor, Tensor]:
     """Equivariant geometric attention based on scaled dot products.
 
@@ -48,8 +48,8 @@ def sdp_attention(
         Keys, scalar part.
     v_s : Tensor with shape (..., num_items_in, num_s_channels_out)
         Values, scalar part.
-    attn_mask : None or Tensor with shape (..., num_items, num_items)
-        Optional attention mask
+    **attn_kwargs
+        Optional keyword arguments passed to attention.
 
     Returns
     -------
@@ -76,7 +76,7 @@ def sdp_attention(
     num_channels_out = v_mv.shape[-2]
     v = torch.cat([rearrange(v_mv, "... c x -> ... (c x)"), v_s], -1)
 
-    v_out = scaled_dot_product_attention(q, k, v, attn_mask)
+    v_out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
 
     v_out_mv = rearrange(
         v_out[..., : num_channels_out * 16], "... (c x) -> ...  c x", x=16
