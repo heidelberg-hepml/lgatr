@@ -1,10 +1,10 @@
-from typing import Callable, Optional, Tuple
+from typing import Callable, Tuple
 
 import torch
 from einops import rearrange
 from torch import Tensor
 
-# flex_attention and create_block_mask should be torch.compile'd for performance
+# flex_attention should be torch.compile'd for performance
 from torch.nn.attention.flex_attention import BlockMask, flex_attention
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
@@ -97,7 +97,7 @@ def scaled_dot_product_attention(
 ) -> Tensor:
     """Execute scaled dot-product attention.
     The code dynamically selects the backend based on the arguments.
-    Currently, torch SDPA and flex-attention backends are implemented.
+    Currently, torch SDPA and flex_attention backends are implemented.
 
     Parameters
     ----------
@@ -127,9 +127,37 @@ def scaled_dot_product_attention(
     if attn_mask is not None or is_causal:
         return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
     elif score_mod is not None or block_mask is not None:
-        return flex_attention(
+        return flex_attention_flexembedding(
             query, key, value, score_mod=score_mod, block_mask=block_mask
         )
     else:
         # default: torch SDPA
         return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
+
+
+def flex_attention_flexembedding(query, key, value, **kwargs):
+    # hotfix in case d is not a power of 2 (not supported yet in flex_attention)
+    # this is a temporary solution until the issue is resolved in PyTorch
+
+    # zero-pad the input to the next power of 2
+    if not _is_power_of_two(query.shape[-1]):
+        n = _next_power_of_two(query.shape[-1])
+        query = torch.nn.functional.pad(query, (0, n - query.shape[-1]))
+        key = torch.nn.functional.pad(key, (0, n - key.shape[-1]))
+    if not _is_power_of_two(value.shape[-1]):
+        n = _next_power_of_two(value.shape[-1])
+        value_mod = torch.nn.functional.pad(value, (0, n - value.shape[-1]))
+    else:
+        value_mod = value
+
+    out = flex_attention(query, key, value_mod, **kwargs)
+    out = out[..., : value.shape[-1]]
+    return out
+
+
+def _is_power_of_two(n):
+    return (n & (n - 1)) == 0
+
+
+def _next_power_of_two(n):
+    return 2 ** (n - 1).bit_length()
