@@ -137,7 +137,8 @@ def scaled_dot_product_attention(
 
 def flex_attention_flexembedding(query, key, value, **kwargs):
     # hotfix in case d is not a power of 2 (not supported yet in flex_attention)
-    # this is a temporary solution until the issue is resolved in PyTorch
+    # proper solution in https://github.com/pytorch/pytorch/pull/133495/files
+    # TODO: remove this once torch 2.7 is released (at 23.04.2025)
 
     # zero-pad the input to the next power of 2
     if not _is_power_of_two(query.shape[-1]):
