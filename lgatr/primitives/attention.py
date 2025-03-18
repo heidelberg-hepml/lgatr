@@ -1,11 +1,9 @@
-from typing import Callable, Tuple
+from typing import Tuple
 
 import torch
 from einops import rearrange
 from torch import Tensor
 
-# flex_attention should be torch.compile'd for performance
-from torch.nn.attention.flex_attention import BlockMask, flex_attention
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
 from .invariants import _load_inner_product_factors
@@ -90,14 +88,15 @@ def scaled_dot_product_attention(
     query: Tensor,
     key: Tensor,
     value: Tensor,
-    attn_mask: torch.Tensor = None,
-    is_causal: bool = False,
-    score_mod: Callable = None,
-    block_mask: BlockMask = None,
+    **attn_kwargs,
 ) -> Tensor:
     """Execute scaled dot-product attention.
     The code dynamically selects the backend based on the arguments.
-    Currently, torch SDPA and flex_attention backends are implemented.
+    Currently, only torch SDPA is implemented.
+    It is straight-forward to add more attention backends here
+    like xformers memory_efficient_attention or flex_attention which
+    is part of native torch>=2.5. We do not include them here
+    to avoid stric dependencies. There will be seperate branches for that.
 
     Parameters
     ----------
@@ -107,58 +106,12 @@ def scaled_dot_product_attention(
         of shape [batch, head, item, d]
     value : Tensor
         of shape [batch, head, item, d]
-    attn_mask: torch.Tensor
-        Bias tensor, used in torch SDPA.
-    is_causal: bool
-        Make attention mask causal, used in torch SDPA.
-    score_mod: Callable
-        Function to modify attention scores.
-        By default no score_mod is applied.
-        Used in flex-attention.
-    block_mask: BlockMask
-        BlockMask object that controls the blocksparsity pattern of the attention.
-        Used in flex-attention.
+    **attn_kwargs
+        Optional keyword arguments passed to attention.
 
     Returns
     -------
     Tensor
         of shape [batch, head, item, d]
     """
-    if attn_mask is not None or is_causal:
-        return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
-    elif score_mod is not None or block_mask is not None:
-        return flex_attention_flexembedding(
-            query, key, value, score_mod=score_mod, block_mask=block_mask
-        )
-    else:
-        # default: torch SDPA
-        return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
-
-
-def flex_attention_flexembedding(query, key, value, **kwargs):
-    # hotfix in case d is not a power of 2 (not supported yet in flex_attention)
-    # proper solution in https://github.com/pytorch/pytorch/pull/133495/files
-    # TODO: remove this once torch 2.7 is released (at 23.04.2025)
-
-    # zero-pad the input to the next power of 2
-    if not _is_power_of_two(query.shape[-1]):
-        n = _next_power_of_two(query.shape[-1])
-        query = torch.nn.functional.pad(query, (0, n - query.shape[-1]))
-        key = torch.nn.functional.pad(key, (0, n - key.shape[-1]))
-    if not _is_power_of_two(value.shape[-1]):
-        n = _next_power_of_two(value.shape[-1])
-        value_mod = torch.nn.functional.pad(value, (0, n - value.shape[-1]))
-    else:
-        value_mod = value
-
-    out = flex_attention(query, key, value_mod, **kwargs)
-    out = out[..., : value.shape[-1]]
-    return out
-
-
-def _is_power_of_two(n):
-    return (n & (n - 1)) == 0
-
-
-def _next_power_of_two(n):
-    return 2 ** (n - 1).bit_length()
+    return torch_sdpa(query, key, value, **attn_kwargs)
