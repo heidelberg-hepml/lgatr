@@ -24,6 +24,7 @@ git clone https://github.com/heidelberg-hepml/lgatr.git
 cd lgatr
 pip install -e .
 ```
+If you want a specific `branch`, you can do `pip install https://github.com/heidelberg-hepml/lgatr.git@basics` or have a line `lgatr @ https://github.com/heidelberg-hepml/lgatr.git@basics` in your `requirements.txt`.
 
 ## Using L-GATr
 
