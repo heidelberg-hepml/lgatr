@@ -66,7 +66,6 @@ class LGATr(nn.Module):
         checkpoint_blocks: bool = False,
         dropout_prob: Optional[float] = None,
         double_layernorm: bool = False,
-        **kwargs,
     ) -> None:
         super().__init__()
         self.linear_in = EquiLinear(
