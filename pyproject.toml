@@ -16,6 +16,7 @@ dependencies = [
     "torch>=2.0",
     "einops",
     "opt_einsum",
+    "xformers",
 ]
 
 [project.urls]

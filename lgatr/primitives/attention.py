@@ -5,9 +5,12 @@ from einops import rearrange
 from torch import Tensor
 
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
+from xformers.ops import AttentionBias, memory_efficient_attention
 
 from .invariants import _load_inner_product_factors
 
+# Force the use of xformers attention, even when no xformers attention mask is provided:
+FORCE_XFORMERS = False
 
 def sdp_attention(
     q_mv: Tensor,
@@ -92,11 +95,7 @@ def scaled_dot_product_attention(
 ) -> Tensor:
     """Execute scaled dot-product attention.
     The code dynamically selects the backend based on the arguments.
-    Currently, only torch SDPA is implemented.
-    It is straight-forward to add more attention backends here
-    like xformers memory_efficient_attention or flex_attention which
-    is part of native torch>=2.5. We do not include them here
-    to avoid stric dependencies. There will be seperate branches for that.
+    This version supports default torch SDPA and xformers' attention.
 
     Parameters
     ----------
@@ -114,4 +113,22 @@ def scaled_dot_product_attention(
     Tensor
         of shape [batch, head, item, d]
     """
-    return torch_sdpa(query, key, value, **attn_kwargs)
+    if FORCE_XFORMERS or isinstance(attn_kwargs.get("attn_bias", None), AttentionBias):
+        if key.shape[1] != query.shape[1]:  # required to make multi_query work
+            key = key.expand(key.shape[0], query.shape[1], *key.shape[2:])
+            value = value.expand(value.shape[0], query.shape[1], *value.shape[2:])
+        query = query.transpose(
+            1, 2
+        )  # [batch, head, item, d] -> [batch, item, head, d]
+        key = key.transpose(1, 2)
+        value = value.transpose(1, 2)
+        out = memory_efficient_attention(
+            query.contiguous(),
+            key.contiguous(),
+            value.contiguous(),
+            attn_bias=attn_kwargs["attn_bias"],
+        )
+        out = out.transpose(1, 2)  # [batch, item, head, d] -> [batch, head, item, d]
+        return out
+    else:
+        return torch_sdpa(query, key, value, **attn_kwargs)
