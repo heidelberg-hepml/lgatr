@@ -26,7 +26,7 @@ pip install -e .
 ```
 If you want a specific `branch` (e.g. the `xformers` or `flex_attention` branch), you can do `pip install https://github.com/heidelberg-hepml/lgatr.git@basics` or have a line `lgatr @ https://github.com/heidelberg-hepml/lgatr.git@basics` in your `requirements.txt`.
 
-## Using L-GATr
+## How to use L-GATr
 
 1. Instantiate the `LGATr` class. Hyperparameters related to attention and mlp blocks are organized in dataclasses, see `lgatr/layers/attention/config.py` and `lgatr/layers/mlp/config.py`. They can be initialized using dicts or these dataclass classes.
 2. Embed the network inputs into the geometric algebra using functions from `lgatr/interface/`. You might want to use `spurions.py` to break Lorentz equivariance at the input level, see [Section 2.3 of the HEP paper](https://arxiv.org/abs/2411.00446) for a discussion on symmetry breaking and when it is needed.
@@ -47,10 +47,10 @@ We are planning to extend this package in the future. If you would use them or y
 
 ## Examples
 
-- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation
-- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py
+- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers
+- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`
 
-Let us know if you use `lgatr`!
+Let us know if you use `lgatr`, so we can add your repo to the list!
 
 ## Citation
 
