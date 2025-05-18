@@ -36,7 +36,7 @@ class SelfAttentionConfig:
         Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
     """
 
-    multi_query: bool = True
+    multi_query: bool = False
     in_mv_channels: Optional[int] = None
     out_mv_channels: Optional[int] = None
     in_s_channels: Optional[int] = None
