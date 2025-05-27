@@ -35,15 +35,16 @@ If you want a specific `branch` (e.g. the `xformers` or `flex_attention` branch)
 More features:
 
 - Global `LGATr` design choices are controlled by the `gatr_config` object from `lgatr/primitives/config.py`.
-- L-GATr supports mixed precision. The critical operations are performed in `float32`.
+- Cross-attention and a LGATr decoder as `ConditionalLGATr`.
+- L-GATr supports automatic mixed precision. The critical operations are performed in `float32`.
 - The default branch only has the default torch attention backend. There are seperate branches for the `xformers` and `flex_attention` backends. We do not include them in the main branch yet because of their additional requirements.
 
 ## Future
 
 We are planning to extend this package in the future. If you would use them or you have more ideas, please use open an issue or a pull request.
 
-- L-GATr transformer decoder using cross-attention.
 - Add `docs`
+- Add tutorial
 
 ## Examples
 
