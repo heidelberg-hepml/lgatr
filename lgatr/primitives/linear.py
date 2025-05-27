@@ -9,7 +9,8 @@ from .config import gatr_config
 
 @lru_cache()
 def _compute_pin_equi_linear_basis(
-    device=torch.device("cpu"), dtype=torch.float32, normalize=True
+    device=torch.device("cpu"),
+    dtype=torch.float32,
 ) -> torch.Tensor:
     """Constructs basis elements for Pin(1,3)-equivariant linear maps between multivectors.
 
@@ -21,8 +22,6 @@ def _compute_pin_equi_linear_basis(
         Device
     dtype : torch.dtype
         Dtype
-    normalize : bool
-        Whether to normalize the basis elements
 
     Returns
     -------
@@ -31,7 +30,7 @@ def _compute_pin_equi_linear_basis(
     """
 
     if device not in [torch.device("cpu"), "cpu"] and dtype != torch.float32:
-        basis = _compute_pin_equi_linear_basis(normalize=normalize)
+        basis = _compute_pin_equi_linear_basis()
     else:
         file = (
             "linear_basis_subgroup.pt"
@@ -132,7 +131,8 @@ def grade_project(x: torch.Tensor) -> torch.Tensor:
 
     # Select kernel on correct device
     basis = _compute_pin_equi_linear_basis(
-        device=x.device, dtype=x.dtype, normalize=False
+        device=x.device,
+        dtype=x.dtype,
     )
 
     # First five basis elements are grade projections
