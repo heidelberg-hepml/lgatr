@@ -152,5 +152,9 @@ def test_conditional_gatr_equivariance(
         tuple(list(batch_dims) + [num_items_condition, in_mv_channels_condition]),
     ]
     check_pin_equivariance(
-        net, 2, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition), **MILD_TOLERANCES
+        net,
+        2,
+        batch_dims=data_dims,
+        fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
+        **MILD_TOLERANCES
     )

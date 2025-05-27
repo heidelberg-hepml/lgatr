@@ -78,10 +78,6 @@ class CrossAttention(nn.Module):
         # Dropout
         self.dropout: Optional[nn.Module]
         if config.dropout_prob is not None:
-            raise ValueError(
-                "Dropout violates equivariance for cross_attention, "
-                "thats definitely a bug but didn't find the reason yet."
-            )
             self.dropout = GradeDropout(config.dropout_prob)
         else:
             self.dropout = None

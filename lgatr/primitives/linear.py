@@ -116,8 +116,6 @@ def grade_project(x: torch.Tensor) -> torch.Tensor:
 
     The return value is a single tensor with a new grade dimension.
 
-    NOTE: this primitive is not used widely in our architectures.
-
     Parameters
     ----------
     x : torch.Tensor with shape (..., 16)
