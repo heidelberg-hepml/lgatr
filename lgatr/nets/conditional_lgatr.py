@@ -1,95 +1,102 @@
-"""Equivariant transformer for multivector data."""
+"""Equivariant conditional transformer for multivector data."""
 
-from dataclasses import replace
 from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.attention.config import SelfAttentionConfig
-from ..layers.lgatr_block import LGATrBlock
-from ..layers.linear import EquiLinear
+from ..layers import (
+    CrossAttentionConfig,
+    SelfAttentionConfig,
+    ConditionalLGATrBlock,
+    EquiLinear,
+)
 from ..layers.mlp.config import MLPConfig
 
 
-class LGATr(nn.Module):
-    """L-GATr network for a data with a single token dimension.
+class ConditionalLGATr(nn.Module):
+    """Conditional L-GATr network.
+    Assumes that the condition is already preprocessed, e.g. with a non-conditional `LGATr` network.
 
-    It combines `num_blocks` L-GATr transformer blocks, each consisting of geometric self-attention
-    layers, a geometric MLP, residual connections, and normalization layers. In addition, there
-    are initial and final equivariant linear layers.
-
-    Assumes input has shape `(..., items, in_channels, 16)`, output has shape
-    `(..., items, out_channels, 16)`, will create hidden representations with shape
-    `(..., items, hidden_channels, 16)`.
+    It combines `num_blocks` conditional L-GATr transformer blocks, each consisting of geometric self-attention
+    layers, geometric cross-attention layers, a geometric MLP, residual connections, and normalization layers.
+    In addition, there are initial and final equivariant linear layers.
 
     Parameters
     ----------
     in_mv_channels : int
         Number of input multivector channels.
+    condition_mv_channels : int
+        Number of condition multivector channels.
     out_mv_channels : int
         Number of output multivector channels.
     hidden_mv_channels : int
         Number of hidden multivector channels.
     in_s_channels : None or int
         If not None, sets the number of scalar input channels.
+    condition_s_channels : None or int
+        If not None, sets the number of scalar condition channels.
     out_s_channels : None or int
         If not None, sets the number of scalar output channels.
     hidden_s_channels : None or int
         If not None, sets the number of scalar hidden channels.
     attention: Dict
-        Data for SelfAttentionConfig
+        Data for SelfAttentionConfig.
+    crossattention: Dict
+        Data for CrossAttentionConfig.
     mlp: Dict
-        Data for MLPConfig
+        Data for MLPConfig.
     num_blocks : int
         Number of transformer blocks.
     dropout_prob : float or None
-        Dropout probability
+        Dropout probability.
     double_layernorm : bool
-        Whether to use double layer normalization
+        Whether to use double layer normalization.
+    checkpoint_blocks : bool
+        Whether to use checkpointing for the transformer blocks to save memory.
     """
 
     def __init__(
         self,
         in_mv_channels: int,
+        condition_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
         in_s_channels: Optional[int],
+        condition_s_channels: Optional[int],
         out_s_channels: Optional[int],
         hidden_s_channels: Optional[int],
         attention: SelfAttentionConfig,
+        crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
         num_blocks: int = 10,
-        reinsert_mv_channels: Optional[Tuple[int]] = None,
-        reinsert_s_channels: Optional[Tuple[int]] = None,
-        checkpoint_blocks: bool = False,
         dropout_prob: Optional[float] = None,
         double_layernorm: bool = False,
+        checkpoint_blocks: bool = False,
     ) -> None:
         super().__init__()
+
         self.linear_in = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
             in_s_channels=in_s_channels,
             out_s_channels=hidden_s_channels,
         )
-        attention = replace(
-            SelfAttentionConfig.cast(attention),
-            additional_qk_mv_channels=0
-            if reinsert_mv_channels is None
-            else len(reinsert_mv_channels),
-            additional_qk_s_channels=0
-            if reinsert_s_channels is None
-            else len(reinsert_s_channels),
-        )
+
+        attention = SelfAttentionConfig.cast(attention)
+        crossattention = CrossAttentionConfig.cast(crossattention)
         mlp = MLPConfig.cast(mlp)
+
         self.blocks = nn.ModuleList(
             [
-                LGATrBlock(
+                ConditionalLGATrBlock(
                     mv_channels=hidden_mv_channels,
                     s_channels=hidden_s_channels,
+                    condition_mv_channels=condition_mv_channels,
+                    condition_s_channels=condition_s_channels,
                     attention=attention,
+                    crossattention=crossattention,
                     mlp=mlp,
                     dropout_prob=dropout_prob,
                     double_layernorm=double_layernorm,
@@ -103,42 +110,43 @@ class LGATr(nn.Module):
             in_s_channels=hidden_s_channels,
             out_s_channels=out_s_channels,
         )
-        self._reinsert_s_channels = reinsert_s_channels
-        self._reinsert_mv_channels = reinsert_mv_channels
         self._checkpoint_blocks = checkpoint_blocks
 
     def forward(
         self,
         multivectors: torch.Tensor,
+        multivectors_condition: torch.Tensor,
         scalars: Optional[torch.Tensor] = None,
-        **attn_kwargs,
+        scalars_condition: Optional[torch.Tensor] = None,
+        attn_kwargs={},
+        crossattn_kwargs={},
     ) -> Tuple[torch.Tensor, Union[torch.Tensor, None]]:
         """Forward pass of the network.
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
+        multivectors : torch.Tensor with shape (..., num_items, in_mv_channels, 16)
             Input multivectors.
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
+        multivectors_condition : torch.Tensor with shape (..., num_items_condition, in_mv_channels, 16)
+            Input multivectors.
+        scalars : None or torch.Tensor with shape (..., num_items, in_s_channels)
             Optional input scalars.
-        **attn_kwargs
-            Optional keyword arguments passed to attention.
+        scalars_condition : None or torch.Tensor with shape (..., num_items_condition, in_s_channels)
+            Optional input scalars.
+        attn_kwargs: None or torch.Tensor or AttentionBias
+            Optional attention mask.
+        crossattn_kwargs: None or torch.Tensor or AttentionBias
+            Optional attention mask for the condition.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
+        outputs_mv : torch.Tensor with shape (..., num_items, out_mv_channels, 16)
             Output multivectors.
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
+        outputs_s : None or torch.Tensor with shape (..., num_items, out_s_channels)
             Output scalars, if scalars are provided. Otherwise None.
         """
 
-        # Channels that will be re-inserted in any query / key computation
-        (
-            additional_qk_features_mv,
-            additional_qk_features_s,
-        ) = self._construct_reinserted_channels(multivectors, scalars)
-
-        # Pass through the blocks
+        # Decode condition into main track with
         h_mv, h_s = self.linear_in(multivectors, scalars=scalars)
         for block in self.blocks:
             if self._checkpoint_blocks:
@@ -147,35 +155,21 @@ class LGATr(nn.Module):
                     h_mv,
                     use_reentrant=False,
                     scalars=h_s,
-                    additional_qk_features_mv=additional_qk_features_mv,
-                    additional_qk_features_s=additional_qk_features_s,
-                    **attn_kwargs,
+                    multivectors_condition=multivectors_condition,
+                    scalars_condition=scalars_condition,
+                    attn_kwargs=attn_kwargs,
+                    crossattn_kwargs=crossattn_kwargs,
                 )
             else:
                 h_mv, h_s = block(
                     h_mv,
                     scalars=h_s,
-                    additional_qk_features_mv=additional_qk_features_mv,
-                    additional_qk_features_s=additional_qk_features_s,
-                    **attn_kwargs,
+                    multivectors_condition=multivectors_condition,
+                    scalars_condition=scalars_condition,
+                    attn_kwargs=attn_kwargs,
+                    crossattn_kwargs=crossattn_kwargs,
                 )
 
         outputs_mv, outputs_s = self.linear_out(h_mv, scalars=h_s)
 
         return outputs_mv, outputs_s
-
-    def _construct_reinserted_channels(self, multivectors, scalars):
-        """Constructs input features that will be reinserted in every attention layer."""
-
-        if self._reinsert_mv_channels is None:
-            additional_qk_features_mv = None
-        else:
-            additional_qk_features_mv = multivectors[..., self._reinsert_mv_channels, :]
-
-        if self._reinsert_s_channels is None:
-            additional_qk_features_s = None
-        else:
-            assert scalars is not None
-            additional_qk_features_s = scalars[..., self._reinsert_s_channels]
-
-        return additional_qk_features_mv, additional_qk_features_s
