@@ -1,21 +1,29 @@
-from .interface.scalar import embed_scalar, extract_scalar
 from .interface.spurions import get_num_spurions, get_spurions
+from .interface.scalar import embed_scalar, extract_scalar
 from .interface.vector import embed_vector, extract_vector
-from .layers.attention.config import SelfAttentionConfig
+from .interface.pseudoscalar import embed_pseudoscalar, extract_pseudoscalar
+from .interface.axialvector import embed_axialvector, extract_axialvector
+from .layers.attention.config import SelfAttentionConfig, CrossAttentionConfig
 from .layers.mlp.config import MLPConfig
 from .nets.lgatr import LGATr
+from .nets.conditional_lgatr import ConditionalLGATr
 from .primitives.config import gatr_config
 
 __all__ = [
     "LGATr",
+    "ConditionalLGATr",
     "SelfAttentionConfig",
+    "CrossAttentionConfig",
     "MLPConfig",
     "embed_scalar",
     "extract_scalar",
     "embed_vector",
     "extract_vector",
+    "embed_pseudoscalar",
+    "extract_pseudoscalar",
+    "embed_axialvector",
+    "extract_axialvector",
     "get_num_spurions",
     "get_spurions",
     "gatr_config",
 ]
-__version__ = "1.0.0"
