@@ -44,6 +44,12 @@ class LGATr(nn.Module):
         Data for MLPConfig
     num_blocks : int
         Number of transformer blocks.
+    reinsert_mv_channels : None or Tuple[int]
+        If not None, specifies multivector channels that will be reinserted in every attention layer.
+    reinsert_s_channels : None or Tuple[int]
+        If not None, specifies scalar channels that will be reinserted in every attention layer.
+    checkpoint_blocks : bool
+        Whether to use checkpointing for the blocks. If True, will save memory at the cost of speed.
     dropout_prob : float or None
         Dropout probability
     double_layernorm : bool
