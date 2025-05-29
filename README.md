@@ -43,10 +43,7 @@ More features:
 
 ## Future
 
-We are planning to extend this package in the future. If you would use them or you have more ideas, please use open an issue or a pull request.
-
-- Add `docs`
-- Add tutorial
+We are planning to extend this package in the future. If you have ideas for new features, please open an issue or a pull request.
 
 ## Examples
 
