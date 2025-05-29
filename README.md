@@ -28,6 +28,8 @@ If you want a specific `branch` (e.g. the `xformers` or `flex_attention` branch)
 
 ## How to use L-GATr
 
+Please have a look at [our example notebook](./examples/quickstart.ipynb).
+
 1. Instantiate the `LGATr` class. Hyperparameters related to attention and mlp blocks are organized in dataclasses, see `lgatr/layers/attention/config.py` and `lgatr/layers/mlp/config.py`. They can be initialized using dicts or these dataclass classes.
 2. Embed the network inputs into the geometric algebra using functions from `lgatr/interface/`. You might want to use `spurions.py` to break Lorentz equivariance at the input level, see [Section 2.3 of the HEP paper](https://arxiv.org/abs/2411.00446) for a discussion on symmetry breaking and when it is needed.
 3. Now you're ready to push your data through the L-GATr network!
