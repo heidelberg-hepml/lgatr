@@ -95,8 +95,8 @@ class ConditionalLGATrBlock(nn.Module):
         # MLP block
         mlp = replace(
             mlp,
-            mv_channels=(mv_channels, 2 * mv_channels, mv_channels),
-            s_channels=(s_channels, 2 * s_channels, s_channels),
+            mv_channels=mv_channels,
+            s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
         self.mlp = GeoMLP(mlp)
