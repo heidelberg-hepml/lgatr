@@ -9,7 +9,7 @@ from ..primitives import grade_dropout
 
 
 class GradeDropout(nn.Module):
-    """Grade dropout for multivectors (and regular dropout for auxiliary scalars).
+    """Dropout on multivectors.
 
     Parameters
     ----------
@@ -28,17 +28,17 @@ class GradeDropout(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., 16)
-            Multivector inputs.
+        multivectors : torch.Tensor
+            Multivector inputs  with shape (..., 16).
         scalars : torch.Tensor
-            Scalar inputs.
+            Scalar inputs with shape (...).
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., 16)
-            Multivector inputs with dropout applied.
+        outputs_mv : torch.Tensor
+            Multivector inputs with dropout applied, shape (..., 16).
         output_scalars : torch.Tensor
-            Scalar inputs with dropout applied.
+            Scalar inputs with dropout applied, shape (...).
         """
 
         out_mv = grade_dropout(

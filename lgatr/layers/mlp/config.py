@@ -10,21 +10,21 @@ class MLPConfig:
 
     Parameters
     ----------
-    Parameters automatically set within LGATr
-    mv_channels : int
-        Number of input multivector channels.
-    s_channels : int
-        Number of input scalar channels.
-    dropout_prob : float or None
-        Dropout probability
-
-    Parameters set manually by the user
     activation : {"relu", "sigmoid", "gelu"}
         Which (gated) activation function to use
     increase_hidden_channels : int
         Factor by which to increase the number of hidden channels (both multivectors and scalars)
     num_hidden_layers : int
         Number of hidden layers to create
+
+    Parameters auto-set by LGATr
+    ----------------------------
+    mv_channels : int
+        Number of input multivector channels.
+    s_channels : int
+        Number of input scalar channels.
+    dropout_prob : float or None
+        Dropout probability
     """
 
     mv_channels: Optional[int] = None

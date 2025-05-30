@@ -1,3 +1,4 @@
+"""L-GATr decoder block."""
 from dataclasses import replace
 from typing import Optional, Tuple
 
@@ -16,7 +17,7 @@ from .mlp.mlp import GeoMLP
 
 
 class ConditionalLGATrBlock(nn.Module):
-    """Equivariant transformer decoder block for a conditional L-GATr.
+    """L-GATr decoder block.
 
     Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
     self-attention, and a residual connection. Then the conditions are included with
@@ -58,8 +59,7 @@ class ConditionalLGATrBlock(nn.Module):
     ) -> None:
         super().__init__()
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization
-        # instances)
+        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
         self.norm = EquiLayerNorm()
 
         # Self-attention layer
@@ -110,14 +110,14 @@ class ConditionalLGATrBlock(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., items, channels, 16)
-            Input multivectors.
-        scalars : torch.Tensor with shape (..., s_channels)
-            Input scalars.
-        multivectors_condition : torch.Tensor with shape (..., items, channels, 16)
-            Input condition multivectors.
-        scalars_condition : torch.Tensor with shape (..., s_channels)
-            Input condition scalars.
+        multivectors : torch.Tensor
+            Input multivectors  with shape (..., items, mv_channels, 16).
+        scalars : torch.Tensor
+            Input scalars with shape (..., items, s_channels).
+        multivectors_condition : torch.Tensor
+            Input condition multivectors with shape (..., items, mv_channels, 16).
+        scalars_condition : torch.Tensor
+            Input condition scalars with shape (..., items, s_channels).
         attn_kwargs: None or torch.Tensor or AttentionBias
             Optional attention mask.
         crossattn_kwargs: None or torch.Tensor or AttentionBias
@@ -125,10 +125,10 @@ class ConditionalLGATrBlock(nn.Module):
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., items, channels, 16).
-            Output multivectors
-        output_scalars : torch.Tensor with shape (..., s_channels)
-            Output scalars
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items, mv_channels, 16).
+        output_scalars : torch.Tensor
+            Output scalars with shape (..., items, s_channels).
         """
 
         # Self-attention block: pre layer norm

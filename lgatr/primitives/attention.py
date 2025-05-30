@@ -1,3 +1,4 @@
+"""Equivariant attention."""
 from typing import Tuple
 
 import torch
@@ -34,27 +35,27 @@ def sdp_attention(
 
     Parameters
     ----------
-    q_mv : Tensor with shape (..., num_items_out, num_mv_channels_in, 16)
-        Queries, multivector part.
-    k_mv : Tensor with shape (..., num_items_in, num_mv_channels_in, 16)
-        Keys, multivector part.
-    v_mv : Tensor with shape (..., num_items_in, num_mv_channels_out, 16)
-        Values, multivector part.
-    q_s : Tensor with shape (..., num_items_out, num_s_channels_in)
-        Queries, scalar part.
-    k_s : Tensor with shape (..., num_items_in, num_s_channels_in)
-        Keys, scalar part.
-    v_s : Tensor with shape (..., num_items_in, num_s_channels_out)
-        Values, scalar part.
+    q_mv : torch.Tensor
+        Multivector queries with shape (..., items_out, mv_channels, 16)
+    k_mv : torch.Tensor
+        Multivector keys with shape (..., items_out, mv_channels, 16)
+    v_mv : torch.Tensor
+        Multivector values with shape (..., items_out, mv_channels, 16)
+    q_s : torch.Tensor
+        Scalar queries with shape (..., items_out, s_channels)
+    k_s : torch.Tensor
+        Scalar keys with shape (..., items_out, s_channels)
+    v_s : torch.Tensor
+        Scalar values with shape (..., items_out, s_channels)
     **attn_kwargs
         Optional keyword arguments passed to attention.
 
     Returns
     -------
-    outputs_mv : Tensor with shape (..., num_items_out, num_mv_channels_out, 16)
-        Result, multivector part
-    outputs_s : Tensor with shape (..., num_items_out, num_s_channels_out)
-        Result, scalar part
+    outputs_mv : torch.Tensor
+        Multivector result with shape (..., items_out, mv_channels, 16)
+    outputs_s : torch.Tensor
+        Scalar result with shape (..., items_out, s_channels)
     """
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
@@ -100,18 +101,18 @@ def scaled_dot_product_attention(
 
     Parameters
     ----------
-    query : Tensor
-        of shape [batch, head, item, d]
-    key : Tensor
-        of shape [batch, head, item, d]
-    value : Tensor
-        of shape [batch, head, item, d]
+    query : torch.Tensor
+        Tensor of shape (..., items_out, channels)
+    key : torch.Tensor
+        Tensor of shape (..., items_in, channels)
+    value : torch.Tensor
+        Tensor of shape (..., items_in, channels)
     **attn_kwargs
         Optional keyword arguments passed to attention.
 
     Returns
     -------
-    Tensor
-        of shape [batch, head, item, d]
+    torch.Tensor
+        Tensor of shape (..., head, item_out, channels)
     """
     return torch_sdpa(query, key, value, **attn_kwargs)

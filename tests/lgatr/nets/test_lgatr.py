@@ -41,9 +41,9 @@ def test_lgatr_shape(
 
     try:
         net = LGATr(
-            in_mv_channels,
-            out_mv_channels,
-            hidden_mv_channels,
+            in_mv_channels=in_mv_channels,
+            out_mv_channels=out_mv_channels,
+            hidden_mv_channels=hidden_mv_channels,
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,
@@ -89,9 +89,9 @@ def test_lgatr_equivariance(
     """Tests LGATr for equivariance."""
     try:
         net = LGATr(
-            in_mv_channels,
-            out_mv_channels,
-            hidden_mv_channels,
+            in_mv_channels=in_mv_channels,
+            out_mv_channels=out_mv_channels,
+            hidden_mv_channels=hidden_mv_channels,
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,

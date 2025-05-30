@@ -6,11 +6,21 @@ from typing import Any, Mapping, Optional
 
 @dataclass
 class SelfAttentionConfig:
-    """Configuration for attention.
+    """Configuration for self-attention.
 
     Parameters
     ----------
-    Parameters automatically set within LGATr
+    num_heads : int
+        Number of attention heads.
+    multi_query: bool
+        Whether to do multi-query attention
+    increase_hidden_channels : int
+        Factor by which to increase the number of hidden channels (both multivectors and scalars)
+    head_scale: bool
+        Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
+
+    Parameters auto-set by LGATr
+    ----------------------------
     in_mv_channels : int
         Number of input multivector channels.
     out_mv_channels : int
@@ -27,16 +37,6 @@ class SelfAttentionConfig:
         Initialization scheme for final linear layer
     dropout_prob : float or None
         Dropout probability
-
-    Parameters set manually by the user
-    num_heads : int
-        Number of attention heads.
-    multi_query: bool
-        Whether to do multi-query attention
-    increase_hidden_channels : int
-        Factor by which to increase the number of hidden channels (both multivectors and scalars)
-    head_scale: bool
-        Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
     """
 
     in_mv_channels: Optional[int] = None
@@ -100,7 +100,17 @@ class CrossAttentionConfig:
 
     Parameters
     ----------
-    Parameters automatically set within LGATr
+    num_heads : int
+        Number of attention heads.
+    multi_query: bool
+        Whether to do multi-query attention
+    increase_hidden_channels : int
+        Factor by which to increase the number of hidden channels (both multivectors and scalars)
+    head_scale: bool
+        Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
+
+    Parameters auto-set by LGATr
+    ----------------------------
     in_q_mv_channels : int
         Number of input query multivector channels.
     in_kv_mv_channels : int
@@ -125,16 +135,6 @@ class CrossAttentionConfig:
         Initialization scheme for final linear layer
     dropout_prob : float or None
         Dropout probability
-
-    Parameters set manually by the user
-    num_heads : int
-        Number of attention heads.
-    multi_query: bool
-        Whether to do multi-query attention
-    increase_hidden_channels : int
-        Factor by which to increase the number of hidden channels (both multivectors and scalars)
-    head_scale: bool
-        Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
     """
 
     in_q_mv_channels: Optional[int] = None

@@ -1,4 +1,4 @@
-"""Factory functions for simple MLPs for multivector data."""
+"""MLP with geometric product."""
 
 from typing import List, Tuple, Union
 
@@ -14,13 +14,13 @@ from .nonlinearities import ScalarGatedNonlinearity
 
 
 class GeoMLP(nn.Module):
-    """Geometric MLP.
+    """MLP with geometric product.
 
     This is a core component of GATr's transformer blocks. It is similar to a regular MLP, except
     that it uses geometric bilinears (the geometric product) in place of the first linear layer.
 
-    Assumes input has shape `(..., channels, 16)`, output has shape `(..., channels, 16)`,
-    will create hidden layers with shape `(..., increase_hidden_channels*channels, 16)`.
+    Assumes input has shape (..., channels, 16), output has shape (..., channels, 16),
+    will create hidden layers with shape (..., increase_hidden_channels*channels, 16).
 
     Parameters
     ----------
@@ -95,22 +95,22 @@ class GeoMLP(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors.
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
-            Optional input scalars.
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., mv_channels, 16).
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., s_channels).
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
-            Output multivectors.
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors  with shape (..., mv_channels, 16).
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., s_channels).
         """
 
         mv, s = multivectors, scalars
 
-        for i, layer in enumerate(self.layers):
+        for layer in self.layers:
             mv, s = layer(mv, scalars=s)
 
         return mv, s

@@ -1,3 +1,4 @@
+"""Multivector normalization."""
 import torch
 
 from .invariants import abs_squared_norm
@@ -8,19 +9,18 @@ def equi_layer_norm(
 ) -> torch.Tensor:
     """Equivariant LayerNorm for multivectors.
 
-    Rescales input such that `mean_channels |inputs|^2 = 1`, where the norm is the GA norm and the
+    Rescales input such that ``mean_channels |inputs|^2 = 1``, where the norm is the GA norm and the
     mean goes over the channel dimensions.
 
-    Using a factor `gain > 1` makes up for the fact that the GP norm overestimates the actual
+    Using a factor ``gain > 1`` makes up for the fact that the GP norm overestimates the actual
     standard deviation of the input data.
 
     Parameters
     ----------
-    x : torch.Tensor with shape `(batch_dim, *channel_dims, 16)`
-        Input multivectors.
+    x : torch.Tensor
+        Multivectors with shape (..., 16).
     channel_dim : int
-        Channel dimension index. Defaults to the second-last entry (last are the multivector
-        components).
+        Channel dimension index. Defaults to the second-last entry (last are the multivector components).
     gain : float
         Target output scale.
     epsilon : float
@@ -29,8 +29,8 @@ def equi_layer_norm(
 
     Returns
     -------
-    outputs : torch.Tensor with shape `(batch_dim, *channel_dims, 16)`
-        Normalized inputs.
+    outputs : torch.Tensor
+        Normalized multivectors with shape (..., 16).
     """
 
     # Compute mean_channels |inputs|^2

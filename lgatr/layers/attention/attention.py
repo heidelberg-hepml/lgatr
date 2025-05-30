@@ -47,18 +47,18 @@ class GeometricAttention(nn.Module):
 
         Parameters
         ----------
-        q_mv : Tensor with shape (..., num_items_out, num_mv_channels_in, 16)
-            Queries, multivector part.
-        k_mv : Tensor with shape (..., num_items_in, num_mv_channels_in, 16)
-            Keys, multivector part.
-        v_mv : Tensor with shape (..., num_items_in, num_mv_channels_out, 16)
-            Values, multivector part.
-        q_s : Tensor with shape (..., heads, num_items_out, num_s_channels_in)
-            Queries, scalar part.
-        k_s : Tensor with shape (..., heads, num_items_in, num_s_channels_in)
-            Keys, scalar part.
-        v_s : Tensor with shape (..., heads, num_items_in, num_s_channels_out)
-            Values, scalar part.
+        q_mv : torch.Tensor
+            Multivector queries with shape (..., items_out, mv_channels, 16).
+        k_mv : torch.Tensor
+            Multivector keys with shape (..., items_in, mv_channels, 16).
+        v_mv : torch.Tensor
+            Multivector values with shape (..., items_in, mv_channels, 16).
+        q_s : torch.Tensor
+            Scalar queries with shape (..., items_out, s_channels).
+        k_s : torch.Tensor
+            Scalar keys with shape (..., items_in, s_channels).
+        v_s : torch.Tensor
+            Scalar values with shape (..., items_in, s_channels).
         **attn_kwargs
             Optional keyword arguments passed to attention.
         """

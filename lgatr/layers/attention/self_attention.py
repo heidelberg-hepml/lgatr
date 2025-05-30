@@ -1,4 +1,4 @@
-"""Self-attention layers."""
+"""L-GATr self-attention."""
 
 from typing import Optional, Tuple
 
@@ -14,7 +14,7 @@ from .qkv import MultiQueryQKVModule, QKVModule
 
 
 class SelfAttention(nn.Module):
-    """Geometric self-attention layer.
+    """L-GATr self-attention.
 
     Constructs queries, keys, and values, computes attention, and projects linearly to outputs.
 
@@ -71,7 +71,7 @@ class SelfAttention(nn.Module):
         additional_qk_features_s: Optional[torch.Tensor] = None,
         **attn_kwargs,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Computes forward pass on inputs with shape `(..., items, channels, 16)`.
+        """Computes self-attention.
 
         The result is the following:
 
@@ -89,27 +89,25 @@ class SelfAttention(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., num_items, channels_in, 16)
-            Input multivectors.
-        additional_qk_features_mv : None or torch.Tensor with shape
-            (..., num_items, add_qk_mv_channels, 16)
-            Additional Q/K features, multivector part.
-        scalars : None or torch.Tensor with shape (..., num_items, num_items, in_scalars)
-            Optional input scalars
-        additional_qk_features_s : None or torch.Tensor with shape
-            (..., num_items, add_qk_mv_channels, 16)
-            Additional Q/K features, scalar part.
-        scalars : None or torch.Tensor with shape (..., num_items, num_items, in_scalars)
-            Optional input scalars
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., items, mv_channels, 16).
+        additional_qk_features_mv : None or torch.Tensor
+            Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16)
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, num_items, s_channels)
+        additional_qk_features_s : None or torch.Tensor
+            Additional scalar Q/K features with shape (..., items, add_qk_mv_channels, 16)
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, s_channels).
         **attn_kwargs
             Optional keyword arguments passed to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., num_items, channels_out, 16)
-            Output multivectors.
-        output_scalars : torch.Tensor with shape (..., num_items, channels_out, out_scalars)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items, mv_channels, 16).
+        output_scalars : torch.Tensor
+            Output scalars with shape (..., items, s_channels).
         """
         # Compute Q, K, V
         q_mv, k_mv, v_mv, q_s, k_s, v_s = self.qkv_module(

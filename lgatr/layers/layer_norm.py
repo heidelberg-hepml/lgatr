@@ -9,9 +9,9 @@ from ..primitives import equi_layer_norm
 
 
 class EquiLayerNorm(nn.Module):
-    """Equivariant LayerNorm for multivectors.
+    """Layer normalization.
 
-    Rescales input such that `mean_channels |inputs|^2 = 1`, where the norm is the GA norm and the
+    Rescales input such that ``mean_channels |inputs|^2 = 1``, where the norm is the GA norm and the
     mean goes over the channel dimensions.
 
     In addition, the layer performs a regular LayerNorm operation on auxiliary scalar inputs.
@@ -46,17 +46,17 @@ class EquiLayerNorm(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., 16)
-            Multivector inputs
-        scalars : torch.Tensor with shape (..., self.in_channels, self.in_scalars)
-            Scalar inputs
+        multivectors : torch.Tensor
+            Multivector inputs with shape (..., 16).
+        scalars : torch.Tensor
+            Scalar inputs with shape (...).
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., 16)
-            Normalized multivectors
-        output_scalars : torch.Tensor with shape (..., self.out_channels, self.in_scalars)
-            Normalized scalars.
+        outputs_mv : torch.Tensor
+            Normalized multivectors with shape (..., 16).
+        output_scalars : torch.Tensor
+            Normalized scalars with shape (...).
         """
 
         outputs_mv = equi_layer_norm(

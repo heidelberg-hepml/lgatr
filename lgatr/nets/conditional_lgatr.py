@@ -19,12 +19,14 @@ class ConditionalLGATr(nn.Module):
     """Conditional L-GATr network.
     Assumes that the condition is already preprocessed, e.g. with a non-conditional `LGATr` network.
 
-    It combines `num_blocks` conditional L-GATr transformer blocks, each consisting of geometric self-attention
+    It combines num_blocks conditional L-GATr transformer blocks, each consisting of geometric self-attention
     layers, geometric cross-attention layers, a geometric MLP, residual connections, and normalization layers.
     In addition, there are initial and final equivariant linear layers.
 
     Parameters
     ----------
+    num_blocks : int
+        Number of transformer blocks.
     in_mv_channels : int
         Number of input multivector channels.
     condition_mv_channels : int
@@ -47,8 +49,6 @@ class ConditionalLGATr(nn.Module):
         Data for CrossAttentionConfig.
     mlp: Dict
         Data for MLPConfig.
-    num_blocks : int
-        Number of transformer blocks.
     dropout_prob : float or None
         Dropout probability.
     checkpoint_blocks : bool
@@ -57,6 +57,7 @@ class ConditionalLGATr(nn.Module):
 
     def __init__(
         self,
+        num_blocks: int,
         in_mv_channels: int,
         condition_mv_channels: int,
         out_mv_channels: int,
@@ -68,7 +69,6 @@ class ConditionalLGATr(nn.Module):
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
-        num_blocks: int = 10,
         dropout_prob: Optional[float] = None,
         checkpoint_blocks: bool = False,
     ) -> None:
@@ -121,25 +121,25 @@ class ConditionalLGATr(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., num_items, in_mv_channels, 16)
-            Input multivectors.
-        multivectors_condition : torch.Tensor with shape (..., num_items_condition, in_mv_channels, 16)
-            Input multivectors.
-        scalars : None or torch.Tensor with shape (..., num_items, in_s_channels)
-            Optional input scalars.
-        scalars_condition : None or torch.Tensor with shape (..., num_items_condition, in_s_channels)
-            Optional input scalars.
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., items, in_mv_channels, 16).
+        multivectors_condition : torch.Tensor
+            Input condition multivectors with shape (..., items, in_mv_channels, 16).
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, in_s_channels).
+        scalars_condition : None or torch.Tensor
+            Optional input scalars  with shape (..., items, in_s_channels).
         attn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask.
+            Optional attention arguments.
         crossattn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask for the condition.
+            Optional attention arguments for the condition.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., num_items, out_mv_channels, 16)
-            Output multivectors.
-        outputs_s : None or torch.Tensor with shape (..., num_items, out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors  with shape (..., items, out_mv_channels, 16).
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=None.
         """
 
         # Decode condition into main track with

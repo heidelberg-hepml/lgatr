@@ -12,7 +12,7 @@ from ..primitives.linear import equi_linear
 
 
 class EquiLinear(nn.Module):
-    """Pin-equivariant linear layer.
+    """Linear layer.
 
     The forward pass maps multivector inputs with shape (..., in_channels, 16) to multivector
     outputs with shape (..., out_channels, 16) as
@@ -21,7 +21,7 @@ class EquiLinear(nn.Module):
 
         outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
 
-    plus an optional bias term for outputs[..., :, 0] (biases in other multivector components would
+    plus an optional bias term for ``outputs[..., :, 0]`` (biases in other multivector components would
     break equivariance).
 
     Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
@@ -147,17 +147,17 @@ class EquiLinear(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
-            Optional input scalars
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., in_mv_channels, 16)
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., in_s_channels)
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
-            Output multivectors
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., out_mv_channels, 16)
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., out_s_channels)
         """
 
         outputs_mv = equi_linear(multivectors, self.weight)  # (..., out_channels, 16)

@@ -1,3 +1,4 @@
+"""Invariants, e.g. inner product, absolute squared norm, pin invariants."""
 import math
 from functools import lru_cache
 
@@ -24,8 +25,8 @@ def _load_inner_product_factors(
 
     Returns
     -------
-    ip_factors : torch.Tensor with shape (16,)
-        Inner product factors
+    ip_factors : torch.Tensor
+        Inner product factors with shape (16,)
     """
 
     _INNER_PRODUCT_FACTORS = [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1]
@@ -50,7 +51,8 @@ def _load_metric_grades(
 
     Returns
     -------
-    torch.Tensor of shape [5, 16]
+    torch.Tensor
+        Metric grades with shape (5, 16)
     """
     m = _load_inner_product_factors(device=torch.device("cpu"), dtype=torch.float32)
     m_grades = torch.zeros(5, 16, device=torch.device("cpu"), dtype=torch.float32)
@@ -65,26 +67,29 @@ def _load_metric_grades(
 def inner_product(
     x: torch.Tensor, y: torch.Tensor, channel_sum: bool = False
 ) -> torch.Tensor:
-    """Computes the inner product of multivectors f(x,y) = <x, y> = <~x y>_0.
+    """Computes the inner product of multivectors ``f(x,y) = <x, y> = <~x y>_0``.
 
     In addition to summing over the 16 multivector dimensions, this function also sums
-    over an additional channel dimension if channel_sum == True.
+    over an additional channel dimension if ``channel_sum == True``.
 
-    Equal to `geometric_product(reverse(x), y)[..., [0]]` (but faster).
+    Equal to ``geometric_product(reverse(x), y)[..., [0]]`` (but faster).
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16) or (..., channels, 16)
-        First input multivector. Batch dimensions must be broadcastable between x and y.
-    y : torch.Tensor with shape (..., 16) or (..., channels, 16)
-        Second input multivector. Batch dimensions must be broadcastable between x and y.
+    x : torch.Tensor
+        First input multivector with shape (..., 16) or (..., channels, 16).
+        Batch dimensions must be broadcastable between x and y.
+    y : torch.Tensor
+        Second input multivector with shape (..., 16) or (..., channels, 16).
+        Batch dimensions must be broadcastable between x and y.
     channel_sum: bool
         Whether to sum over the second-to-last axis (channels)
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 1)
-        Result. Batch dimensions are result of broadcasting between x and y.
+    outputs : torch.Tensor
+        Result with shape (..., 1).
+        Batch dimensions are result of broadcasting between x and y.
     """
 
     x = x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
@@ -103,19 +108,19 @@ def inner_product(
 def squared_norm(x: torch.Tensor) -> torch.Tensor:
     """Computes the squared GA norm of an input multivector.
 
-    Equal to inner_product(x, x).
+    Equal to ``inner_product(x, x)``.
 
     NOTE: this primitive is not used widely in our architectures.
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 1)
-        Geometric algebra norm of x.
+    outputs : torch.Tensor
+        Geometric algebra norm of x with shape (..., 1).
     """
 
     return inner_product(x, x)
@@ -128,16 +133,15 @@ def pin_invariants(x: torch.Tensor, epsilon: float = 0.01) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
     epsilon : float
-              Epsilon parameter that regularizes the norm in case it is lower or equal to zero to avoid infinite gradients.
-
+        Epsilon parameter that regularizes the norm in case it is lower or equal to zero to avoid infinite gradients.
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 5)
-        Invariants computed from input multivectors
+    outputs : torch.Tensor
+        Invariants computed from input multivectors,  shape (..., 5)
     """
 
     # Project to grades
@@ -158,13 +162,13 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 1)
-        Geometric algebra norm of x.
+    outputs : torch.Tensor
+        Geometric algebra norm of x with shape (..., 1).
     """
     m = _load_metric_grades(device=x.device, dtype=x.dtype)
     abs_squared_norms = (

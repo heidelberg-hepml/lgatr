@@ -1,4 +1,4 @@
-"""Pin-equivariant geometric product layer between multivector tensors (torch.nn.Modules)."""
+"""Geometric product on multivectors."""
 
 from typing import Optional, Tuple
 
@@ -12,7 +12,7 @@ from ..linear import EquiLinear
 
 
 class GeometricBilinear(nn.Module):
-    """Geometric bilinear layer.
+    """Geometric product on multivectors.
 
     Pin-equivariant map between multivector tensors that constructs new geometric features via
     geometric products.
@@ -20,13 +20,13 @@ class GeometricBilinear(nn.Module):
     Parameters
     ----------
     in_mv_channels : int
-        Input multivector channels of `x`
+        Input multivector channels
     out_mv_channels : int
         Output multivector channels
     hidden_mv_channels : int or None
-        Hidden MV channels. If None, uses out_mv_channels.
+        Hidden multivector channels. If None, uses out_mv_channels.
     in_s_channels : int or None
-        Input scalar channels of `x`. If None, no scalars are expected nor returned.
+        Input scalar channels. If None, no scalars are expected nor returned.
     out_s_channels : int or None
         Output scalar channels. If None, no scalars are expected nor returned.
     """
@@ -75,17 +75,17 @@ class GeometricBilinear(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., in_mv_channels, 16)
         scalars : torch.Tensor with shape (..., in_s_channels)
             Input scalars
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., self.out_mv_channels, 16)
-            Output multivectors
-        output_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., out_mv_channels, 16)
+        output_s : None or torch.Tensor
+            Output scalars with shape (..., out_s_channels).
         """
 
         # GP
