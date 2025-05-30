@@ -13,14 +13,14 @@ class GeometricAttention(nn.Module):
 
     Given multivector and scalar queries, keys, and values, this layer computes:
 
-    ```
-    attn_weights[..., i, j] = softmax_j[
-        ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
-        + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
-    ]
-    out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-    out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
-    ```
+    .. code-block::
+
+        attn_weights[..., i, j] = softmax_j[
+            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
+            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
+        ]
+        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
     Parameters
     ----------
@@ -36,14 +36,14 @@ class GeometricAttention(nn.Module):
 
         Given multivector and scalar queries, keys, and values, this forward pass computes:
 
-        ```
-        attn_weights[..., i, j] = softmax_j[
-            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
-            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
-        ]
-        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
-        ```
+        .. code-block::
+
+            attn_weights[..., i, j] = softmax_j[
+                ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
+                + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
+            ]
+            out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+            out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
         Parameters
         ----------

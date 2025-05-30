@@ -17,9 +17,9 @@ class EquiLinear(nn.Module):
     The forward pass maps multivector inputs with shape (..., in_channels, 16) to multivector
     outputs with shape (..., out_channels, 16) as
 
-    ```
-    outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-    ```
+    .. code-block::
+
+        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
 
     plus an optional bias term for outputs[..., :, 0] (biases in other multivector components would
     break equivariance).
@@ -32,12 +32,11 @@ class EquiLinear(nn.Module):
     scalars are optional.
 
     This layer supports four initialization schemes:
-     - "default":            preserves (or actually slightly reducing) the variance of the data in
-                             the forward pass
-     - "small":              variance of outputs is approximately one order of magnitude smaller
-                             than for "default"
-     - "unit_scalar":        outputs will be close to (1, 0, 0, ..., 0)
-     - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
+
+    - "default": preserves (or actually slightly reducing) the variance of the data in the forward pass
+    - "small": variance of outputs is approximately one order of magnitude smaller than for "default"
+    - "unit_scalar": outputs will be close to (1, 0, 0, ..., 0)
+    - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
 
     Parameters
     ----------
@@ -137,10 +136,11 @@ class EquiLinear(nn.Module):
         The result is again multivectors and scalars.
 
         For multivectors we have:
-        ```
-        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-        = sum_i linear(inputs[..., i, :], weights[j, i, :])
-        ```
+
+        .. code-block::
+
+            outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
+            = sum_i linear(inputs[..., i, :], weights[j, i, :])
 
         Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
         learnable weights of this layer.

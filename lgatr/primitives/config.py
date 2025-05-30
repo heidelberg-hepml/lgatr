@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 
 @dataclass
-class GATrConfig:
+class LGATrConfig:
     """
     Parameters
     ----------
@@ -53,12 +53,12 @@ class GATrConfig:
 
     @classmethod
     def cast(cls, config: Any):
-        """Casts an object as GATrConfig."""
-        if isinstance(config, GATrConfig):
+        """Casts an object as LGATrConfig."""
+        if isinstance(config, LGATrConfig):
             return config
         if isinstance(config, Mapping):
             return cls(**config)
         raise ValueError(f"Can not cast {config} to {cls}")
 
 
-gatr_config = GATrConfig()
+gatr_config = LGATrConfig()
