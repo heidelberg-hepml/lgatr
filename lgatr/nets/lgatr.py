@@ -52,8 +52,6 @@ class LGATr(nn.Module):
         Whether to use checkpointing for the blocks. If True, will save memory at the cost of speed.
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
     """
 
     def __init__(
@@ -71,7 +69,6 @@ class LGATr(nn.Module):
         reinsert_s_channels: Optional[Tuple[int]] = None,
         checkpoint_blocks: bool = False,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
     ) -> None:
         super().__init__()
         self.linear_in = EquiLinear(
@@ -98,7 +95,6 @@ class LGATr(nn.Module):
                     attention=attention,
                     mlp=mlp,
                     dropout_prob=dropout_prob,
-                    double_layernorm=double_layernorm,
                 )
                 for _ in range(num_blocks)
             ]

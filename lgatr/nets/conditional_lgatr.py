@@ -51,8 +51,6 @@ class ConditionalLGATr(nn.Module):
         Number of transformer blocks.
     dropout_prob : float or None
         Dropout probability.
-    double_layernorm : bool
-        Whether to use double layer normalization.
     checkpoint_blocks : bool
         Whether to use checkpointing for the transformer blocks to save memory.
     """
@@ -72,7 +70,6 @@ class ConditionalLGATr(nn.Module):
         mlp: MLPConfig,
         num_blocks: int = 10,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
         checkpoint_blocks: bool = False,
     ) -> None:
         super().__init__()
@@ -99,7 +96,6 @@ class ConditionalLGATr(nn.Module):
                     crossattention=crossattention,
                     mlp=mlp,
                     dropout_prob=dropout_prob,
-                    double_layernorm=double_layernorm,
                 )
                 for _ in range(num_blocks)
             ]

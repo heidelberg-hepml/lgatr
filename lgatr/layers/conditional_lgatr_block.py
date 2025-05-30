@@ -43,8 +43,6 @@ class ConditionalLGATrBlock(nn.Module):
         MLP configuration
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
     """
 
     def __init__(
@@ -57,14 +55,12 @@ class ConditionalLGATrBlock(nn.Module):
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
     ) -> None:
         super().__init__()
 
         # Normalization layer (stateless, so we can use the same layer for both normalization
         # instances)
         self.norm = EquiLayerNorm()
-        self.double_layernorm = double_layernorm
 
         # Self-attention layer
         attention = replace(
@@ -145,10 +141,6 @@ class ConditionalLGATrBlock(nn.Module):
             **attn_kwargs,
         )
 
-        # Self-attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
-
         # Self-attention block: skip connection
         multivectors = multivectors + h_mv
         scalars = scalars + h_s
@@ -166,10 +158,6 @@ class ConditionalLGATrBlock(nn.Module):
             **crossattn_kwargs,
         )
 
-        # Cross-attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
-
         # Cross-attention block: skip connection
         outputs_mv = multivectors + h_mv
         outputs_s = scalars + h_s
@@ -179,10 +167,6 @@ class ConditionalLGATrBlock(nn.Module):
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
-
-        # MLP block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv

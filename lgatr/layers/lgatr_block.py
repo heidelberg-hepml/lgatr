@@ -32,8 +32,6 @@ class LGATrBlock(nn.Module):
         MLP configuration
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
     """
 
     def __init__(
@@ -43,14 +41,12 @@ class LGATrBlock(nn.Module):
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
     ) -> None:
         super().__init__()
 
         # Normalization layer (stateless, so we can use the same layer for both normalization
         # instances)
         self.norm = EquiLayerNorm()
-        self.double_layernorm = double_layernorm
 
         # Self-attention layer
         attention = replace(
@@ -118,10 +114,6 @@ class LGATrBlock(nn.Module):
             **attn_kwargs,
         )
 
-        # Attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
-
         # Attention block: skip connection
         outputs_mv = multivectors + h_mv
         outputs_s = scalars + h_s
@@ -131,10 +123,6 @@ class LGATrBlock(nn.Module):
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
-
-        # MLP block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv
