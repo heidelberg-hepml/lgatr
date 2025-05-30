@@ -1,0 +1,14 @@
+﻿lgatr.primitives.nonlinearities
+===============================
+
+.. automodule:: lgatr.primitives.nonlinearities
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      gated_gelu
+      gated_relu
+      gated_sigmoid
+   
