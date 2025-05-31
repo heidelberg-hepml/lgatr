@@ -5,7 +5,7 @@
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
 [![LGATr-HEP](http://img.shields.io/badge/paper-arxiv.2411.00446-B31B1B.svg)](https://arxiv.org/abs/2411.00446)
 [![Tests](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml/badge.svg)](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml)
-[![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg?token=YOUR_CODECOV_TOKEN)](https://codecov.io/gh/heidelberg-hepml/lgatr)
+[![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg)](https://codecov.io/gh/heidelberg-hepml/lgatr)
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
