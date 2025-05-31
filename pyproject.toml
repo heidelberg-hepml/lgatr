@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "lgatr"
 version = "1.0.3"
 description = "A versatile Lorentz-equivariant transformer for high-energy physics"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 authors = [
   { name = "Jonas Spinner", email = "j.spinner@thphys.uni-heidelberg.de" },

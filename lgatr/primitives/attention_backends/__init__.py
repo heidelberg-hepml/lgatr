@@ -1,10 +1,13 @@
 """Dynamic attention backend selection."""
 from importlib import metadata
 
-_REGISTRY = {
-    ep.name: ep.load()
-    for ep in metadata.entry_points(group="lgatr.primitives.attention_backends")
-}
+_REGISTRY = {}
+for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
+    try:
+        module = ep.load()
+    except ImportError:
+        continue
+    _REGISTRY[ep.name] = module
 
 
 def get_attention_backend(**kwargs):
