@@ -4,15 +4,20 @@
 
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
 [![LGATr-HEP](http://img.shields.io/badge/paper-arxiv.2411.00446-B31B1B.svg)](https://arxiv.org/abs/2411.00446)
+[![Tests](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml/badge.svg)](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml)
+[![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg?token=YOUR_CODECOV_TOKEN)](https://codecov.io/gh/heidelberg-hepml/lgatr)
+[![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
 
 </div>
 
-This repository contains a minimal implementation of the **Lorentz-Equivariant Geometric Algebra Transformer (L-GATr)** by [Jonas Spinner](mailto:j.spinner@thphys.uni-heidelberg.de), [Víctor Bresó](mailto:breso@thphys.uni-heidelberg.de), Pim de Haan, Tilman Plehn, Huilin Qu, Jesse Thaler, and Johann Brehmer. L-GATr uses spacetime geometric algebra representations to construct Lorentz-equivariant layers and combines them into a transformer architecture.
-You can read more about L-GATr in the following two papers:
+This repository contains a standalone implementation of the **Lorentz-Equivariant Geometric Algebra Transformer (L-GATr)** by [Jonas Spinner](mailto:j.spinner@thphys.uni-heidelberg.de), [Víctor Bresó](mailto:breso@thphys.uni-heidelberg.de), Pim de Haan, Tilman Plehn, Huilin Qu, Jesse Thaler, and Johann Brehmer. L-GATr uses spacetime geometric algebra representations to construct Lorentz-equivariant layers and combines them into a transformer architecture.
+You can read more about L-GATr in the following two papers and in the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/):
 - [Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics](https://arxiv.org/abs/2405.14806) (ML audience)
 - [A Lorentz-Equivariant Transformer for All of the LHC](https://arxiv.org/abs/2411.00446) (HEP audience)
+
+![](img/gatr.png)
 
 ## Installation
 
@@ -26,31 +31,23 @@ git clone https://github.com/heidelberg-hepml/lgatr.git
 cd lgatr
 pip install -e .
 ```
-If you want a specific `branch` (e.g. the `xformers` or `flex_attention` branch), you can do `pip install https://github.com/heidelberg-hepml/lgatr.git@basics` or have a line `lgatr @ https://github.com/heidelberg-hepml/lgatr.git@basics` in your `requirements.txt`.
 
 ## How to use L-GATr
 
-Please have a look at [our example notebook](./examples/quickstart.ipynb).
+Please have a look at our example notebooks for how to use [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
 
-1. Instantiate the `LGATr` class. Hyperparameters related to attention and mlp blocks are organized in dataclasses, see `lgatr/layers/attention/config.py` and `lgatr/layers/mlp/config.py`. They can be initialized using dicts or these dataclass classes.
-2. Embed the network inputs into the geometric algebra using functions from `lgatr/interface/`. You might want to use `spurions.py` to break Lorentz equivariance at the input level, see [Section 2.3 of the HEP paper](https://arxiv.org/abs/2411.00446) for a discussion on symmetry breaking and when it is needed.
-3. Now you're ready to push your data through the L-GATr network!
+## Features
 
-More features:
-
-- Global `LGATr` design choices are controlled by the `gatr_config` object from `lgatr/primitives/config.py`.
-- Cross-attention and a LGATr decoder as `ConditionalLGATr`.
-- L-GATr supports automatic mixed precision. The critical operations are performed in `float32`.
-- The default branch only has the default torch attention backend. There are seperate branches for the `xformers` and `flex_attention` backends. We do not include them in the main branch yet because of their additional requirements.
-
-## Future
-
-We are planning to extend this package in the future. If you have ideas for new features, please open an issue or a pull request.
+- L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
+- Additional attention backends, installation via `pip install lgatr[xformers_attention]` and `pip install lgatr[flex_attention]`
+- Support for torch's automatic mixed precision; critical operations are performed in `float32`
+- Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
+- Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATRConfig` objects
 
 ## Examples
 
-- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`
+- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 

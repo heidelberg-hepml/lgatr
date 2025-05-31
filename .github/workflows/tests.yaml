@@ -36,6 +36,15 @@ jobs:
           pip install -e ".[${{ matrix.extra }}]"
         fi    
 
-    - name: Run unit tests
+
+    - name: Run unit tests + collect coverage
       run: |
-        pytest tests/lgatr
+        pytest --cov=lgatr --cov-report=xml
+
+    - name: Upload coverage to Codecov
+      if: matrix.extra == ''   # only upload once per Python version, or remove this line to upload from every variant
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: coverage.xml
+        fail_ci_if_error: true
