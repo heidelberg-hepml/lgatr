@@ -6,7 +6,7 @@ This page sets you up for building and running L-GATr models.
 Installation
 ------------
 
-Before using the package, install it via `pip`:
+Before using the package, install it via pip:
 
 .. code-block:: bash
 
@@ -27,15 +27,11 @@ You can construct a simple :class:`~lgatr.nets.lgatr.LGATr` model as follows:
 
 .. code-block:: python
 
-   from lgatr import (
-      LGATr, 
-      SelfAttentionConfig, 
-      MLPConfig,
-   )
+   from lgatr import LGATr
 
    attention = dict(num_heads=2)
    mlp = dict()
-   net = LGATr(
+   lgatr = LGATr(
       in_mv_channels=1,
       out_mv_channels=1,
       hidden_mv_channels=8,
@@ -63,6 +59,7 @@ represented by their four-momenta :math:`p=(E, p_x, p_y, p_z)`.
 
 .. code-block:: python
 
+   import torch
    p3 = torch.randn(128, 20, 1, 3)
    mass = 1
    E = (mass**2 + (p3**2).sum(dim=-1, keepdim=True))**0.5
@@ -82,7 +79,7 @@ Now we can use the model:
 
 .. code-block:: python
 
-   output_mv, output_s = net(multivectors=multivector, scalars=None)
+   output_mv, output_s = lgatr(multivectors=multivector, scalars=None)
    out = extract_scalar(output_mv)
    print(out.shape) # torch.Size([128, 20, 1, 1])
 
@@ -94,7 +91,8 @@ Next steps
 ----------
 
 - Have a look at the :doc:`api`
+- Try the `LGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr.ipynb>`_
+  and `ConditionalLGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_conditional_lgatr.ipynb>`_ notebooks
 - Detailed information on the :doc:`architecture`
-- Demo notebooks (TODO)
-- Custom attention kernels (TODO)
-- How to use symmetry-breaking inputs (TODO)
+- Custom :doc:`attentionbackends`
+- How to use symmetry-breaking inputs :doc:`symmetrybreaking`
