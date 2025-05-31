@@ -39,7 +39,7 @@ def test_default_backend_selection(shape):
 @pytest.mark.parametrize("shape", SHAPES)
 def test_xformers_backend_selection(shape):
     # check that backend exists
-    backend_fn = get_attention_backend(mode="xformers_attention")
+    backend_fn = get_attention_backend(backend="xformers_attention")
 
     # check that result has correct shape
     qkv = _random_qkv(shape)
@@ -56,7 +56,7 @@ def test_xformers_backend_selection(shape):
 @pytest.mark.parametrize("shape", SHAPES)
 def test_flex_backend_selection(shape):
     # check that backend exists
-    backend_fn = get_attention_backend(mode="flex_attention")
+    backend_fn = get_attention_backend(backend="flex_attention")
 
     # check that result has correct shape
     qkv = _random_qkv(shape)

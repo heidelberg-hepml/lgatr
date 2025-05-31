@@ -1,17 +1,32 @@
 """Dynamic attention backend selection."""
 from importlib import metadata
+from functools import lru_cache
+import torch
 
-_REGISTRY = {}
-for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
-    try:
-        module = ep.load()
-    except ImportError:
-        continue
-    _REGISTRY[ep.name] = module
 
 # common kwargs used in custom attention backends
 XFORMERS_KWARGS = ["attn_bias", "op"]
 FLEX_KWARGS = ["score_mod", "block_mask"]
+
+
+@lru_cache()
+def get_device():
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    return device
+
+
+_REGISTRY = {}
+for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
+    try:
+        # check if entry point code be loaded without ImportError
+        module = ep.load()
+    except ImportError:
+        continue
+
+    if ep.name == "xformers_attention" and get_device() == torch.device("cpu"):
+        # xformers is not available on CPU
+        continue
+    _REGISTRY[ep.name] = module
 
 
 def get_attention_backend(**kwargs):
