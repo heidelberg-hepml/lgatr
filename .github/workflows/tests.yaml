@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
-        extra: ['', 'xformers_attention']
+        extra: ['', 'xformers_attention', 'flex_attention', 'xformers_attention,flex_attention']
       fail-fast: false
     steps:
     - name: Checkout code

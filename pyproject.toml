@@ -21,11 +21,12 @@ dependencies = [
 
 [project.optional-dependencies]
 xformers_attention = ["xformers"]
-all = ["lgatr[xformers_attention]"]
+flex_attention = ["torch>=2.7"]  # experimental in torch>=2.5,<=2.6
 
 [project.entry-points."lgatr.primitives.attention_backends"]
 default_attention = "lgatr.primitives.attention_backends.default_attention"
 xformers_attention = "lgatr.primitives.attention_backends.xformers_attention"
+flex_attention = "lgatr.primitives.attention_backends.flex_attention"
 
 [project.urls]
 homepage = "https://github.com/heidelberg-hepml/lgatr"
