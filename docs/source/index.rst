@@ -2,9 +2,22 @@ L-GATr documentation
 ====================
 
 The Lorentz-equivariant Geometric Algebra Transformer (L-GATr)
-is a multi-purpose neural architecture for high-energy physics.
+is a multi-purpose neural architecture for high-energy physics. 
+It uses spacetime geometric algebra representations throughout, allowing 
+to easily construct Lorentz-equivariant layers. 
+These layers are combined into a transformer architecture.
+
+.. image:: /_static/gatr.png
+   :align: center
+   :width: 100%
+
+This documentation describes the accompanying ``lgatr`` package, 
+available under https://github.com/heidelberg-hepml/lgatr.
 
 * :doc:`quickstart`
+* :doc:`architecture`
+* :doc:`attentionbackends`
+* :doc:`symmetrybreaking`
 * :doc:`api`
 
 Citation
@@ -50,6 +63,9 @@ If you find this package useful, please cite our papers:
    :titlesonly:
 
    quickstart
+   architecture
+   attentionbackends
+   symmetrybreaking
 
 .. toctree::
    :maxdepth: 2

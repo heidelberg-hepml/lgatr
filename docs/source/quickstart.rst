@@ -33,8 +33,8 @@ You can construct a simple :class:`~lgatr.nets.lgatr.LGATr` model as follows:
       MLPConfig,
    )
 
-   attention = SelfAttentionConfig(num_heads=2)
-   mlp = MLPConfig()
+   attention = dict(num_heads=2)
+   mlp = dict()
    net = LGATr(
       in_mv_channels=1,
       out_mv_channels=1,
@@ -47,15 +47,19 @@ You can construct a simple :class:`~lgatr.nets.lgatr.LGATr` model as follows:
       num_blocks=2,
    )
 
-The :class:`~lgatr.layers.attention.config.SelfAttentionConfig` 
-and :class:`~lgatr.layers.mlp.config.MLPConfig` classes allow you to modify
-the default :class:`~lgatr.nets.lgatr.LGATr` hyperparameters.
+The ``attention`` and ``mlp`` dicts allow you to modify 
+specific :class:`~lgatr.nets.lgatr.LGATr` hyperparameters.  
+Possible arguments are described in the configuration 
+classes :class:`~lgatr.layers.attention.config.SelfAttentionConfig`
+and :class:`~lgatr.layers.mlp.config.MLPConfig`. 
+
 
 Using L-GATr
 ------------
 
-Let's generate some toy data, you can think about it as a batch of 128 LHC events, each
-containing 20 particles with mass 1, represented by their four-momenta :math:`p=(E, p_x, p_y, p_z)`.
+Let's generate some toy data, you can think about it as a batch 
+of 128 LHC events, each containing 20 particles with mass 1, 
+represented by their four-momenta :math:`p=(E, p_x, p_y, p_z)`.
 
 .. code-block:: python
 
@@ -65,8 +69,8 @@ containing 20 particles with mass 1, represented by their four-momenta :math:`p=
    p = torch.cat((E, p3), dim=-1)
    print(p.shape) # torch.Size([128, 20, 1, 4])
 
-To use L-GATr, we have to embed these four-momenta into multivectors. We can use functions from
-:mod:`lgatr.interface` to do this.
+To use L-GATr, we have to embed these four-momenta into multivectors. 
+We can use functions from :mod:`lgatr.interface` to do this.
 
 .. code-block:: python
 
@@ -82,13 +86,15 @@ Now we can use the model:
    out = extract_scalar(output_mv)
    print(out.shape) # torch.Size([128, 20, 1, 1])
 
-We only used the multivector input and output channels of :class:`~lgatr.nets.lgatr.LGATr`
-for this test, but you can also use scalar inputs and outputs. 
+We only used the multivector input and output channels of 
+:class:`~lgatr.nets.lgatr.LGATr` for this test, 
+but you can also use scalar inputs and outputs. 
 
 Next steps
 ----------
 
 - Have a look at the :doc:`api`
+- Detailed information on the :doc:`architecture`
 - Demo notebooks (TODO)
 - Custom attention kernels (TODO)
 - How to use symmetry-breaking inputs (TODO)
