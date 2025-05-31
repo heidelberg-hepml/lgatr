@@ -2,6 +2,8 @@
 
 ## Lorentz-Equivariant Geometric Algebra Transformer
 
+[![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
+[![LGATr-HEP](http://img.shields.io/badge/paper-arxiv.2411.00446-B31B1B.svg)](https://arxiv.org/abs/2411.00446)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
 
@@ -28,6 +30,8 @@ If you want a specific `branch` (e.g. the `xformers` or `flex_attention` branch)
 
 ## How to use L-GATr
 
+Please have a look at [our example notebook](./examples/quickstart.ipynb).
+
 1. Instantiate the `LGATr` class. Hyperparameters related to attention and mlp blocks are organized in dataclasses, see `lgatr/layers/attention/config.py` and `lgatr/layers/mlp/config.py`. They can be initialized using dicts or these dataclass classes.
 2. Embed the network inputs into the geometric algebra using functions from `lgatr/interface/`. You might want to use `spurions.py` to break Lorentz equivariance at the input level, see [Section 2.3 of the HEP paper](https://arxiv.org/abs/2411.00446) for a discussion on symmetry breaking and when it is needed.
 3. Now you're ready to push your data through the L-GATr network!
@@ -41,10 +45,7 @@ More features:
 
 ## Future
 
-We are planning to extend this package in the future. If you would use them or you have more ideas, please use open an issue or a pull request.
-
-- Add `docs`
-- Add tutorial
+We are planning to extend this package in the future. If you have ideas for new features, please open an issue or a pull request.
 
 ## Examples
 

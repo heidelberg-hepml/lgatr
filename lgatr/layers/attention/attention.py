@@ -13,14 +13,14 @@ class GeometricAttention(nn.Module):
 
     Given multivector and scalar queries, keys, and values, this layer computes:
 
-    ```
-    attn_weights[..., i, j] = softmax_j[
-        ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
-        + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
-    ]
-    out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-    out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
-    ```
+    .. code-block::
+
+        attn_weights[..., i, j] = softmax_j[
+            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
+            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
+        ]
+        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
     Parameters
     ----------
@@ -36,29 +36,29 @@ class GeometricAttention(nn.Module):
 
         Given multivector and scalar queries, keys, and values, this forward pass computes:
 
-        ```
-        attn_weights[..., i, j] = softmax_j[
-            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
-            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
-        ]
-        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
-        ```
+        .. code-block::
+
+            attn_weights[..., i, j] = softmax_j[
+                ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
+                + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
+            ]
+            out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+            out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
         Parameters
         ----------
-        q_mv : Tensor with shape (..., num_items_out, num_mv_channels_in, 16)
-            Queries, multivector part.
-        k_mv : Tensor with shape (..., num_items_in, num_mv_channels_in, 16)
-            Keys, multivector part.
-        v_mv : Tensor with shape (..., num_items_in, num_mv_channels_out, 16)
-            Values, multivector part.
-        q_s : Tensor with shape (..., heads, num_items_out, num_s_channels_in)
-            Queries, scalar part.
-        k_s : Tensor with shape (..., heads, num_items_in, num_s_channels_in)
-            Keys, scalar part.
-        v_s : Tensor with shape (..., heads, num_items_in, num_s_channels_out)
-            Values, scalar part.
+        q_mv : torch.Tensor
+            Multivector queries with shape (..., items_out, mv_channels, 16).
+        k_mv : torch.Tensor
+            Multivector keys with shape (..., items_in, mv_channels, 16).
+        v_mv : torch.Tensor
+            Multivector values with shape (..., items_in, mv_channels, 16).
+        q_s : torch.Tensor
+            Scalar queries with shape (..., items_out, s_channels).
+        k_s : torch.Tensor
+            Scalar keys with shape (..., items_in, s_channels).
+        v_s : torch.Tensor
+            Scalar values with shape (..., items_in, s_channels).
         **attn_kwargs
             Optional keyword arguments passed to attention.
         """

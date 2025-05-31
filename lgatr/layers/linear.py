@@ -12,16 +12,16 @@ from ..primitives.linear import equi_linear
 
 
 class EquiLinear(nn.Module):
-    """Pin-equivariant linear layer.
+    """Linear layer.
 
     The forward pass maps multivector inputs with shape (..., in_channels, 16) to multivector
     outputs with shape (..., out_channels, 16) as
 
-    ```
-    outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-    ```
+    .. code-block::
 
-    plus an optional bias term for outputs[..., :, 0] (biases in other multivector components would
+        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
+
+    plus an optional bias term for ``outputs[..., :, 0]`` (biases in other multivector components would
     break equivariance).
 
     Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
@@ -32,12 +32,11 @@ class EquiLinear(nn.Module):
     scalars are optional.
 
     This layer supports four initialization schemes:
-     - "default":            preserves (or actually slightly reducing) the variance of the data in
-                             the forward pass
-     - "small":              variance of outputs is approximately one order of magnitude smaller
-                             than for "default"
-     - "unit_scalar":        outputs will be close to (1, 0, 0, ..., 0)
-     - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
+
+    - "default": preserves (or actually slightly reducing) the variance of the data in the forward pass
+    - "small": variance of outputs is approximately one order of magnitude smaller than for "default"
+    - "unit_scalar": outputs will be close to (1, 0, 0, ..., 0)
+    - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
 
     Parameters
     ----------
@@ -137,27 +136,28 @@ class EquiLinear(nn.Module):
         The result is again multivectors and scalars.
 
         For multivectors we have:
-        ```
-        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-        = sum_i linear(inputs[..., i, :], weights[j, i, :])
-        ```
+
+        .. code-block::
+
+            outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
+            = sum_i linear(inputs[..., i, :], weights[j, i, :])
 
         Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
         learnable weights of this layer.
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
-            Optional input scalars
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., in_mv_channels, 16)
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., in_s_channels)
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
-            Output multivectors
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., out_mv_channels, 16)
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., out_s_channels)
         """
 
         outputs_mv = equi_linear(multivectors, self.weight)  # (..., out_channels, 16)

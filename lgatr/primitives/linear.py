@@ -1,3 +1,4 @@
+"""Linear operations on multivectors, in particular linear basis maps."""
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,7 +13,7 @@ def _compute_pin_equi_linear_basis(
     device=torch.device("cpu"),
     dtype=torch.float32,
 ) -> torch.Tensor:
-    """Constructs basis elements for Pin(1,3)-equivariant linear maps between multivectors.
+    """Constructs basis elements for Lorentz-equivariant linear maps between multivectors.
 
     This function is cached.
 
@@ -25,8 +26,10 @@ def _compute_pin_equi_linear_basis(
 
     Returns
     -------
-    basis : torch.Tensor with shape (NUM_PIN_LINEAR_BASIS_ELEMENTS, 16, 16)
-        Basis elements for equivariant linear maps.
+    basis : torch.Tensor
+        Basis elements for equivariant linear maps with shape (NUM_PIN_LINEAR_BASIS_ELEMENTS, 16, 16),
+        with NUM_PIN_LINEAR_BASIS_ELEMENTS=5 for the full Lorentz group (including the discrete
+        operations of parity and time reversal) and 10 for the fully connected subgroup.
     """
 
     if device not in [torch.device("cpu"), "cpu"] and dtype != torch.float32:
@@ -55,8 +58,8 @@ def _compute_reversal(device=torch.device("cpu"), dtype=torch.float32) -> torch.
 
     Returns
     -------
-    reversal_diag : torch.Tensor with shape (16,)
-        The diagonal of the reversal matrix, consisting of +1 and -1 entries.
+    reversal_diag : torch.Tensor
+        The diagonal of the reversal matrix with shape (16,), consisting of +1 and -1 entries.
     """
     reversal_flat = torch.ones(16, device=device, dtype=dtype)
     reversal_flat[5:15] = -1
@@ -78,8 +81,8 @@ def _compute_grade_involution(
 
     Returns
     -------
-    involution_diag : torch.Tensor with shape (16,)
-        The diagonal of the involution matrix, consisting of +1 and -1 entries.
+    involution_diag : torch.Tensor
+        The diagonal of the involution matrix with shape (16,), consisting of +1 and -1 entries.
     """
     involution_flat = torch.ones(16, device=device, dtype=dtype)
     involution_flat[1:5] = -1
@@ -88,22 +91,24 @@ def _compute_grade_involution(
 
 
 def equi_linear(x: torch.Tensor, coeffs: torch.Tensor) -> torch.Tensor:
-    """Pin-equivariant linear map f(x) = sum_{a,j} coeffs_a W^a_ij x_j.
+    """Pin-equivariant linear map ``f(x) = sum_{a,j} coeffs_a W^a_ij x_j``.
 
     The W^a are seven pre-defined basis elements.
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., in_channels, 16)
-        Input multivector. Batch dimensions must be broadcastable between x and coeffs.
-    coeffs : torch.Tensor with shape (out_channels, in_channels, 10)
-        Coefficients for the basis elements. Batch dimensions must be broadcastable between x and
-        coeffs.
+    x : torch.Tensor
+        Input multivector with shape (..., in_channels, 16).
+        Batch dimensions must be broadcastable between x and coeffs.
+    coeffs : torch.Tensor
+        Coefficients for the basis elements with shape (out_channels, in_channels, 10).
+        Batch dimensions must be broadcastable between x and coeffs.
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
-        Result. Batch dimensions are result of broadcasting between x and coeffs.
+    outputs : torch.Tensor
+        Result with shape (..., 16).
+        Batch dimensions are result of broadcasting between x and coeffs.
     """
     basis = _compute_pin_equi_linear_basis(device=x.device, dtype=x.dtype)
     return custom_einsum(
@@ -118,13 +123,14 @@ def grade_project(x: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 5, 16)
-        Output multivector. The second-to-last dimension indexes the grades.
+    outputs : torch.Tensor
+        Output multivector with shape (..., 5, 16).
+        The second-to-last dimension indexes the grades.
     """
 
     # Select kernel on correct device
@@ -150,13 +156,13 @@ def reverse(x: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
-        Output multivector.
+    outputs : torch.Tensor
+        Output multivector with shape (..., 16).
     """
     return _compute_reversal(device=x.device, dtype=x.dtype) * x
 
@@ -169,13 +175,13 @@ def grade_involute(x: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input multivector.
+    x : torch.Tensor
+        Input multivector with shape (..., 16).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
-        Output multivector.
+    outputs : torch.Tensor
+        Output multivector with shape (..., 16).
     """
 
     return _compute_grade_involution(device=x.device, dtype=x.dtype) * x

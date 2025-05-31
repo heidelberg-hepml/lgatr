@@ -1,4 +1,4 @@
-"""Cross-attention layer."""
+"""L-GATr cross-attention."""
 
 from typing import Optional, Tuple
 
@@ -13,7 +13,7 @@ from ..linear import EquiLinear
 
 
 class CrossAttention(nn.Module):
-    """Geometric cross-attention layer.
+    """L-GATr cross-attention.
 
     Constructs queries, keys, and values, computes attention, and projects linearly to outputs.
 
@@ -97,25 +97,39 @@ class CrossAttention(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute cross attention.
 
+        The result is the following:
+
+        .. code-block::
+
+            # For each head
+            queries = linear_channels(inputs_q)
+            keys = linear_channels(inputs_kv)
+            values = linear_channels(inputs_kv)
+            hidden = attention_items(queries, keys, values, biases=biases)
+            head_output = linear_channels(hidden)
+
+            # Combine results
+            output = concatenate_heads head_output
+
         Parameters
         ----------
-        multivectors_kv : torch.Tensor with shape (..., num_items_kv, channels_in, 16)
-            Input multivectors for key and value.
-        multivectors_q : torch.Tensor with shape (..., num_items_q, channels_in_q, 16)
-            Input multivectors for query.
-        scalars_kv : None or torch.Tensor with shape (..., num_items_kv, in_scalars)
-            Optional input scalars
-        scalars_q : None or torch.Tensor with shape (..., num_items_q, in_scalars_q)
-            Optional input scalars for query
+        multivectors_kv : torch.Tensor
+            Input multivectors for key and value with shape (..., items_kv, mv_channels, 16).
+        multivectors_q : torch.Tensor
+            Input multivectors for query with shape (..., items_q, mv_channels, 16).
+        scalars_kv : None or torch.Tensor
+            Optional input scalars for key and value with shape (..., items_kv, s_channels)
+        scalars_q : None or torch.Tensor
+            Optional input scalars for query with shape (..., items_q, s_channels)
         **attn_kwargs
             Optional keyword arguments passed to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., num_items_q, channels_out, 16)
-            Output multivectors.
-        output_scalars : torch.Tensor with shape (..., num_items_q, channels_out, out_scalars)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items_q, mv_channels, 16).
+        output_scalars : torch.Tensor
+            Output scalars with shape (..., items_q, s_channels).
         """
         q_mv, q_s = self.q_linear(
             multivectors_q, scalars_q

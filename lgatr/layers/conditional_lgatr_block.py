@@ -1,3 +1,4 @@
+"""L-GATr decoder block."""
 from dataclasses import replace
 from typing import Optional, Tuple
 
@@ -16,7 +17,7 @@ from .mlp.mlp import GeoMLP
 
 
 class ConditionalLGATrBlock(nn.Module):
-    """Equivariant transformer decoder block for a conditional L-GATr.
+    """L-GATr decoder block.
 
     Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
     self-attention, and a residual connection. Then the conditions are included with
@@ -43,8 +44,6 @@ class ConditionalLGATrBlock(nn.Module):
         MLP configuration
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
     """
 
     def __init__(
@@ -57,14 +56,11 @@ class ConditionalLGATrBlock(nn.Module):
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
     ) -> None:
         super().__init__()
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization
-        # instances)
+        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
         self.norm = EquiLayerNorm()
-        self.double_layernorm = double_layernorm
 
         # Self-attention layer
         attention = replace(
@@ -95,8 +91,8 @@ class ConditionalLGATrBlock(nn.Module):
         # MLP block
         mlp = replace(
             mlp,
-            mv_channels=(mv_channels, 2 * mv_channels, mv_channels),
-            s_channels=(s_channels, 2 * s_channels, s_channels),
+            mv_channels=mv_channels,
+            s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
         self.mlp = GeoMLP(mlp)
@@ -114,14 +110,14 @@ class ConditionalLGATrBlock(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., items, channels, 16)
-            Input multivectors.
-        scalars : torch.Tensor with shape (..., s_channels)
-            Input scalars.
-        multivectors_condition : torch.Tensor with shape (..., items, channels, 16)
-            Input condition multivectors.
-        scalars_condition : torch.Tensor with shape (..., s_channels)
-            Input condition scalars.
+        multivectors : torch.Tensor
+            Input multivectors  with shape (..., items, mv_channels, 16).
+        scalars : torch.Tensor
+            Input scalars with shape (..., items, s_channels).
+        multivectors_condition : torch.Tensor
+            Input condition multivectors with shape (..., items, mv_channels, 16).
+        scalars_condition : torch.Tensor
+            Input condition scalars with shape (..., items, s_channels).
         attn_kwargs: None or torch.Tensor or AttentionBias
             Optional attention mask.
         crossattn_kwargs: None or torch.Tensor or AttentionBias
@@ -129,10 +125,10 @@ class ConditionalLGATrBlock(nn.Module):
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., items, channels, 16).
-            Output multivectors
-        output_scalars : torch.Tensor with shape (..., s_channels)
-            Output scalars
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items, mv_channels, 16).
+        output_scalars : torch.Tensor
+            Output scalars with shape (..., items, s_channels).
         """
 
         # Self-attention block: pre layer norm
@@ -144,10 +140,6 @@ class ConditionalLGATrBlock(nn.Module):
             scalars=h_s,
             **attn_kwargs,
         )
-
-        # Self-attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
 
         # Self-attention block: skip connection
         multivectors = multivectors + h_mv
@@ -166,10 +158,6 @@ class ConditionalLGATrBlock(nn.Module):
             **crossattn_kwargs,
         )
 
-        # Cross-attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
-
         # Cross-attention block: skip connection
         outputs_mv = multivectors + h_mv
         outputs_s = scalars + h_s
@@ -179,10 +167,6 @@ class ConditionalLGATrBlock(nn.Module):
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
-
-        # MLP block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv

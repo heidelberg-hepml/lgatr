@@ -1,3 +1,4 @@
+"""Embedding and extracting scalars into multivectors."""
 import torch
 
 
@@ -6,14 +7,14 @@ def embed_scalar(scalars: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    scalars: torch.Tensor with shape (..., 1)
-        Scalar inputs.
+    scalars: torch.Tensor
+        Scalar inputs with shape (..., 1).
 
     Returns
     -------
-    multivectors: torch.Tensor with shape (..., 16)
-        Multivector outputs. `multivectors[..., [0]]` is the same as `scalars`. The other components
-        are zero.
+    multivectors: torch.Tensor
+        Multivector outputs with shape (..., 16).
+        ``multivectors[..., [0]]`` is the same as ``scalars``. The other components are zero.
     """
 
     non_scalar_shape = list(scalars.shape[:-1]) + [15]
@@ -30,13 +31,13 @@ def extract_scalar(multivectors: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    multivectors: torch.Tensor with shape (..., 16)
-        Multivector inputs.
+    multivectors: torch.Tensor
+        Multivector inputs with shape (..., 16).
 
     Returns
     -------
-    scalars: torch.Tensor with shape (..., 1)
-        Scalar component of multivectors.
+    scalars: torch.Tensor
+        Scalar component of multivectors with shape (..., 1).
     """
 
     return multivectors[..., [0]]

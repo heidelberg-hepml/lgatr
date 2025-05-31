@@ -8,22 +8,3 @@ from .layers.mlp.config import MLPConfig
 from .nets.lgatr import LGATr
 from .nets.conditional_lgatr import ConditionalLGATr
 from .primitives.config import gatr_config
-
-__all__ = [
-    "LGATr",
-    "ConditionalLGATr",
-    "SelfAttentionConfig",
-    "CrossAttentionConfig",
-    "MLPConfig",
-    "embed_scalar",
-    "extract_scalar",
-    "embed_vector",
-    "extract_vector",
-    "embed_pseudoscalar",
-    "extract_pseudoscalar",
-    "embed_axialvector",
-    "extract_axialvector",
-    "get_num_spurions",
-    "get_spurions",
-    "gatr_config",
-]

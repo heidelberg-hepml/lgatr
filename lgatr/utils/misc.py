@@ -18,6 +18,7 @@ def minimum_autocast_precision(
     untouched.
     Note: AMP is turned on and off separately for CPU and CUDA. This decorator may fail in
     the case where both devices are used, with only one of them on AMP.
+
     Parameters
     ----------
     min_dtype : dtype
@@ -33,6 +34,7 @@ def minimum_autocast_precision(
     which_kwargs : bool
         If not None, specifies which keyword arguments are to be modified. If None (the default),
         all keyword arguments are modified (if they are Tensors and of a floating-point dtype).
+
     Returns
     -------
     decorator : Callable
