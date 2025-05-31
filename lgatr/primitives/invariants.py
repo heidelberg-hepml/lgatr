@@ -105,56 +105,6 @@ def inner_product(
     return outputs
 
 
-def squared_norm(x: torch.Tensor) -> torch.Tensor:
-    """Computes the squared GA norm of an input multivector.
-
-    Equal to ``inner_product(x, x)``.
-
-    NOTE: this primitive is not used widely in our architectures.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
-
-    Returns
-    -------
-    outputs : torch.Tensor
-        Geometric algebra norm of x with shape (..., 1).
-    """
-
-    return inner_product(x, x)
-
-
-def pin_invariants(x: torch.Tensor, epsilon: float = 0.01) -> torch.Tensor:
-    """Computes five invariants from multivectors: scalar component, norms of the four other grades.
-
-    NOTE: this primitive is not used widely in our architectures.
-
-    Parameters
-    ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
-    epsilon : float
-        Epsilon parameter that regularizes the norm in case it is lower or equal to zero to avoid infinite gradients.
-
-    Returns
-    -------
-    outputs : torch.Tensor
-        Invariants computed from input multivectors,  shape (..., 5)
-    """
-
-    # Project to grades
-    projections = grade_project(x)  # (..., 5, 16)
-
-    # Compute norms
-    squared_norms = inner_product(projections, projections)[..., 0]  # (..., 5)
-    norms = torch.sqrt(torch.clamp(squared_norms, epsilon))
-
-    # Outputs: scalar component of input and norms of four other grades
-    return torch.cat((x[..., [0]], norms[..., 1:]), dim=-1)  # (..., 5)
-
-
 @minimum_autocast_precision(torch.float32)
 def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
     """Computes a modified version of the squared norm that is positive semidefinite and can
