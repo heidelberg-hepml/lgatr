@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
 from .invariants import _load_inner_product_factors
+from .attention_backends import get_attention_backend
 
 
 def sdp_attention(
@@ -92,12 +93,8 @@ def scaled_dot_product_attention(
     **attn_kwargs,
 ) -> Tensor:
     """Execute scaled dot-product attention.
-    The code dynamically selects the backend based on the arguments.
-    Currently, only torch SDPA is implemented.
-    It is straight-forward to add more attention backends here
-    like xformers memory_efficient_attention or flex_attention which
-    is part of native torch>=2.5. We do not include them here
-    to avoid stric dependencies. There will be seperate branches for that.
+    The attention backend is determined dynamically
+    based on the ``attn_kwargs`` provided.
 
     Parameters
     ----------
@@ -115,4 +112,5 @@ def scaled_dot_product_attention(
     torch.Tensor
         Tensor of shape (..., head, item_out, channels)
     """
-    return torch_sdpa(query, key, value, **attn_kwargs)
+    attention_backend = get_attention_backend(**attn_kwargs)
+    return attention_backend(query, key, value, **attn_kwargs)

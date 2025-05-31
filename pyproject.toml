@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=68", "wheel>=0.42"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,9 +19,20 @@ dependencies = [
     "opt_einsum",
 ]
 
+[project.optional-dependencies]
+xformers_attention = ["xformers"]
+all = ["lgatr[xformers_attention]"]
+
+[project.entry-points."lgatr.primitives.attention_backends"]
+default_attention = "lgatr.primitives.attention_backends.default_attention"
+xformers_attention = "lgatr.primitives.attention_backends.xformers_attention"
+
 [project.urls]
 homepage = "https://github.com/heidelberg-hepml/lgatr"
 repository = "https://github.com/heidelberg-hepml/lgatr"
+
+[tool.setuptools]
+packages = ["lgatr"]
 
 [tool.setuptools.package-data]
 "lgatr" = ["primitives/*.pt"]
