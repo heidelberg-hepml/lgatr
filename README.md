@@ -40,7 +40,8 @@ Please have a look at our example notebooks for how to use [LGATr](examples/demo
 ## Features
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
-- Additional attention backends, installation via `pip install lgatr[xformers_attention]` and `pip install lgatr[flex_attention]`
+- Additional attention backends, installation via `pip install lgatr[xformers_attention]` and `pip install lgatr[flex_attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
+` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATRConfig` objects

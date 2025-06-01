@@ -12,6 +12,9 @@ as described below, and including more backends is straight-forward.
     pip install lgatr[flex_attention]  # add flex_attention
     pip install lgatr[xformers_attention,flex_attention]  # add both
 
+You might have to run ``python -m pip install --upgrade pip setuptools wheel``
+to update your build environment, extra imports require the most recent versions.
+
 Why care about Attention Kernels?
 ---------------------------------
 
