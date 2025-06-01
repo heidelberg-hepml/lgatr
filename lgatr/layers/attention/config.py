@@ -13,11 +13,16 @@ class SelfAttentionConfig:
     num_heads : int
         Number of attention heads.
     multi_query: bool
-        Whether to do multi-query attention
+        Whether to do multi-query attention, default is False.
+        Multi-query attention decreases memory consumption and parameter count
+        by using a single set of keys and values for all heads.
     increase_hidden_channels : int
-        Factor by which to increase the number of hidden channels (both multivectors and scalars)
+        Factor by which to increase the number of hidden channels (both multivectors and scalars).
+        Vanilla transformers use 1, we use 2 for backward compatibility.
     head_scale: bool
-        Whether to use HeadScaleMHA following the NormFormer, see https://arxiv.org/pdf/2110.09456
+        Whether to use HeadScaleMHA following the NormFormer, see https://arxiv.org/pdf/2110.09456.
+        Before combining the heads, each head is scaled by a learnable parameter.
+
 
     Parameters auto-set by LGATr
     ----------------------------
@@ -103,11 +108,15 @@ class CrossAttentionConfig:
     num_heads : int
         Number of attention heads.
     multi_query: bool
-        Whether to do multi-query attention
+        Whether to do multi-query attention, default is False.
+        Multi-query attention decreases memory consumption and parameter count
+        by using a single set of keys and values for all heads.
     increase_hidden_channels : int
-        Factor by which to increase the number of hidden channels (both multivectors and scalars)
+        Factor by which to increase the number of hidden channels (both multivectors and scalars).
+        Vanilla transformers use 1, we use 2 for backward compatibility.
     head_scale: bool
-        Whether to use HeadScaleMHA following the NormFormer (https://arxiv.org/pdf/2110.09456)
+        Whether to use HeadScaleMHA following the NormFormer, see https://arxiv.org/pdf/2110.09456.
+        Before combining the heads, each head is scaled by a learnable parameter.
 
     Parameters auto-set by LGATr
     ----------------------------

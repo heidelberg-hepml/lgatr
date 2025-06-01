@@ -15,7 +15,6 @@ This documentation describes the accompanying ``lgatr`` package,
 available under https://github.com/heidelberg-hepml/lgatr.
 
 * :doc:`quickstart`
-* :doc:`architecture`
 * :doc:`attentionbackends`
 * :doc:`symmetrybreaking`
 * :doc:`api`
@@ -63,7 +62,6 @@ If you find this package useful, please cite our papers:
    :titlesonly:
 
    quickstart
-   architecture
    attentionbackends
    symmetrybreaking
 

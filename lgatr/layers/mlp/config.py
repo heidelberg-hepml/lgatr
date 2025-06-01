@@ -11,11 +11,12 @@ class MLPConfig:
     Parameters
     ----------
     activation : {"relu", "sigmoid", "gelu"}
-        Which (gated) activation function to use
+        Which (gated) activation function to use.
     increase_hidden_channels : int
-        Factor by which to increase the number of hidden channels (both multivectors and scalars)
+        Factor by which to increase the number of hidden channels (both multivectors and scalars).
+        Vanilla transformers use 4, we use 2 for backward compatibility.
     num_hidden_layers : int
-        Number of hidden layers to create
+        Number of hidden layers to create.
 
     Parameters auto-set by LGATr
     ----------------------------

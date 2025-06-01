@@ -93,6 +93,5 @@ Next steps
 - Have a look at the :doc:`api`
 - Try the `LGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr.ipynb>`_
   and `ConditionalLGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_conditional_lgatr.ipynb>`_ notebooks
-- Detailed information on the :doc:`architecture`
 - Custom :doc:`attentionbackends`
 - How to use symmetry-breaking inputs :doc:`symmetrybreaking`
