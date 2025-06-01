@@ -17,6 +17,7 @@ S_CHANNELS = [(None, None, 7), (4, 5, 6)]
 @pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", S_CHANNELS)
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("checkpoint_blocks", [False, True])
 def test_lgatr_shape(
     batch_dims,
     num_items,
@@ -30,6 +31,7 @@ def test_lgatr_shape(
     hidden_s_channels,
     multi_query_attention,
     dropout_prob,
+    checkpoint_blocks,
 ):
     """Tests the output shape of LGATr."""
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -47,13 +49,14 @@ def test_lgatr_shape(
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,
-            attention=SelfAttentionConfig(
+            attention=dict(
                 num_heads=num_heads,
                 multi_query=multi_query_attention,
             ),
             num_blocks=num_blocks,
-            mlp=MLPConfig(),
+            mlp=dict(),
             dropout_prob=dropout_prob,
+            checkpoint_blocks=checkpoint_blocks,
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine

@@ -21,23 +21,15 @@ class EquiLayerNorm(nn.Module):
     mv_channel_dim : int
         Channel dimension index for multivector inputs. Defaults to the second-last entry (last are
         the multivector components).
-    scalar_channel_dim : int
-        Channel dimension index for scalar inputs. Defaults to the last entry.
     epsilon : float
         Small numerical factor to avoid instabilities. We use a reasonably large number to balance
         issues that arise from some multivector components not contributing to the norm.
     """
 
-    def __init__(self, mv_channel_dim=-2, scalar_channel_dim=-1, epsilon: float = 0.01):
+    def __init__(self, mv_channel_dim=-2, epsilon: float = 0.01):
         super().__init__()
         self.mv_channel_dim = mv_channel_dim
         self.epsilon = epsilon
-
-        if scalar_channel_dim != -1:
-            raise NotImplementedError(
-                "Currently, only scalar_channel_dim = -1 is implemented, but found"
-                f" {scalar_channel_dim}"
-            )
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor

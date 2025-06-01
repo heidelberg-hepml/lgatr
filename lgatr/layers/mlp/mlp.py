@@ -54,7 +54,7 @@ class GeoMLP(nn.Module):
             )
             s_channels_list.append(s_channels)
         else:
-            s_channels = [None] * (len(mv_channels_list))
+            s_channels_list = [None] * (len(mv_channels_list))
 
         layers: List[nn.Module] = []
 

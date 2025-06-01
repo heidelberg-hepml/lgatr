@@ -257,13 +257,12 @@ class EquiLinear(nn.Module):
         See self.reset_parameters().
         """
 
-        if initialization not in {
+        assert initialization in [
             "default",
             "small",
             "unit_scalar",
             "almost_unit_scalar",
-        }:
-            raise ValueError(f"Unknown initialization scheme {initialization}")
+        ]
 
         if initialization == "default":
             mv_factor = gain * additional_factor * np.sqrt(3)
@@ -284,11 +283,6 @@ class EquiLinear(nn.Module):
             mv_factor = 0.5 * gain * additional_factor * np.sqrt(3)
             s_factor = gain * additional_factor * np.sqrt(3)
             mvs_bias_shift = 1.0
-        else:
-            raise ValueError(
-                f"Unknown initialization scheme {initialization}, expected"
-                ' "default", "small", "unit_scalar" or "almost_unit_scalar".'
-            )
 
         mv_component_factors = torch.ones(gatr_config.num_pin_linear_basis_elements)
         return mv_component_factors, mv_factor, mvs_bias_shift, s_factor
