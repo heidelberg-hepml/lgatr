@@ -11,7 +11,7 @@ These layers are combined into a transformer architecture.
    :align: center
    :width: 100%
 
-This documentation describes the accompanying ``lgatr`` package, 
+This documentation describes the ``lgatr`` package, 
 available under https://github.com/heidelberg-hepml/lgatr.
 
 * :doc:`quickstart`

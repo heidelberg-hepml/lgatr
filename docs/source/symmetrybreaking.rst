@@ -58,6 +58,25 @@ the input data in the same way. For example, when applying data augmentation, on
 augment only the input particle data, and not the reference vectors. 
 Reference vectors can be included as extra tokens or as extra channels.
 
+The ``lgatr`` package provides functions to create the most common reference multivectors.
+Note that the beam direction can be either encoded as a vector along the z-axis :math:`(0,0,0,1)`,
+or as the plane orthogonal to the z-axis, which can be represented as a 
+bivector :math:`(0,0,1,0,0,0,)` in the geometric algebra. Common choices for reference vectors
+that break :math:`SO(1,3) \to SO(2)` are
+
+.. code-block:: python
+
+    from lgatr import get_spurions
+
+    spurions = get_spurions(beam_spurion="xyplane", add_time_spurion=True)
+    print(spurions.shape)  # (2, 16)
+
+    spurions = get_spurions(beam_spurion="spacelike", add_time_spurion=True, beam_mirror=False)
+    print(spurions.shape)  # (2, 16)
+
+    spurions = get_spurions(beam_spurion="timelike", add_time_spurion=False, beam_mirror=True)
+    print(spurions.shape)  # (2, 16)
+
 Non-Invariant Scalars
 ~~~~~~~~~~~~~~~~~~~~~
 
