@@ -33,7 +33,7 @@ homepage = "https://heidelberg-hepml.github.io/lgatr"
 repository = "https://github.com/heidelberg-hepml/lgatr"
 
 [tool.setuptools]
-packages = ["lgatr"]
+packages = { find =  { include = ["lgatr", "lgatr.*"] } }
 
 [tool.setuptools.package-data]
 "lgatr" = ["primitives/*.pt"]
