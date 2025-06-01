@@ -68,8 +68,8 @@ def get_spurions(
 
     Returns
     -------
-    spurions: torch.tensor with shape (n_spurions, 16)
-        spurion embedded as multivector object
+    spurions: torch.tensor
+        spurion embedded as multivector object with shape (num_spurions, 16)
     """
     assert beam_spurion in ["xyplane", "lightlike", "spacelike", "timelike", None]
     kwargs = {"device": device, "dtype": dtype}
