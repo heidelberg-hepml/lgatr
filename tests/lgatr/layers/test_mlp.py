@@ -5,7 +5,7 @@ from lgatr.layers import GeoMLP
 from lgatr.layers.mlp.config import MLPConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
-_CHANNELS = [((5,), (12,)), ((4, 8, 7), (10, 9, 3))]
+_CHANNELS = [((5), (12)), ((4), (10))]
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -14,15 +14,15 @@ _CHANNELS = [((5,), (12,)), ((4, 8, 7), (10, 9, 3))]
 def test_geo_mlp_shape(batch_dims, mv_channels, s_channels, activation):
     """Tests the output shape of GeoMLP()."""
 
-    inputs = torch.randn(*batch_dims, mv_channels[0], 16)
-    scalars = None if s_channels is None else torch.randn(*batch_dims, s_channels[0])
+    inputs = torch.randn(*batch_dims, mv_channels, 16)
+    scalars = None if s_channels is None else torch.randn(*batch_dims, s_channels)
 
     net = GeoMLP(
         MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation)
     )
     outputs, outputs_scalars = net(inputs, scalars=scalars)
-    assert outputs.shape == (*batch_dims, mv_channels[-1], 16)
-    assert outputs_scalars.shape == (*batch_dims, s_channels[-1])
+    assert outputs.shape == (*batch_dims, mv_channels, 16)
+    assert outputs_scalars.shape == (*batch_dims, s_channels)
 
 
 @pytest.mark.parametrize("batch_dims", [[100]])
@@ -33,8 +33,8 @@ def test_geo_mlp_equivariance(batch_dims, mv_channels, s_channels, activation):
     net = GeoMLP(
         MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation)
     )
-    data_dims = tuple(list(batch_dims) + [mv_channels[0]])
-    scalars = torch.randn(*batch_dims, s_channels[0])
+    data_dims = tuple(list(batch_dims) + [mv_channels])
+    scalars = torch.randn(*batch_dims, s_channels)
 
     # Because of the fixed reference MV, we only test Spin equivariance
     check_pin_equivariance(

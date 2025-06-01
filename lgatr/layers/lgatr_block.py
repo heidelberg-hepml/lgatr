@@ -1,3 +1,4 @@
+"""L-GATr encoder block."""
 from dataclasses import replace
 from typing import Optional, Tuple
 
@@ -11,9 +12,7 @@ from .mlp.mlp import GeoMLP
 
 
 class LGATrBlock(nn.Module):
-    """Equivariant transformer encoder block for L-GATr.
-
-    This is the biggest building block of L-GATr.
+    """L-GATr encoder block.
 
     Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
     self-attention, and a residual connection. Then the data is processed by a block consisting of
@@ -32,8 +31,6 @@ class LGATrBlock(nn.Module):
         MLP configuration
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
     """
 
     def __init__(
@@ -43,14 +40,11 @@ class LGATrBlock(nn.Module):
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
     ) -> None:
         super().__init__()
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization
-        # instances)
+        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
         self.norm = EquiLayerNorm()
-        self.double_layernorm = double_layernorm
 
         # Self-attention layer
         attention = replace(
@@ -67,8 +61,8 @@ class LGATrBlock(nn.Module):
         # MLP block
         mlp = replace(
             mlp,
-            mv_channels=(mv_channels, 2 * mv_channels, mv_channels),
-            s_channels=(s_channels, 2 * s_channels, s_channels),
+            mv_channels=mv_channels,
+            s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
         self.mlp = GeoMLP(mlp)
@@ -85,25 +79,23 @@ class LGATrBlock(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., items, channels, 16)
-            Input multivectors.
-        scalars : torch.Tensor with shape (..., s_channels)
-            Input scalars.
-        additional_qk_features_mv : None or torch.Tensor with shape
-            (..., num_items, add_qk_mv_channels, 16)
-            Additional Q/K features, multivector part.
-        additional_qk_features_s : None or torch.Tensor with shape
-            (..., num_items, add_qk_mv_channels, 16)
-            Additional Q/K features, scalar part.
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., items, mv_channels, 16).
+        scalars : torch.Tensor
+            Input scalars with shape (..., items, s_channels).
+        additional_qk_features_mv : None or torch.Tensor
+            Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16).
+        additional_qk_features_s : None or torch.Tensor
+            Additional scalar Q/K features with shape (..., items, add_qk_s_channels, 16).
         **attn_kwargs
             Optional keyword arguments passed to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., items, channels, 16).
-            Output multivectors
-        output_scalars : torch.Tensor with shape (..., s_channels)
-            Output scalars
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items, mv_channels, 16).
+        output_scalars : torch.Tensor
+            Output scalars  with shape (..., items, s_channels).
         """
 
         # Attention block: pre layer norm
@@ -118,10 +110,6 @@ class LGATrBlock(nn.Module):
             **attn_kwargs,
         )
 
-        # Attention block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
-
         # Attention block: skip connection
         outputs_mv = multivectors + h_mv
         outputs_s = scalars + h_s
@@ -131,10 +119,6 @@ class LGATrBlock(nn.Module):
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
-
-        # MLP block: post layer norm
-        if self.double_layernorm:
-            h_mv, h_s = self.norm(h_mv, scalars=h_s)
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv

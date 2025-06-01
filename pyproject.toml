@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=68", "wheel>=0.42"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "lgatr"
-version = "1.0.3"
-description = "A versatile Lorentz-equivariant transformer for high-energy physics"
-requires-python = ">=3.9"
+version = "1.1.0"
+description = "Lorentz-Equivariant Geometric Algebra Transformer for High-Energy Physics"
+requires-python = ">=3.10"
 readme = "README.md"
 authors = [
   { name = "Jonas Spinner", email = "j.spinner@thphys.uni-heidelberg.de" },
@@ -14,13 +14,26 @@ authors = [
 ]
 dependencies = [
     "torch>=2.0",
+    "numpy",
     "einops",
     "opt_einsum",
 ]
 
+[project.optional-dependencies]
+xformers_attention = ["xformers"]
+flex_attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
+
+[project.entry-points."lgatr.primitives.attention_backends"]
+default_attention = "lgatr.primitives.attention_backends.default_attention"
+xformers_attention = "lgatr.primitives.attention_backends.xformers_attention"
+flex_attention = "lgatr.primitives.attention_backends.flex_attention"
+
 [project.urls]
-homepage = "https://github.com/heidelberg-hepml/lgatr"
+homepage = "https://heidelberg-hepml.github.io/lgatr"
 repository = "https://github.com/heidelberg-hepml/lgatr"
+
+[tool.setuptools]
+packages = ["lgatr"]
 
 [tool.setuptools.package-data]
 "lgatr" = ["primitives/*.pt"]

@@ -1,3 +1,4 @@
 torch>=2.0
+numpy
 einops
 opt_einsum

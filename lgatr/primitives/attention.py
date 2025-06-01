@@ -1,3 +1,4 @@
+"""Equivariant attention."""
 from typing import Tuple
 
 import torch
@@ -7,6 +8,7 @@ from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
 from .invariants import _load_inner_product_factors
+from .attention_backends import get_attention_backend
 
 
 def sdp_attention(
@@ -23,38 +25,38 @@ def sdp_attention(
     Expects both multivector and scalar queries, keys, and values as inputs.
     Then this function computes multivector and scalar outputs in the following way:
 
-    ```
-    attn_weights[..., i, j] = softmax_j[
-        ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
-        + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
-    ]
-    out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-    out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
-    ```
+    .. code-block::
+
+        attn_weights[..., i, j] = softmax_j[
+            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
+            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
+        ]
+        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
     Parameters
     ----------
-    q_mv : Tensor with shape (..., num_items_out, num_mv_channels_in, 16)
-        Queries, multivector part.
-    k_mv : Tensor with shape (..., num_items_in, num_mv_channels_in, 16)
-        Keys, multivector part.
-    v_mv : Tensor with shape (..., num_items_in, num_mv_channels_out, 16)
-        Values, multivector part.
-    q_s : Tensor with shape (..., num_items_out, num_s_channels_in)
-        Queries, scalar part.
-    k_s : Tensor with shape (..., num_items_in, num_s_channels_in)
-        Keys, scalar part.
-    v_s : Tensor with shape (..., num_items_in, num_s_channels_out)
-        Values, scalar part.
+    q_mv : torch.Tensor
+        Multivector queries with shape (..., items_out, mv_channels, 16)
+    k_mv : torch.Tensor
+        Multivector keys with shape (..., items_out, mv_channels, 16)
+    v_mv : torch.Tensor
+        Multivector values with shape (..., items_out, mv_channels, 16)
+    q_s : torch.Tensor
+        Scalar queries with shape (..., items_out, s_channels)
+    k_s : torch.Tensor
+        Scalar keys with shape (..., items_out, s_channels)
+    v_s : torch.Tensor
+        Scalar values with shape (..., items_out, s_channels)
     **attn_kwargs
         Optional keyword arguments passed to attention.
 
     Returns
     -------
-    outputs_mv : Tensor with shape (..., num_items_out, num_mv_channels_out, 16)
-        Result, multivector part
-    outputs_s : Tensor with shape (..., num_items_out, num_s_channels_out)
-        Result, scalar part
+    outputs_mv : torch.Tensor
+        Multivector result with shape (..., items_out, mv_channels, 16)
+    outputs_s : torch.Tensor
+        Scalar result with shape (..., items_out, s_channels)
     """
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
@@ -91,27 +93,24 @@ def scaled_dot_product_attention(
     **attn_kwargs,
 ) -> Tensor:
     """Execute scaled dot-product attention.
-    The code dynamically selects the backend based on the arguments.
-    Currently, only torch SDPA is implemented.
-    It is straight-forward to add more attention backends here
-    like xformers memory_efficient_attention or flex_attention which
-    is part of native torch>=2.5. We do not include them here
-    to avoid stric dependencies. There will be seperate branches for that.
+    The attention backend is determined dynamically
+    based on the ``attn_kwargs`` provided.
 
     Parameters
     ----------
-    query : Tensor
-        of shape [batch, head, item, d]
-    key : Tensor
-        of shape [batch, head, item, d]
-    value : Tensor
-        of shape [batch, head, item, d]
+    query : torch.Tensor
+        Tensor of shape (..., items_out, channels)
+    key : torch.Tensor
+        Tensor of shape (..., items_in, channels)
+    value : torch.Tensor
+        Tensor of shape (..., items_in, channels)
     **attn_kwargs
         Optional keyword arguments passed to attention.
 
     Returns
     -------
-    Tensor
-        of shape [batch, head, item, d]
+    torch.Tensor
+        Tensor of shape (..., head, item_out, channels)
     """
-    return torch_sdpa(query, key, value, **attn_kwargs)
+    attention_backend = get_attention_backend(**attn_kwargs)
+    return attention_backend(query, key, value, **attn_kwargs)

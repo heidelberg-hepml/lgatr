@@ -1,3 +1,4 @@
+"""Gated nonlinearity on multivectors."""
 from typing import Tuple
 
 import torch
@@ -7,9 +8,9 @@ from ...primitives.nonlinearities import gated_gelu, gated_relu, gated_sigmoid
 
 
 class ScalarGatedNonlinearity(nn.Module):
-    """Gated nonlinearity, where the gate is simply given by the scalar component of the input.
+    """Gated nonlinearity on multivectors.
 
-    Given multivector input x, computes f(x_0) * x, where f can either be ReLU, sigmoid, or GeLU.
+    Given multivector input x, computes ``f(x_0) * x``, where f can either be ReLU, sigmoid, or GeLU.
 
     Auxiliary scalar inputs are simply processed with ReLU, sigmoid, or GeLU, without gating.
 
@@ -19,7 +20,7 @@ class ScalarGatedNonlinearity(nn.Module):
         Non-linearity type
     """
 
-    def __init__(self, nonlinearity: str = "relu", **kwargs) -> None:
+    def __init__(self, nonlinearity: str = "relu") -> None:
         super().__init__()
 
         gated_fn_dict = dict(relu=gated_relu, gelu=gated_gelu, sigmoid=gated_sigmoid)
@@ -39,23 +40,23 @@ class ScalarGatedNonlinearity(nn.Module):
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Computes f(x_0) * x for multivector x, where f is GELU, ReLU, or sigmoid.
+        """Computes ``f(x_0) * x`` for multivector x, where f is GELU, ReLU, or sigmoid.
 
-        f is chosen depending on self.nonlinearity.
+        f is chosen depending on self.gated_nonlinearity and self.scalar_nonlinearity.
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., self.in_channels, 16)
-            Input multivectors
-        scalars : None or torch.Tensor with shape (..., self.in_channels, self.in_scalars)
-            Input scalars
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., 16)
+        scalars : None or torch.Tensor
+            Input scalars with shape (...)
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., self.out_channels, 16)
-            Output multivectors
-        output_scalars : torch.Tensor with shape (..., self.out_channels, self.in_scalars)
-            Output scalars
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., 16)
+        output_scalars : torch.Tensor
+            Output scalars with shape (...)
         """
 
         gates = multivectors[..., [0]]

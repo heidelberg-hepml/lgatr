@@ -12,32 +12,38 @@ from ..primitives.linear import equi_linear
 
 
 class EquiLinear(nn.Module):
-    """Pin-equivariant linear layer.
+    """Linear layer.
 
     The forward pass maps multivector inputs with shape (..., in_channels, 16) to multivector
     outputs with shape (..., out_channels, 16) as
 
-    ```
-    outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-    ```
 
-    plus an optional bias term for outputs[..., :, 0] (biases in other multivector components would
-    break equivariance).
+        .. code-block::
 
-    Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
-    learnable weights of this layer.
+            outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
+            = sum_i linear(inputs[..., i, :], weights[j, i, :])
+
+    plus an optional bias term for ``outputs[..., :, 0]`` (biases in other multivector components would
+    break equivariance). Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
+    learnable weights of this layer. The basis_map includes 5 elements if the full Lorentz group is
+    considered, and 10 elements if only the fully-connected subgroup is considered.
+    See the ``use_fully_connected_subgroup`` parameter in ``lgatr.primitives.config.LGATrConfig`` for details.
 
     If there are auxiliary input scalars, they transform under a linear layer, and mix with the
     scalar components the multivector data. Note that in this layer (and only here) the auxiliary
     scalars are optional.
 
     This layer supports four initialization schemes:
-     - "default":            preserves (or actually slightly reducing) the variance of the data in
-                             the forward pass
-     - "small":              variance of outputs is approximately one order of magnitude smaller
-                             than for "default"
-     - "unit_scalar":        outputs will be close to (1, 0, 0, ..., 0)
-     - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
+
+    - "default": preserves (or actually slightly reducing) the variance of the data in the forward pass
+    - "small": variance of outputs is approximately one order of magnitude smaller than for "default"
+    - "unit_scalar": outputs will be close to (1, 0, 0, ..., 0)
+    - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
+
+    We use the "almost_unit_scalar" initialization for to preprocess the second
+    argument in the ``GeometricBilinears`` layer,
+    and the "small" initialization to combine the different attention heads.
+    All other linear layers in L-GATr use the "default" initialization.
 
     Parameters
     ----------
@@ -73,10 +79,12 @@ class EquiLinear(nn.Module):
 
         # Check inputs
         if initialization in ["unit_scalar", "almost_unit_scalar"]:
-            assert bias, "unit_scalar initialization requires bias"
+            assert (
+                bias
+            ), "unit_scalar and almost_unit_scalar initialization requires bias"
             if in_s_channels is None:
                 raise NotImplementedError(
-                    "unit_scalar initialization is currently only implemented for scalar inputs"
+                    "unit_scalar and almost_unit_scalar initialization is currently only implemented for scalar inputs"
                 )
 
         self._in_mv_channels = in_mv_channels
@@ -134,30 +142,19 @@ class EquiLinear(nn.Module):
     ) -> Tuple[torch.Tensor, Union[torch.Tensor, None]]:
         """Maps input multivectors and scalars using the most general equivariant linear map.
 
-        The result is again multivectors and scalars.
-
-        For multivectors we have:
-        ```
-        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-        = sum_i linear(inputs[..., i, :], weights[j, i, :])
-        ```
-
-        Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
-        learnable weights of this layer.
-
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
-            Optional input scalars
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., in_mv_channels, 16)
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., in_s_channels)
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
-            Output multivectors
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., out_mv_channels, 16)
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., out_s_channels)
         """
 
         outputs_mv = equi_linear(multivectors, self.weight)  # (..., out_channels, 16)
@@ -192,7 +189,13 @@ class EquiLinear(nn.Module):
         gain: float = 1.0,
         additional_factor=1.0 / np.sqrt(3.0),
     ) -> None:
-        """Initializes the weights of the layer.
+        """Initializes the weights of the linear layer.
+
+        We following the initialization philosophy of `Kaiming <https://arxiv.org/pdf/1502.01852>`_,
+        ensuring that the variance of the activations during the forward pass is preserved.
+        Our implementation deviates from the `torch.nn.Linear default initialization <https://github.com/pytorch/pytorch/blob/v2.7.0/torch/nn/modules/linear.py#L114>`_
+        to take the communication between scalar and multivector channels in our linear layer into account.
+        For more information, see inline comments in the code.
 
         Parameters
         ----------

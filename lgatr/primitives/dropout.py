@@ -1,3 +1,4 @@
+"""Grade dropout."""
 import torch
 
 from .linear import grade_project
@@ -8,8 +9,8 @@ def grade_dropout(x: torch.Tensor, p: float, training: bool = True) -> torch.Ten
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Input data.
+    x : torch.Tensor
+        Input data with shape (..., 16).
     p : float
         Dropout probability (assumed the same for each grade).
     training : bool
@@ -17,8 +18,8 @@ def grade_dropout(x: torch.Tensor, p: float, training: bool = True) -> torch.Ten
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
-        Inputs with dropout applied.
+    outputs : torch.Tensor
+        Inputs with dropout applied, shape (..., 16).
     """
 
     # Project to grades

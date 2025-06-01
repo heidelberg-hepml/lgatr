@@ -1,3 +1,4 @@
+"""Embedding and extracting vectors into multivectors."""
 import torch
 
 
@@ -6,13 +7,13 @@ def embed_vector(vector: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    vector : torch.Tensor with shape (..., 4)
-        Lorentz vector
+    vector : torch.Tensor
+        Lorentz vector with shape (..., 4)
 
     Returns
     -------
-    multivector : torch.Tensor with shape (..., 16)
-        Embedding into multivector.
+    multivector : torch.Tensor
+        Embedding into multivector with shape (..., 16).
     """
 
     # Create multivector tensor with same batch shape, same device, same dtype as input
@@ -32,13 +33,13 @@ def extract_vector(multivector: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    multivector : torch.Tensor with shape (..., 16)
-        Multivector.
+    multivector : torch.Tensor
+        Multivector with shape (..., 16).
 
     Returns
     -------
-    vector : torch.Tensor with shape (..., 4)
-        Lorentz vector
+    vector : torch.Tensor
+        Lorentz vector with shape (..., 4)
     """
 
     vector = multivector[..., 1:5]

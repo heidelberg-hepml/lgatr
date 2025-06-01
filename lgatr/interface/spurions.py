@@ -1,3 +1,4 @@
+"""Tools to include reference multivectors ('spurions') for symmetry breaking."""
 import torch
 
 from .vector import embed_vector
@@ -15,13 +16,13 @@ def get_num_spurions(
     ----------
     beam_spurion: str
         Different options for adding a beam_reference
-        Options: "lightlike", "spacelike", "timelike", "xyplane", None
+        Options: 'lightlike', 'spacelike', 'timelike', 'xyplane', None
     add_time_spurion: bool
         Whether to add the time direction as a reference to the network
     beam_mirror: bool
-        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1)
-        Only relevant for beam_reference in ["lightlike", "spacelike", "timelike"]
-        This is not required for beam_spurion=xyplane, as the xy-plane is symmetric
+        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1).
+        Only relevant for beam_reference in ['lightlike', 'spacelike', 'timelike']
+        This is not required for ``beam_spurion=xyplane``, as the xy-plane is symmetric
 
     Returns
     -------
@@ -54,21 +55,21 @@ def get_spurions(
     ----------
     beam_spurion: str
         Different options for adding a beam_reference
-        Options: "lightlike", "spacelike", "timelike", "xyplane", None
+        Options: 'lightlike', 'spacelike', 'timelike', 'xyplane', None
     add_time_spurion: bool
         Whether to add the time direction as a reference to the network
     beam_mirror: bool
         Whether we only want (x, 0, 0, 1) or both (x, 0, 0, +/- 1) for the beam
-        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1)
-        Only relevant for beam_reference in ["lightlike", "spacelike", "timelike"]
-        This is not required for beam_spurion=xyplane, as the xy-plane is symmetric
+        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1).
+        Only relevant for beam_reference in ['lightlike', 'spacelike', 'timelike']
+        This is not required for ``beam_spurion=xyplane``, as the xy-plane is symmetric
     device: torch.device
     dtype: torch.dtype
 
     Returns
     -------
-    spurions: torch.tensor with shape (n_spurions, 16)
-        spurion embedded as multivector object
+    spurions: torch.tensor
+        spurion embedded as multivector object with shape (num_spurions, 16)
     """
     assert beam_spurion in ["xyplane", "lightlike", "spacelike", "timelike", None]
     kwargs = {"device": device, "dtype": dtype}

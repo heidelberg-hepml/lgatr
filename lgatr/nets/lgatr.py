@@ -14,18 +14,20 @@ from ..layers.mlp.config import MLPConfig
 
 
 class LGATr(nn.Module):
-    """L-GATr network for a data with a single token dimension.
+    """L-GATr network.
 
-    It combines `num_blocks` L-GATr transformer blocks, each consisting of geometric self-attention
+    It combines num_blocks L-GATr transformer blocks, each consisting of geometric self-attention
     layers, a geometric MLP, residual connections, and normalization layers. In addition, there
     are initial and final equivariant linear layers.
 
-    Assumes input has shape `(..., items, in_channels, 16)`, output has shape
-    `(..., items, out_channels, 16)`, will create hidden representations with shape
-    `(..., items, hidden_channels, 16)`.
+    Assumes input has shape (..., items, in_mv_channels, 16), output has shape
+    (..., items, out_mv_channels, 16), will create hidden representations with shape
+    (..., items, hidden_mv_channels, 16). Similar for extra scalar channels.
 
     Parameters
     ----------
+    num_blocks : int
+        Number of transformer blocks.
     in_mv_channels : int
         Number of input multivector channels.
     out_mv_channels : int
@@ -42,16 +44,19 @@ class LGATr(nn.Module):
         Data for SelfAttentionConfig
     mlp: Dict
         Data for MLPConfig
-    num_blocks : int
-        Number of transformer blocks.
+    reinsert_mv_channels : None or Tuple[int]
+        If not None, specifies multivector channels that will be reinserted in every attention layer.
+    reinsert_s_channels : None or Tuple[int]
+        If not None, specifies scalar channels that will be reinserted in every attention layer.
     dropout_prob : float or None
         Dropout probability
-    double_layernorm : bool
-        Whether to use double layer normalization
+    checkpoint_blocks : bool
+        Whether to use checkpointing for the blocks. If True, will save memory at the cost of speed.
     """
 
     def __init__(
         self,
+        num_blocks: int,
         in_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
@@ -60,12 +65,10 @@ class LGATr(nn.Module):
         hidden_s_channels: Optional[int],
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
-        num_blocks: int = 10,
         reinsert_mv_channels: Optional[Tuple[int]] = None,
         reinsert_s_channels: Optional[Tuple[int]] = None,
-        checkpoint_blocks: bool = False,
         dropout_prob: Optional[float] = None,
-        double_layernorm: bool = False,
+        checkpoint_blocks: bool = False,
     ) -> None:
         super().__init__()
         self.linear_in = EquiLinear(
@@ -92,7 +95,6 @@ class LGATr(nn.Module):
                     attention=attention,
                     mlp=mlp,
                     dropout_prob=dropout_prob,
-                    double_layernorm=double_layernorm,
                 )
                 for _ in range(num_blocks)
             ]
@@ -117,19 +119,19 @@ class LGATr(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor with shape (..., in_mv_channels, 16)
-            Input multivectors.
-        scalars : None or torch.Tensor with shape (..., in_s_channels)
-            Optional input scalars.
+        multivectors : torch.Tensor
+            Input multivectors with shape (..., items, in_mv_channels, 16).
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, in_s_channels).
         **attn_kwargs
             Optional keyword arguments passed to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor with shape (..., out_mv_channels, 16)
-            Output multivectors.
-        outputs_s : None or torch.Tensor with shape (..., out_s_channels)
-            Output scalars, if scalars are provided. Otherwise None.
+        outputs_mv : torch.Tensor
+            Output multivectors with shape (..., items, out_mv_channels, 16).
+        outputs_s : None or torch.Tensor
+            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=None.
         """
 
         # Channels that will be re-inserted in any query / key computation

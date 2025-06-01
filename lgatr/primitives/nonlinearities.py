@@ -1,3 +1,4 @@
+"""Gated nonlinearities on multivectors."""
 import torch
 
 
@@ -5,19 +6,20 @@ def gated_relu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     """Pin-equivariant gated ReLU nonlinearity.
 
     Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    ReLU(gates) * x.
+    ``ReLU(gates) * x``.
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Multivector input
-    gates : torch.Tensor with shape (..., 1)
-        Pin-invariant gates.
+    x : torch.Tensor
+        Multivector input with shape (..., 16)
+    gates : torch.Tensor
+        Pin-invariant gates with shape (..., 1).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
+    outputs : torch.Tensor
         Computes ReLU(gates) * x, with broadcasting along the last dimension.
+        Result has shape (..., 16)
     """
 
     weights = torch.nn.functional.relu(gates)
@@ -29,19 +31,20 @@ def gated_sigmoid(x: torch.Tensor, gates: torch.Tensor):
     """Pin-equivariant gated sigmoid nonlinearity.
 
     Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    sigmoid(gates) * x.
+    ``sigmoid(gates) * x``.
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Multivector input
-    gates : torch.Tensor with shape (..., 1)
-        Pin-invariant gates.
+    x : torch.Tensor
+        Multivector input with shape (..., 16)
+    gates : torch.Tensor
+        Pin-invariant gates with shape (..., 1).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
-        Computes sigmoid(gates) * x, with broadcasting along the last dimension.
+    outputs : torch.Tensor
+        Computes Sigmoid(gates) * x, with broadcasting along the last dimension.
+        Result has shape (..., 16)
     """
 
     weights = torch.nn.functional.sigmoid(gates)
@@ -53,7 +56,7 @@ def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     """Pin-equivariant gated GeLU nonlinearity without division.
 
     Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    GeLU(gates) * x.
+    ``GeLU(gates) * x``.
 
     References
     ----------
@@ -61,15 +64,16 @@ def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor with shape (..., 16)
-        Multivector input
-    gates : torch.Tensor with shape (..., 1)
-        Pin-invariant gates.
+    x : torch.Tensor
+        Multivector input with shape (..., 16)
+    gates : torch.Tensor
+        Pin-invariant gates with shape (..., 1).
 
     Returns
     -------
-    outputs : torch.Tensor with shape (..., 16)
+    outputs : torch.Tensor
         Computes GeLU(gates) * x, with broadcasting along the last dimension.
+        Result has shape (..., 16)
     """
 
     weights = torch.nn.functional.gelu(gates, approximate="tanh")
