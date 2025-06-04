@@ -24,8 +24,8 @@ class EquiLinear(nn.Module):
             = sum_i linear(inputs[..., i, :], weights[j, i, :])
 
     plus an optional bias term for ``outputs[..., :, 0]`` (biases in other multivector components would
-    break equivariance). Here basis_map are precomputed (see gatr.primitives.linear) and weights are the
-    learnable weights of this layer. The basis_map includes 5 elements if the full Lorentz group is
+    break equivariance). Here ``basis_map`` are precomputed (see ``gatr.primitives.linear``) and weights are the
+    learnable weights of this layer. The ``basis_map`` includes 5 elements if the full Lorentz group is
     considered, and 10 elements if only the fully-connected subgroup is considered.
     See the ``use_fully_connected_subgroup`` parameter in ``lgatr.primitives.config.LGATrConfig`` for details.
 
@@ -40,7 +40,7 @@ class EquiLinear(nn.Module):
     - "unit_scalar": outputs will be close to (1, 0, 0, ..., 0)
     - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
 
-    We use the "almost_unit_scalar" initialization for to preprocess the second
+    We use the "almost_unit_scalar" initialization to preprocess the second
     argument in the ``GeometricBilinears`` layer,
     and the "small" initialization to combine the different attention heads.
     All other linear layers in L-GATr use the "default" initialization.
@@ -58,12 +58,7 @@ class EquiLinear(nn.Module):
     out_s_channels : int or None
         Output scalar channels. If None, no scalars are expected nor returned.
     initialization : {"default", "small", "unit_scalar", "almost_unit_scalar"}
-        Initialization scheme. For "default", initialize with the same philosophy as most
-        networks do: preserve variance (approximately) in the forward pass. For "small",
-        initalize the network such that the variance of the output data is approximately one
-        order of magnitude smaller than that of the input data. For "unit_scalar", initialize
-        the layer such that the output multivectors will be closer to (1, 0, 0, ..., 0).
-        "almost_unit_scalar" is similar, but with more randomness.
+            Initialization scheme, see ``EquiLinear`` description for more information.
     """
 
     def __init__(
@@ -200,12 +195,7 @@ class EquiLinear(nn.Module):
         Parameters
         ----------
         initialization : {"default", "small", "unit_scalar", "almost_unit_scalar"}
-            Initialization scheme. For "default", initialize with the same philosophy as most
-            networks do: preserve variance (approximately) in the forward pass. For "small",
-            initalize the network such that the variance of the output data is approximately one
-            order of magnitude smaller than that of the input data. For "unit_scalar", initialize
-            the layer such that the output multivectors will be closer to (1, 0, 0, ..., 0).
-            "almost_unit_scalar" is similar, but with more randomness.
+            Initialization scheme, see ``EquiLinear`` description for more information.
         gain : float
             Gain factor for the activations. Should be 1.0 if previous layer has no activation,
             sqrt(2) if it has a ReLU activation, and so on. Can be computed with
@@ -312,7 +302,7 @@ class EquiLinear(nn.Module):
         # In this case, we initialize such that the multivector inputs and the scalar inputs each
         # contribute half to the output variance.
         # We can achieve this by inspecting the basis maps and seeing that only basis element 0
-        # contributes to the scalar output. Thus, we can reduce the variance of the correponding
+        # contributes to the scalar output. Thus, we can reduce the variance of the corresponding
         # weights to give a variance of 0.5, not 1.
         if self.s2mvs is not None:
             # contribution from scalar -> mv scalar

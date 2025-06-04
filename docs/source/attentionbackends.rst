@@ -61,8 +61,8 @@ Xformers is a library for `efficient attention implementations <https://facebook
 by facebook, including `support for block-diagonal attention masks <https://facebookresearch.github.io/xformers/components/ops.html#xformers.ops.fmha.attn_bias.BlockDiagonalMask>`_. 
 Unfortunately, xformers does not support MacOS anymore [2]_.
 For this reason, the xformers attention backend is not included in the default
-installation of lgatr.
-To use it, you need to install lgatr with the ``xformers_attention`` extra:
+installation of ``lgatr``.
+To use it, you need to install ``lgatr`` with the ``xformers_attention`` extra:
 
 .. code-block:: python
 
@@ -77,7 +77,7 @@ a tool that aims to generalize all variations of attention kernels while remaini
 The idea is to have two functions ``score_mod`` and ``block_mask`` as arguments
 that allow the user to create most attention variants, see `this Blog <https://pytorch.org/blog/flexattention/>`_.
 flex_attention is considered stable for ``torch>=2.7``, we therefore do not include 
-it in the default installation of lgatr yet. You install lgatr with ``flex_attention`` as follows:
+it in the default installation of ``lgatr`` yet. You install ``lgatr`` with ``flex_attention`` as follows:
 
 .. code-block:: python
 
