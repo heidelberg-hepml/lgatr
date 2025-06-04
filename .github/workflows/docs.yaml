@@ -1,7 +1,7 @@
 name: build-and-deploy-docs
 on:
   push:
-    branches: [ main ]
+    branches: [ feedback_v1.2.0 ]
 jobs:
   docs:
     runs-on: ubuntu-latest
