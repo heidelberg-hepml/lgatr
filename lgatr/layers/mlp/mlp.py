@@ -16,7 +16,7 @@ from .nonlinearities import ScalarGatedNonlinearity
 class GeoMLP(nn.Module):
     """MLP with geometric product.
 
-    This is a core component of GATr's transformer blocks. It is similar to a regular MLP, except
+    This is a core component of L-GATr's transformer blocks. It is similar to a regular MLP, except
     that it uses geometric bilinears (the geometric product) in place of the first linear layer.
 
     Assumes input has shape (..., channels, 16), output has shape (..., channels, 16),
@@ -54,7 +54,7 @@ class GeoMLP(nn.Module):
             )
             s_channels_list.append(s_channels)
         else:
-            s_channels = [None] * (len(mv_channels_list))
+            s_channels_list = [None] * (len(mv_channels_list))
 
         layers: List[nn.Module] = []
 

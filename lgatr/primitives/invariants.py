@@ -64,13 +64,8 @@ def _load_metric_grades(
     return m_grades.to(device=device, dtype=dtype)
 
 
-def inner_product(
-    x: torch.Tensor, y: torch.Tensor, channel_sum: bool = False
-) -> torch.Tensor:
+def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Computes the inner product of multivectors ``f(x,y) = <x, y> = <~x y>_0``.
-
-    In addition to summing over the 16 multivector dimensions, this function also sums
-    over an additional channel dimension if ``channel_sum == True``.
 
     Equal to ``geometric_product(reverse(x), y)[..., [0]]`` (but faster).
 
@@ -82,8 +77,6 @@ def inner_product(
     y : torch.Tensor
         Second input multivector with shape (..., 16) or (..., channels, 16).
         Batch dimensions must be broadcastable between x and y.
-    channel_sum: bool
-        Whether to sum over the second-to-last axis (channels)
 
     Returns
     -------
@@ -94,10 +87,7 @@ def inner_product(
 
     x = x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
 
-    if channel_sum:
-        outputs = cached_einsum("... c i, ... c i -> ...", x, y)
-    else:
-        outputs = cached_einsum("... i, ... i -> ...", x, y)
+    outputs = cached_einsum("... i, ... i -> ...", x, y)
 
     # We want the output to have shape (..., 1)
     outputs = outputs.unsqueeze(-1)

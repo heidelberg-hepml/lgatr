@@ -16,6 +16,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize(
     "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
 )
+@pytest.mark.parametrize("mix_pseudoscalar_into_scalar", [True, False])
 def test_linear_layer_initialization(
     initialization,
     batch_dims,
@@ -23,6 +24,7 @@ def test_linear_layer_initialization(
     out_mv_channels,
     in_s_channels,
     out_s_channels,
+    mix_pseudoscalar_into_scalar,
     var_tolerance=10.0,
 ):
     """Tests the initialization of `EquiLinear`.
@@ -30,6 +32,7 @@ def test_linear_layer_initialization(
     The goal is that independent of the channel size, inputs with variance 1 are mapped to outputs
     with, very roughly, variance 1.
     """
+    gatr_config.mix_pseudoscalar_into_scalar = mix_pseudoscalar_into_scalar
 
     # Create layer
     try:

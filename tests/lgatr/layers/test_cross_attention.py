@@ -11,7 +11,7 @@ from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
     "in_kv_mv_channels,in_q_mv_channels,in_kv_s_channels,in_q_s_channels",
     [(2, 3, 4, 5)],
 )
-@pytest.mark.parametrize("multi_query", [True, False])
+@pytest.mark.parametrize("multi_query,head_scale,", [(True, True), (False, False)])
 @pytest.mark.parametrize("num_heads,increase_hidden_channels", [(3, 2)])
 @pytest.mark.parametrize("dropout_prob", [None])
 def test_crossattention_equivariance(
@@ -23,6 +23,7 @@ def test_crossattention_equivariance(
     in_kv_s_channels,
     in_q_s_channels,
     multi_query,
+    head_scale,
     num_heads,
     increase_hidden_channels,
     dropout_prob,
@@ -37,6 +38,7 @@ def test_crossattention_equivariance(
         in_q_s_channels=in_q_s_channels,
         out_s_channels=in_q_s_channels,
         num_heads=num_heads,
+        head_scale=head_scale,
         increase_hidden_channels=increase_hidden_channels,
         multi_query=multi_query,
         dropout_prob=dropout_prob,

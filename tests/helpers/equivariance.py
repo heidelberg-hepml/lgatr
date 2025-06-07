@@ -32,7 +32,7 @@ def check_pin_equivariance(
 ):
     """Checks whether a callable is equivariant with respect to the Pin(1,3) or Spin(1,3) group.
 
-    The callable can have an arbitray number of multivector inputs.
+    The callable can have an arbitrary number of multivector inputs.
 
     Parameters
     ----------

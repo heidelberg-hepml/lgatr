@@ -57,20 +57,9 @@ class SelfAttentionConfig:
     increase_hidden_channels: int = 2
     head_scale: bool = False
 
-    def __post_init__(self):
-        """Type checking / conversion."""
-        if isinstance(self.dropout_prob, str) and self.dropout_prob.lower() in [
-            "null",
-            "none",
-        ]:
-            self.dropout_prob = None
-
     @property
     def hidden_mv_channels(self) -> Optional[int]:
         """Returns the number of hidden multivector channels."""
-
-        if self.in_mv_channels is None:
-            return None
 
         return max(
             self.increase_hidden_channels * self.in_mv_channels // self.num_heads, 1
@@ -163,20 +152,9 @@ class CrossAttentionConfig:
     increase_hidden_channels: int = 2
     head_scale: bool = False
 
-    def __post_init__(self):
-        """Type checking / conversion."""
-        if isinstance(self.dropout_prob, str) and self.dropout_prob.lower() in [
-            "null",
-            "none",
-        ]:
-            self.dropout_prob = None
-
     @property
     def hidden_mv_channels(self) -> Optional[int]:
         """Returns the number of hidden multivector channels."""
-
-        if self.in_q_mv_channels is None:
-            return None
 
         return max(
             self.increase_hidden_channels * self.in_q_mv_channels // self.num_heads, 1

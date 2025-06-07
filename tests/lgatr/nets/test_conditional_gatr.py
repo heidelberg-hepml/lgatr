@@ -17,6 +17,7 @@ S_CHANNELS = [(3, 5), (2, 2)]
 @pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("checkpoint_blocks", [False, True])
 def test_conditional_gatr_shape(
     batch_dims,
     num_items,
@@ -33,6 +34,7 @@ def test_conditional_gatr_shape(
     out_s_channels,
     multi_query_attention,
     dropout_prob,
+    checkpoint_blocks,
 ):
     """Tests the output shape of ConditionalLGATr."""
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -60,17 +62,18 @@ def test_conditional_gatr_shape(
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,
             condition_s_channels=in_s_channels_condition,
-            attention=SelfAttentionConfig(
+            attention=dict(
                 num_heads=num_heads,
                 multi_query=multi_query_attention,
             ),
-            crossattention=CrossAttentionConfig(
+            crossattention=dict(
                 num_heads=num_heads,
                 multi_query=multi_query_attention,
             ),
-            mlp=MLPConfig(),
+            mlp=dict(),
             num_blocks=num_blocks,
             dropout_prob=dropout_prob,
+            checkpoint_blocks=checkpoint_blocks,
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine

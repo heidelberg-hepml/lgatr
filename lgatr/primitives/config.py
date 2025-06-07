@@ -52,14 +52,5 @@ class LGATrConfig:
     def num_pin_linear_basis_elements(self):
         return 10 if self.use_fully_connected_subgroup else 5
 
-    @classmethod
-    def cast(cls, config: Any):
-        """Casts an object as LGATrConfig."""
-        if isinstance(config, LGATrConfig):
-            return config
-        if isinstance(config, Mapping):
-            return cls(**config)
-        raise ValueError(f"Can not cast {config} to {cls}")
-
 
 gatr_config = LGATrConfig()
