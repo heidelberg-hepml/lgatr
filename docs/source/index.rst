@@ -15,8 +15,9 @@ This documentation describes the ``lgatr`` package,
 available under https://github.com/heidelberg-hepml/lgatr.
 
 * :doc:`quickstart`
-* :doc:`attentionbackends`
-* :doc:`symmetrybreaking`
+* :doc:`geometric_algebra`
+* :doc:`attention_backends`
+* :doc:`symmetry_breaking`
 * :doc:`api`
 
 Citation
@@ -62,8 +63,9 @@ If you find this package useful, please cite our papers:
    :titlesonly:
 
    quickstart
-   attentionbackends
-   symmetrybreaking
+   geometric_algebra
+   attention_backends
+   symmetry_breaking
 
 .. toctree::
    :maxdepth: 2
