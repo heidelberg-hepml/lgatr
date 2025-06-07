@@ -14,7 +14,7 @@ is, by construction, blind to these differences, which can limit its effectivene
 In LHC simulations, full Lorentz symmetry is only present in the first steps of the
 simulation workflow, where no detector or reconstruction effects are applied. 
 Once detector simulation and reconstruction (e.g. jet algorithms) are applied, 
-Lorentz symmetry is typically broken in two ways
+Lorentz symmetry is typically broken in two ways:
 
 - Several effects break the full Lorentz symmetry :math:`SO(1,3)` down to the subgroup
   of rotations :math:`SO(3)`. Examples include the detector symmetry, which is not 
@@ -32,11 +32,11 @@ Lorentz Symmetry Breaking at the Input Level
 If most situations only require :math:`SO(2)` invariance, why should we care about
 full Lorentz equivariance :math:`SO(1,3)` in the first place? Empirically, :math:`SO(1,3)`
 equivariant models with symmetry breaking outperform :math:`SO(2)`-equivariant models.
-For instance, the ParT and ParticleNet jet taggers are formally :math:`SO(2)`-equivariant,
+For instance, the ParT and ParticleNet jet taggers are formally :math:`SO(2)`-equivariant
 because all their input features are :math:`SO(2)`-invariant -- but LorentzNet, PELICAN
 and L-GATr still outperform them. 
 
-This is because LorentzNet, PELICAN and L-GATr break Lorentz symmetry in a tuneable way: 
+LorentzNet, PELICAN and L-GATr all break Lorentz symmetry in a tuneable way:
 symmetry-breaking inputs are provided, and the network can decide to use them or not,
 depending on the phase space region. In other words, symmetry breaking happens at the input
 level, while the architecture itself remains fully Lorentz-equivariant. 
