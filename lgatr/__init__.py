@@ -8,3 +8,8 @@ from .layers.mlp.config import MLPConfig
 from .nets.lgatr import LGATr
 from .nets.conditional_lgatr import ConditionalLGATr
 from .primitives.config import gatr_config
+
+# ---- version ----
+from importlib.metadata import version as _pkg_version
+
+__version__ = _pkg_version("lgatr")
