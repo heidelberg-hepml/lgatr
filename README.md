@@ -5,6 +5,7 @@
 [![Tests](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml/badge.svg)](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml)
 [![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg)](https://codecov.io/gh/heidelberg-hepml/lgatr)
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/lgatr.svg)](https://anaconda.org/conda-forge/lgatr)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
 
@@ -57,7 +58,7 @@ Let us know if you use `lgatr`, so we can add your repo to the list!
 
 ## Citation
 
-If you find this code useful in your research, please cite the following papers
+If you find this code useful in your research, please cite our papers
 
 ```bibtex
 @article{Brehmer:2024yqw,
