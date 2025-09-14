@@ -50,9 +50,9 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 ## Examples
 
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
-- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using directly the `lgatr` package.
-- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr.
-- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers, not using this package.
+- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
+- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`.
+- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
