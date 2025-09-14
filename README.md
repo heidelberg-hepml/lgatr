@@ -36,7 +36,7 @@ pip install -e .
 
 ## How to use L-GATr
 
-Please have a look at our example notebooks for how to use [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
+Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
 
 ## Features
 
