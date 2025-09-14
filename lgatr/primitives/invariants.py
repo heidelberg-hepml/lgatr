@@ -6,7 +6,6 @@ import torch
 
 from ..utils.einsum import cached_einsum
 from ..utils.misc import minimum_autocast_precision
-from .linear import grade_project
 
 
 @lru_cache()

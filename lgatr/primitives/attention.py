@@ -5,8 +5,6 @@ import torch
 from einops import rearrange
 from torch import Tensor
 
-from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
-
 from .invariants import _load_inner_product_factors
 from .attention_backends import get_attention_backend
 

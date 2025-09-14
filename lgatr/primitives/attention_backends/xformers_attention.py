@@ -1,7 +1,7 @@
 """xformers memory-efficient attention backend."""
 try:
     from xformers.ops import memory_efficient_attention
-except ModuleNotFoundError as e:
+except ModuleNotFoundError:
     raise ImportError(
         "xformers is not installed. Run 'pip install lgatr[xformers_attention]'."
     )
