@@ -32,7 +32,7 @@ class MLPConfig:
     s_channels: Optional[int] = None
     dropout_prob: Optional[float] = None
     activation: str = "gelu"
-    increase_hidden_channels: int = 2
+    increase_hidden_channels: int = 4
     num_hidden_layers: int = 1
 
     @classmethod
