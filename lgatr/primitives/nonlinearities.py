@@ -79,3 +79,33 @@ def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     weights = torch.nn.functional.gelu(gates, approximate="tanh")
     outputs = weights * x
     return outputs
+
+
+def gated_silu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
+    """Pin-equivariant gated SiLU or Swish nonlinearity without division.
+
+    Given multivector input x and scalar input gates (with matching batch dimensions), computes
+    ``Swish(gates) * x``.
+
+    References
+    ----------
+    Stefan Elfwing, Eiji Uchibe, Kenji Doya, "Sigmoid-Weighted Linear Units for Neural Network
+    Function Approximation in Reinforcement Learning", arXiv:1702.03118
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        Multivector input with shape (..., 16)
+    gates : torch.Tensor
+        Pin-invariant gates with shape (..., 1).
+
+    Returns
+    -------
+    outputs : torch.Tensor
+        Computes Swish(gates) * x, with broadcasting along the last dimension.
+        Result has shape (..., 16)
+    """
+
+    weights = torch.nn.functional.silu(gates)
+    outputs = weights * x
+    return outputs

@@ -10,7 +10,7 @@ class MLPConfig:
 
     Parameters
     ----------
-    activation : {"relu", "sigmoid", "gelu"}
+    activation : {"relu", "sigmoid", "gelu", "silu}
         Which (gated) activation function to use.
     increase_hidden_channels : int
         Factor by which to increase the number of hidden channels (both multivectors and scalars).
