@@ -4,5 +4,5 @@ from .config import gatr_config
 from .dropout import grade_dropout
 from .invariants import abs_squared_norm, inner_product
 from .linear import equi_linear, grade_involute, grade_project, reverse
-from .nonlinearities import gated_gelu, gated_relu, gated_sigmoid
+from .nonlinearities import gated_gelu, gated_relu, gated_sigmoid, gated_silu
 from .normalization import equi_layer_norm

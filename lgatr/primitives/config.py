@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
 
 
 @dataclass
@@ -22,15 +21,6 @@ class LGATrConfig:
         like another scalar/vector.
         Defaults to False, because parity-odd representations
         are usually not important in high-energy physics simulations.
-    mix_pseudoscalar_into_scalar : bool
-        If True, the pseudoscalar part of the multivector mixes
-        with the pure-scalar channels in the equiLinear layer.
-        This is a technical aspect of how equiLinear maps work,
-        and only makes sense it use_fully_connected_subgroup=True.
-        Attention: The combination ``use_fully_connected_subgroup=False``
-        and ``mix_pseudoscalar_into_scalar=True`` does not make sense,
-        you are only equivariant w.r.t. the fully connected subgroup
-        if you choose these settings.
     use_bivector : bool
         If False, the bivector components are set to zero after they
         are created in the GeometricBilinear layer.
@@ -43,7 +33,6 @@ class LGATrConfig:
     """
 
     use_fully_connected_subgroup: bool = True
-    mix_pseudoscalar_into_scalar: bool = True
 
     use_bivector: bool = True
     use_geometric_product: bool = True

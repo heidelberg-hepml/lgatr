@@ -54,7 +54,7 @@ class SelfAttentionConfig:
     dropout_prob: Optional[float] = None
     num_heads: int = 8
     multi_query: bool = False
-    increase_hidden_channels: int = 2
+    increase_hidden_channels: int = 1
     head_scale: bool = False
 
     @property
@@ -149,7 +149,7 @@ class CrossAttentionConfig:
     dropout_prob: Optional[float] = None
     num_heads: int = 8
     multi_query: bool = False
-    increase_hidden_channels: int = 2
+    increase_hidden_channels: int = 1
     head_scale: bool = False
 
     @property

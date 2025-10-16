@@ -5,6 +5,7 @@
 [![Tests](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml/badge.svg)](https://github.com/heidelberg-hepml/lgatr/actions/workflows/tests.yaml)
 [![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg)](https://codecov.io/gh/heidelberg-hepml/lgatr)
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/lgatr.svg)](https://anaconda.org/conda-forge/lgatr)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
 
@@ -35,7 +36,7 @@ pip install -e .
 
 ## How to use L-GATr
 
-Please have a look at our example notebooks for how to use [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
+Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
 
 ## Features
 
@@ -49,15 +50,15 @@ Please have a look at our example notebooks for how to use [LGATr](examples/demo
 ## Examples
 
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
-- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using directly the `lgatr` package.
-- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr.
-- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers, not using this package.
+- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
+- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`.
+- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
 ## Citation
 
-If you find this code useful in your research, please cite the following papers
+If you find this code useful in your research, please cite our papers
 
 ```bibtex
 @article{Brehmer:2024yqw,

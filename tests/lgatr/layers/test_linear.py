@@ -16,7 +16,6 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize(
     "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
 )
-@pytest.mark.parametrize("mix_pseudoscalar_into_scalar", [True, False])
 def test_linear_layer_initialization(
     initialization,
     batch_dims,
@@ -24,7 +23,7 @@ def test_linear_layer_initialization(
     out_mv_channels,
     in_s_channels,
     out_s_channels,
-    mix_pseudoscalar_into_scalar,
+    use_fully_connected_subgroup=True,
     var_tolerance=10.0,
 ):
     """Tests the initialization of `EquiLinear`.
@@ -32,7 +31,7 @@ def test_linear_layer_initialization(
     The goal is that independent of the channel size, inputs with variance 1 are mapped to outputs
     with, very roughly, variance 1.
     """
-    gatr_config.mix_pseudoscalar_into_scalar = mix_pseudoscalar_into_scalar
+    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     # Create layer
     try:
@@ -43,7 +42,7 @@ def test_linear_layer_initialization(
             out_s_channels=out_s_channels,
             initialization=initialization,
         )
-    # Some initialization schemes ar enot implemented when data is all-scalar. That's fine.
+    # Some initialization schemes are not implemented when data is all-scalar. That's fine.
     except NotImplementedError as exc:
         print(exc)
         return
@@ -75,13 +74,13 @@ def test_linear_layer_initialization(
     elif initialization == "unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if gatr_config.mix_pseudoscalar_into_scalar:
+        if gatr_config.use_fully_connected_subgroup:
             target_mean[-1] = 1.0
         target_var = 0.01 * torch.ones_like(mv_var) / 3.0
     elif initialization == "almost_unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if gatr_config.mix_pseudoscalar_into_scalar:
+        if gatr_config.use_fully_connected_subgroup:
             target_mean[-1] = 1.0
         target_var = 0.25 * torch.ones_like(mv_var) / 3.0
     else:
@@ -103,6 +102,9 @@ def test_linear_layer_initialization(
             assert 1.0 / 3.0 / var_tolerance < s_var < 1.0 / 3.0 * var_tolerance
         else:
             assert 0.01 / 3.0 / var_tolerance < s_var < 0.01 / 3.0 * var_tolerance
+
+    # restore defaults
+    gatr_config.use_fully_connected_subgroup = True
 
 
 @pytest.mark.parametrize("rescaling", [0.0, -2.0, 100.0])
