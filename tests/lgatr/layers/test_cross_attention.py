@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from lgatr.layers import CrossAttentionConfig, CrossAttention
+from lgatr.layers import CrossAttention, CrossAttentionConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 
@@ -57,5 +57,5 @@ def test_crossattention_equivariance(
         2,
         batch_dims=data_dims,
         fn_kwargs=dict(scalars_kv=scalars_condition, scalars_q=scalars),
-        **MILD_TOLERANCES
+        **MILD_TOLERANCES,
     )

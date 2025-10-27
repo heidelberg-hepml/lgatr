@@ -23,9 +23,11 @@ class QKVModule(nn.Module):
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
             out_mv_channels=3 * config.hidden_mv_channels * config.num_heads,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
-            out_s_channels=None
-            if config.in_s_channels is None
-            else 3 * config.hidden_s_channels * config.num_heads,
+            out_s_channels=(
+                None
+                if config.in_s_channels is None
+                else 3 * config.hidden_s_channels * config.num_heads
+            ),
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
@@ -201,12 +203,8 @@ class MultiQueryQKVModule(nn.Module):
         q_mv, q_s = self.q_linear(
             qk_inputs, qk_scalars
         )  # (..., num_items, hidden_channels * num_heads, 16)
-        k_mv, k_s = self.k_linear(
-            qk_inputs, qk_scalars
-        )  # (..., num_items, hidden_channels, 16)
-        v_mv, v_s = self.v_linear(
-            inputs, scalars
-        )  # (..., num_items, hidden_channels, 16)
+        k_mv, k_s = self.k_linear(qk_inputs, qk_scalars)  # (..., num_items, hidden_channels, 16)
+        v_mv, v_s = self.v_linear(inputs, scalars)  # (..., num_items, hidden_channels, 16)
 
         # Rearrange to (..., heads, items, channels, 16) shape
         q_mv = rearrange(
@@ -215,12 +213,8 @@ class MultiQueryQKVModule(nn.Module):
             num_heads=self.config.num_heads,
             hidden_channels=self.config.hidden_mv_channels,
         )
-        k_mv = rearrange(
-            k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x"
-        )
-        v_mv = rearrange(
-            v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x"
-        )
+        k_mv = rearrange(k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
+        v_mv = rearrange(v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
 
         # Same for scalars
         if q_s is not None:
@@ -230,12 +224,8 @@ class MultiQueryQKVModule(nn.Module):
                 num_heads=self.config.num_heads,
                 hidden_channels=self.config.hidden_s_channels,
             )
-            k_s = rearrange(
-                k_s, "... items hidden_channels -> ... 1 items hidden_channels"
-            )
-            v_s = rearrange(
-                v_s, "... items hidden_channels -> ... 1 items hidden_channels"
-            )
+            k_s = rearrange(k_s, "... items hidden_channels -> ... 1 items hidden_channels")
+            v_s = rearrange(v_s, "... items hidden_channels -> ... 1 items hidden_channels")
         else:
             q_s, k_s, v_s = None, None, None
 

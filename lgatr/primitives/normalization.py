@@ -1,4 +1,5 @@
 """Multivector normalization."""
+
 import torch
 
 from .invariants import abs_squared_norm

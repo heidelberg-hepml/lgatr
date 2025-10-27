@@ -34,7 +34,7 @@ jobs:
           pip install -e .
         else
           pip install -e ".[${{ matrix.extra }}]"
-        fi    
+        fi
 
 
     - name: Run unit tests + collect coverage

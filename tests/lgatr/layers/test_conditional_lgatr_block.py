@@ -2,10 +2,10 @@ import pytest
 import torch
 
 from lgatr.layers import (
-    SelfAttentionConfig,
+    ConditionalLGATrBlock,
     CrossAttentionConfig,
     MLPConfig,
-    ConditionalLGATrBlock,
+    SelfAttentionConfig,
 )
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
@@ -33,12 +33,8 @@ def test_conditional_gatr_block_shape(
 ):
     """Tests the output shape of ConditionalLGATrBlock."""
     inputs = torch.randn(*batch_dims, num_items, mv_channels, 16)
-    scalars = (
-        None if s_channels is None else torch.randn(*batch_dims, num_items, s_channels)
-    )
-    condition_mv = torch.randn(
-        *batch_dims, num_items_condition, mv_channels_condition, 16
-    )
+    scalars = None if s_channels is None else torch.randn(*batch_dims, num_items, s_channels)
+    condition_mv = torch.randn(*batch_dims, num_items_condition, mv_channels_condition, 16)
     condition_s = (
         None
         if s_channels is None
@@ -120,9 +116,7 @@ def test_conditional_gatr_block_equivariance(
         return
 
     scalars = torch.randn(*batch_dims, num_items, s_channels)
-    scalars_condition = torch.randn(
-        *batch_dims, num_items_condition, s_channels_condition
-    )
+    scalars_condition = torch.randn(*batch_dims, num_items_condition, s_channels_condition)
 
     data_dims = [
         tuple(list(batch_dims) + [num_items, mv_channels]),
@@ -133,5 +127,5 @@ def test_conditional_gatr_block_equivariance(
         2,
         batch_dims=data_dims,
         fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
-        **MILD_TOLERANCES
+        **MILD_TOLERANCES,
     )

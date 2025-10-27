@@ -1,7 +1,5 @@
 """Equivariant normalization layers."""
 
-from typing import Tuple
-
 import torch
 from torch import nn
 
@@ -33,7 +31,7 @@ class EquiLayerNorm(nn.Module):
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass. Computes equivariant LayerNorm for multivectors.
 
         Parameters
@@ -55,8 +53,6 @@ class EquiLayerNorm(nn.Module):
             multivectors, channel_dim=self.mv_channel_dim, epsilon=self.epsilon
         )
         normalized_shape = scalars.shape[-1:]
-        outputs_s = torch.nn.functional.layer_norm(
-            scalars, normalized_shape=normalized_shape
-        )
+        outputs_s = torch.nn.functional.layer_norm(scalars, normalized_shape=normalized_shape)
 
         return outputs_mv, outputs_s

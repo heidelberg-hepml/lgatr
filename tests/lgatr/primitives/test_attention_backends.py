@@ -1,10 +1,11 @@
-import torch
-import pytest
 import importlib.util
+
+import pytest
+import torch
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
-from tests.helpers.constants import STRICT_TOLERANCES as TOLERANCES
 from lgatr.primitives.attention_backends import get_attention_backend
+from tests.helpers.constants import STRICT_TOLERANCES as TOLERANCES
 
 SHAPES = [
     (32, 8, 5, 32),

@@ -1,4 +1,5 @@
 """Embedding and extracting pseudoscalars into multivectors."""
+
 import torch
 
 

@@ -1,4 +1,5 @@
 """Embedding and extracting scalars into multivectors."""
+
 import torch
 
 

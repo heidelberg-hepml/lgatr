@@ -19,9 +19,7 @@ def _sample_list_of_mv(batch_dims, rng):
     return xs
 
 
-def check_consistence_with_geometric_product(
-    function, batch_dims=(1,), rng=None, **kwargs
-):
+def check_consistence_with_geometric_product(function, batch_dims=(1,), rng=None, **kwargs):
     """Checks whether a callable computes the geometric product."""
 
     # Generate random inputs
@@ -29,7 +27,7 @@ def check_consistence_with_geometric_product(
     ys = _sample_list_of_mv(batch_dims, rng)
 
     # Compute ground-truth geometric product
-    xy_true = [(x * y) for x, y in zip(xs, ys)]
+    xy_true = [(x * y) for x, y in zip(xs, ys, strict=False)]
     xy_true = mv_list_to_tensor(xy_true, batch_dims)
 
     # Compute geometric product with function
@@ -59,9 +57,7 @@ def check_consistence_with_reversal(function, batch_dims=(1,), rng=None, **kwarg
     torch.testing.assert_close(reversed_x, reversed_x_true, **kwargs)
 
 
-def check_consistence_with_grade_involution(
-    function, batch_dims=(1,), rng=None, **kwargs
-):
+def check_consistence_with_grade_involution(function, batch_dims=(1,), rng=None, **kwargs):
     """Checks whether a callable computes the grade involution of a multivectors."""
 
     # Generate random inputs

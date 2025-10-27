@@ -4,15 +4,15 @@ API Reference
 L-GATr Networks
 ---------------
 
-We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack of transformer encoders, 
-and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders. 
-For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr` 
+We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack of transformer encoders,
+and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders.
+For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr`
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
 
 .. autosummary::
     :toctree: generated/
     :recursive:
-    
+
     lgatr.nets.lgatr.LGATr
     lgatr.nets.conditional_lgatr.ConditionalLGATr
 
@@ -77,7 +77,7 @@ Interface to the Geometric Algebra
 
 Before we feed data into L-GATr networks and after we extract results, we have to convert between common scalar/vector objects and multivectors.
 This is very simple, we still introduce convenience methods for this step.
-We also include functionality to construct `spurions`, or reference multivectors, 
+We also include functionality to construct `spurions`, or reference multivectors,
 which can be added as extra items or channels to break equivariance at the input level.
 
 .. autosummary::

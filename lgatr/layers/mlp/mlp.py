@@ -1,7 +1,5 @@
 """MLP with geometric product."""
 
-from typing import List, Tuple, Union
-
 import torch
 from torch import nn
 
@@ -42,21 +40,19 @@ class GeoMLP(nn.Module):
 
         mv_channels_list = [config.mv_channels]
         mv_channels_list.extend(
-            [config.increase_hidden_channels * config.mv_channels]
-            * config.num_hidden_layers
+            [config.increase_hidden_channels * config.mv_channels] * config.num_hidden_layers
         )
         mv_channels_list.append(config.mv_channels)
         if s_channels is not None:
             s_channels_list = [s_channels]
             s_channels_list.extend(
-                [config.increase_hidden_channels * s_channels]
-                * config.num_hidden_layers
+                [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
             )
             s_channels_list.append(s_channels)
         else:
             s_channels_list = [None] * (len(mv_channels_list))
 
-        layers: List[nn.Module] = []
+        layers: list[nn.Module] = []
 
         if config.num_hidden_layers >= 0:
             kwargs = dict(
@@ -78,11 +74,10 @@ class GeoMLP(nn.Module):
                 mv_channels_list[2:],
                 s_channels_list[1:-1],
                 s_channels_list[2:],
+                strict=False,
             ):
                 layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(
-                    EquiLinear(in_, out, in_s_channels=in_s, out_s_channels=out_s)
-                )
+                layers.append(EquiLinear(in_, out, in_s_channels=in_s, out_s_channels=out_s))
                 if config.dropout_prob is not None:
                     layers.append(GradeDropout(config.dropout_prob))
 
@@ -90,7 +85,7 @@ class GeoMLP(nn.Module):
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor
-    ) -> Tuple[torch.Tensor, Union[torch.Tensor, None]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass.
 
         Parameters

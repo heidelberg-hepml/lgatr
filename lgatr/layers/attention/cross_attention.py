@@ -1,15 +1,13 @@
 """L-GATr cross-attention."""
 
-from typing import Optional, Tuple
-
 import torch
 from einops import rearrange
 from torch import nn
 
-from .attention import GeometricAttention
-from .config import SelfAttentionConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
+from .attention import GeometricAttention
+from .config import SelfAttentionConfig
 
 
 class CrossAttention(nn.Module):
@@ -35,9 +33,7 @@ class CrossAttention(nn.Module):
             or config.additional_k_mv_channels > 0
             or config.additional_k_s_channels > 0
         ):
-            raise NotImplementedError(
-                "Cross attention is not implemented with additional channels"
-            )
+            raise NotImplementedError("Cross attention is not implemented with additional channels")
 
         # Store settings
         self.config = config
@@ -76,7 +72,7 @@ class CrossAttention(nn.Module):
         self.attention = GeometricAttention(config)
 
         # Dropout
-        self.dropout: Optional[nn.Module]
+        self.dropout: nn.Module | None
         if config.dropout_prob is not None:
             self.dropout = GradeDropout(config.dropout_prob)
         else:
@@ -91,10 +87,10 @@ class CrossAttention(nn.Module):
         self,
         multivectors_kv: torch.Tensor,
         multivectors_q: torch.Tensor,
-        scalars_kv: Optional[torch.Tensor] = None,
-        scalars_q: Optional[torch.Tensor] = None,
+        scalars_kv: torch.Tensor | None = None,
+        scalars_q: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute cross attention.
 
         The result is the following:
@@ -148,12 +144,8 @@ class CrossAttention(nn.Module):
             hidden_channels=self.config.hidden_mv_channels,
         )
         if self.config.multi_query:
-            k_mv = rearrange(
-                k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x"
-            )
-            v_mv = rearrange(
-                v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x"
-            )
+            k_mv = rearrange(k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
+            v_mv = rearrange(v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
         else:
             k_mv = rearrange(
                 k_mv,
@@ -177,12 +169,8 @@ class CrossAttention(nn.Module):
                 hidden_channels=self.config.hidden_s_channels,
             )
             if self.config.multi_query:
-                k_s = rearrange(
-                    k_s, "... items hidden_channels -> ... 1 items hidden_channels"
-                )
-                v_s = rearrange(
-                    v_s, "... items hidden_channels -> ... 1 items hidden_channels"
-                )
+                k_s = rearrange(k_s, "... items hidden_channels -> ... 1 items hidden_channels")
+                v_s = rearrange(v_s, "... items hidden_channels -> ... 1 items hidden_channels")
             else:
                 k_s = rearrange(
                     k_s,
@@ -213,9 +201,7 @@ class CrossAttention(nn.Module):
             h_mv = h_mv * self.head_scale.view(
                 *[1] * len(h_mv.shape[:-5]), len(self.head_scale), 1, 1, 1
             )
-            h_s = h_s * self.head_scale.view(
-                *[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1
-            )
+            h_s = h_s * self.head_scale.view(*[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1)
 
         h_mv = rearrange(
             h_mv,

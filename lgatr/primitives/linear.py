@@ -1,4 +1,5 @@
 """Linear operations on multivectors, in particular linear basis maps."""
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -7,11 +8,14 @@ import torch
 from ..utils.einsum import cached_einsum, custom_einsum
 from .config import gatr_config
 
+DEFAULT_DEVICE = torch.device("cpu")
+DEFAULT_DTYPE = torch.float32
 
-@lru_cache()
+
+@lru_cache
 def _compute_pin_equi_linear_basis(
-    device=torch.device("cpu"),
-    dtype=torch.float32,
+    device=DEFAULT_DEVICE,
+    dtype=DEFAULT_DTYPE,
 ) -> torch.Tensor:
     """Constructs basis elements for Lorentz-equivariant linear maps between multivectors.
 
@@ -32,7 +36,7 @@ def _compute_pin_equi_linear_basis(
         operations of parity and time reversal) and 10 for the fully connected subgroup.
     """
 
-    if device not in [torch.device("cpu"), "cpu"] and dtype != torch.float32:
+    if device not in [DEFAULT_DEVICE, "cpu"] and dtype != DEFAULT_DTYPE:
         basis = _compute_pin_equi_linear_basis()
     else:
         file = (
@@ -41,12 +45,12 @@ def _compute_pin_equi_linear_basis(
             else "linear_basis_full.pt"
         )
         filename = Path(__file__).parent.resolve() / file
-        basis = torch.load(filename).to(torch.float32).to_dense()
+        basis = torch.load(filename).to(DEFAULT_DTYPE).to_dense()
     return basis.to(device=device, dtype=dtype)
 
 
-@lru_cache()
-def _compute_reversal(device=torch.device("cpu"), dtype=torch.float32) -> torch.Tensor:
+@lru_cache
+def _compute_reversal(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
     """Constructs a matrix that computes multivector reversal.
 
     Parameters
@@ -66,10 +70,8 @@ def _compute_reversal(device=torch.device("cpu"), dtype=torch.float32) -> torch.
     return reversal_flat
 
 
-@lru_cache()
-def _compute_grade_involution(
-    device=torch.device("cpu"), dtype=torch.float32
-) -> torch.Tensor:
+@lru_cache
+def _compute_grade_involution(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
     """Constructs a matrix that computes multivector grade involution.
 
     Parameters
@@ -111,9 +113,7 @@ def equi_linear(x: torch.Tensor, coeffs: torch.Tensor) -> torch.Tensor:
         Batch dimensions are result of broadcasting between x and coeffs.
     """
     basis = _compute_pin_equi_linear_basis(device=x.device, dtype=x.dtype)
-    return custom_einsum(
-        "y x a, a i j, ... x j -> ... y i", coeffs, basis, x, path=[0, 1, 0, 1]
-    )
+    return custom_einsum("y x a, a i j, ... x j -> ... y i", coeffs, basis, x, path=[0, 1, 0, 1])
 
 
 def grade_project(x: torch.Tensor) -> torch.Tensor:

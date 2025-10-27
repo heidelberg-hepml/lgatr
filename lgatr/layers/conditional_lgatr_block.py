@@ -1,15 +1,15 @@
 """L-GATr decoder block."""
+
 from dataclasses import replace
-from typing import Optional, Tuple
 
 import torch
 from torch import nn
 
 from .attention import (
-    SelfAttention,
     CrossAttention,
-    SelfAttentionConfig,
     CrossAttentionConfig,
+    SelfAttention,
+    SelfAttentionConfig,
 )
 from .layer_norm import EquiLayerNorm
 from .mlp.config import MLPConfig
@@ -55,7 +55,7 @@ class ConditionalLGATrBlock(nn.Module):
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
-        dropout_prob: Optional[float] = None,
+        dropout_prob: float | None = None,
     ) -> None:
         super().__init__()
 
@@ -103,9 +103,9 @@ class ConditionalLGATrBlock(nn.Module):
         multivectors_condition: torch.Tensor,
         scalars: torch.Tensor = None,
         scalars_condition: torch.Tensor = None,
-        attn_kwargs={},
-        crossattn_kwargs={},
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        attn_kwargs=None,
+        crossattn_kwargs=None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass of the transformer decoder block.
 
         Parameters
@@ -130,6 +130,8 @@ class ConditionalLGATrBlock(nn.Module):
         output_scalars : torch.Tensor
             Output scalars with shape (..., items, s_channels).
         """
+        attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
+        crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
         # Self-attention block: pre layer norm
         h_mv, h_s = self.norm(multivectors, scalars=scalars)

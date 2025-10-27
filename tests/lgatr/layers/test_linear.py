@@ -7,9 +7,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
 @pytest.mark.parametrize("batch_dims", [(100,)])
-@pytest.mark.parametrize(
-    "in_mv_channels, out_mv_channels", [(200, 5), (16, 16), (5, 200)]
-)
+@pytest.mark.parametrize("in_mv_channels, out_mv_channels", [(200, 5), (16, 16), (5, 200)])
 @pytest.mark.parametrize(
     "in_s_channels, out_s_channels", [(None, None), (None, 100), (100, None), (32, 32)]
 )
@@ -49,9 +47,7 @@ def test_linear_layer_initialization(
 
     # Inputs
     inputs_mv = torch.randn(*batch_dims, in_mv_channels, 16)
-    inputs_s = (
-        torch.randn(*batch_dims, in_s_channels) if in_s_channels is not None else None
-    )
+    inputs_s = torch.randn(*batch_dims, in_s_channels) if in_s_channels is not None else None
 
     # Compute outputs
     outputs_mv, outputs_s = layer(inputs_mv, scalars=inputs_s)
@@ -61,7 +57,7 @@ def test_linear_layer_initialization(
     mv_var = outputs_mv[...].cpu().detach().to(torch.float64).var(dim=(0, 1))
 
     print("Output multivector means and std by components:")
-    for i, (mean_, var_) in enumerate(zip(mv_mean, mv_var)):
+    for i, (mean_, var_) in enumerate(zip(mv_mean, mv_var, strict=False)):
         print(f"  Component {i}: mean = {mean_:.2f}, std = {var_**0.5:.2f}")
 
     # Check that the mean and variance agree with expectations

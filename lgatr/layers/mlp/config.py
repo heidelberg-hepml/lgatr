@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 
 @dataclass
@@ -28,9 +29,9 @@ class MLPConfig:
         Dropout probability
     """
 
-    mv_channels: Optional[int] = None
-    s_channels: Optional[int] = None
-    dropout_prob: Optional[float] = None
+    mv_channels: int | None = None
+    s_channels: int | None = None
+    dropout_prob: float | None = None
     activation: str = "gelu"
     increase_hidden_channels: int = 4
     num_hidden_layers: int = 1
