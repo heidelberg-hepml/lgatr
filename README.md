@@ -32,6 +32,7 @@ or clone the repository and install the package in dev mode
 git clone https://github.com/heidelberg-hepml/lgatr.git
 cd lgatr
 pip install -e .
+pre-commit install
 ```
 
 ## How to use L-GATr
