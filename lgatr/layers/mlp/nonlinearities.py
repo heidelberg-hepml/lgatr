@@ -1,5 +1,4 @@
 """Gated nonlinearity on multivectors."""
-from typing import Tuple
 
 import torch
 from torch import nn
@@ -47,7 +46,7 @@ class ScalarGatedNonlinearity(nn.Module):
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Computes ``f(x_0) * x`` for multivector x, where f is GELU, ReLU, sigmoid, or SiLU.
 
         f is chosen depending on self.gated_nonlinearity and self.scalar_nonlinearity.

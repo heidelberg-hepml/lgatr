@@ -1,7 +1,6 @@
 """Equivariant transformer for multivector data."""
 
 from dataclasses import replace
-from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -60,14 +59,14 @@ class LGATr(nn.Module):
         in_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
-        in_s_channels: Optional[int],
-        out_s_channels: Optional[int],
-        hidden_s_channels: Optional[int],
+        in_s_channels: int | None,
+        out_s_channels: int | None,
+        hidden_s_channels: int | None,
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
-        reinsert_mv_channels: Optional[Tuple[int]] = None,
-        reinsert_s_channels: Optional[Tuple[int]] = None,
-        dropout_prob: Optional[float] = None,
+        reinsert_mv_channels: tuple[int] | None = None,
+        reinsert_s_channels: tuple[int] | None = None,
+        dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
     ) -> None:
         super().__init__()
@@ -79,12 +78,10 @@ class LGATr(nn.Module):
         )
         attention = replace(
             SelfAttentionConfig.cast(attention),
-            additional_qk_mv_channels=0
-            if reinsert_mv_channels is None
-            else len(reinsert_mv_channels),
-            additional_qk_s_channels=0
-            if reinsert_s_channels is None
-            else len(reinsert_s_channels),
+            additional_qk_mv_channels=(
+                0 if reinsert_mv_channels is None else len(reinsert_mv_channels)
+            ),
+            additional_qk_s_channels=0 if reinsert_s_channels is None else len(reinsert_s_channels),
         )
         mlp = MLPConfig.cast(mlp)
         self.blocks = nn.ModuleList(
@@ -112,9 +109,9 @@ class LGATr(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        scalars: Optional[torch.Tensor] = None,
+        scalars: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> Tuple[torch.Tensor, Union[torch.Tensor, None]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass of the network.
 
         Parameters

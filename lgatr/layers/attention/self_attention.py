@@ -1,7 +1,5 @@
 """L-GATr self-attention."""
 
-from typing import Optional, Tuple
-
 import torch
 from einops import rearrange
 from torch import nn
@@ -31,9 +29,7 @@ class SelfAttention(nn.Module):
         self.config = config
 
         # QKV computation
-        self.qkv_module = (
-            MultiQueryQKVModule(config) if config.multi_query else QKVModule(config)
-        )
+        self.qkv_module = MultiQueryQKVModule(config) if config.multi_query else QKVModule(config)
 
         # Output projection
         self.out_linear = EquiLinear(
@@ -52,7 +48,7 @@ class SelfAttention(nn.Module):
         self.attention = GeometricAttention(config)
 
         # Dropout
-        self.dropout: Optional[nn.Module]
+        self.dropout: nn.Module | None
         if config.dropout_prob is not None:
             self.dropout = GradeDropout(config.dropout_prob)
         else:
@@ -66,11 +62,11 @@ class SelfAttention(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        additional_qk_features_mv: Optional[torch.Tensor] = None,
-        scalars: Optional[torch.Tensor] = None,
-        additional_qk_features_s: Optional[torch.Tensor] = None,
+        additional_qk_features_mv: torch.Tensor | None = None,
+        scalars: torch.Tensor | None = None,
+        additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Computes self-attention.
 
         The result is the following:
@@ -128,9 +124,7 @@ class SelfAttention(nn.Module):
             h_mv = h_mv * self.head_scale.view(
                 *[1] * len(h_mv.shape[:-5]), len(self.head_scale), 1, 1, 1
             )
-            h_s = h_s * self.head_scale.view(
-                *[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1
-            )
+            h_s = h_s * self.head_scale.view(*[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1)
 
         h_mv = rearrange(
             h_mv,

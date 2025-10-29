@@ -14,9 +14,7 @@ def test_minimum_autocast_precision_inputs(device, amp_dtype):
     @minimum_autocast_precision(torch.float32)
     def return_input_dtypes(*args, **kwargs):
         dtypes = [arg.dtype if isinstance(arg, Tensor) else None for arg in args]
-        dtypes += [
-            arg.dtype if isinstance(arg, Tensor) else None for arg in kwargs.values()
-        ]
+        dtypes += [arg.dtype if isinstance(arg, Tensor) else None for arg in kwargs.values()]
         return dtypes
 
     # Inputs
@@ -45,14 +43,14 @@ def test_minimum_autocast_precision_inputs(device, amp_dtype):
 
     # Test that without autocast, nothing happens
     dtypes0 = return_input_dtypes(*inputs)
-    for got, expected in zip(dtypes0, input_dtypes):
+    for got, expected in zip(dtypes0, input_dtypes, strict=False):
         assert got == expected
 
     # Test that when autocasting, inputs are correctly casted
     with torch.autocast(device, amp_dtype, enabled=True):
         dtypes1 = return_input_dtypes(*inputs)
 
-    for got, expected in zip(dtypes1, expected_dtypes):
+    for got, expected in zip(dtypes1, expected_dtypes, strict=False):
         assert got == expected
 
 

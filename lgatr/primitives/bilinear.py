@@ -1,16 +1,16 @@
 """Geometric product."""
+
 from functools import lru_cache
 from pathlib import Path
 
 import torch
 
 from ..utils.einsum import cached_einsum
+from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 
-@lru_cache()
-def _load_geometric_product_tensor(
-    device=torch.device("cpu"), dtype=torch.float32
-) -> torch.Tensor:
+@lru_cache
+def _load_geometric_product_tensor(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
     """Loads geometric product tensor for geometric product between multivectors.
 
     This function is cached.
@@ -29,11 +29,11 @@ def _load_geometric_product_tensor(
     """
 
     # To avoid duplicate loading, base everything on float32 CPU version
-    if device not in [torch.device("cpu"), "cpu"] and dtype != torch.float32:
+    if device not in [DEFAULT_DEVICE, "cpu"] and dtype != DEFAULT_DTYPE:
         gmt = _load_geometric_product_tensor()
     else:
         filename = Path(__file__).parent.resolve() / "geometric_product.pt"
-        gmt = torch.load(filename).to(torch.float32).to_dense()
+        gmt = torch.load(filename).to(DEFAULT_DTYPE).to_dense()
 
     return gmt.to(device=device, dtype=dtype)
 

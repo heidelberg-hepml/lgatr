@@ -1,15 +1,16 @@
 """Dynamic attention backend selection."""
-from importlib import metadata
-from functools import lru_cache
-import torch
 
+from functools import lru_cache
+from importlib import metadata
+
+import torch
 
 # common kwargs used in custom attention backends
 XFORMERS_KWARGS = ["attn_bias", "op"]
 FLEX_KWARGS = ["score_mod", "block_mask"]
 
 
-@lru_cache()
+@lru_cache
 def get_device():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     return device
@@ -52,7 +53,7 @@ def get_attention_backend(**kwargs):
     # fall-back to default torch attention
     try:
         return _REGISTRY["default_attention"].attention
-    except KeyError:
+    except KeyError as err:
         raise RuntimeError(
             f"No attention backend could be resolved. Available backends: {list(_REGISTRY)}"
-        )
+        ) from err

@@ -1,7 +1,5 @@
 """Geometric algebra operations based on the clifford library."""
 
-from typing import Optional
-
 import clifford
 import numpy as np
 import torch
@@ -31,18 +29,14 @@ def tensor_to_mv_list(tensor):
 def mv_list_to_tensor(multivectors, batch_shape=None):
     """Transforms a list of multivector objects to a torch.Tensor."""
 
-    tensor = torch.from_numpy(np.array([mv.value for mv in multivectors])).to(
-        torch.float32
-    )
+    tensor = torch.from_numpy(np.array([mv.value for mv in multivectors])).to(torch.float32)
     if batch_shape is not None:
         tensor = tensor.reshape(*batch_shape, 16)
 
     return tensor
 
 
-def sample_pin_multivector(
-    spin: bool = False, rng: Optional[np.random.Generator] = None
-):
+def sample_pin_multivector(spin: bool = False, rng: np.random.Generator | None = None):
     """Samples from the Pin(1,3) group as a product of reflections."""
 
     if rng is None:

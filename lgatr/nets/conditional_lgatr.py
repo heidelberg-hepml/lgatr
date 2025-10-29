@@ -1,16 +1,14 @@
 """Equivariant conditional transformer for multivector data."""
 
-from typing import Optional, Tuple, Union
-
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 from ..layers import (
-    CrossAttentionConfig,
-    SelfAttentionConfig,
     ConditionalLGATrBlock,
+    CrossAttentionConfig,
     EquiLinear,
+    SelfAttentionConfig,
 )
 from ..layers.mlp.config import MLPConfig
 
@@ -62,14 +60,14 @@ class ConditionalLGATr(nn.Module):
         condition_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
-        in_s_channels: Optional[int],
-        condition_s_channels: Optional[int],
-        out_s_channels: Optional[int],
-        hidden_s_channels: Optional[int],
+        in_s_channels: int | None,
+        condition_s_channels: int | None,
+        out_s_channels: int | None,
+        hidden_s_channels: int | None,
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
-        dropout_prob: Optional[float] = None,
+        dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
     ) -> None:
         super().__init__()
@@ -112,11 +110,11 @@ class ConditionalLGATr(nn.Module):
         self,
         multivectors: torch.Tensor,
         multivectors_condition: torch.Tensor,
-        scalars: Optional[torch.Tensor] = None,
-        scalars_condition: Optional[torch.Tensor] = None,
-        attn_kwargs={},
-        crossattn_kwargs={},
-    ) -> Tuple[torch.Tensor, Union[torch.Tensor, None]]:
+        scalars: torch.Tensor | None = None,
+        scalars_condition: torch.Tensor | None = None,
+        attn_kwargs=None,
+        crossattn_kwargs=None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass of the network.
 
         Parameters
@@ -141,6 +139,8 @@ class ConditionalLGATr(nn.Module):
         outputs_s : None or torch.Tensor
             Output scalars with shape (..., items, out_s_channels). None if out_s_channels=None.
         """
+        attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
+        crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
         # Decode condition into main track with
         h_mv, h_s = self.linear_in(multivectors, scalars=scalars)

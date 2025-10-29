@@ -35,11 +35,7 @@ def test_lgatr_shape(
 ):
     """Tests the output shape of LGATr."""
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
-    scalars = (
-        None
-        if in_s_channels is None
-        else torch.randn(*batch_dims, num_items, in_s_channels)
-    )
+    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
 
     try:
         net = LGATr(
@@ -109,11 +105,7 @@ def test_lgatr_equivariance(
         # Some features require scalar inputs, and failing without them is fine
         return
 
-    scalars = (
-        None
-        if in_s_channels is None
-        else torch.randn(*batch_dims, num_items, in_s_channels)
-    )
+    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
     data_dims = tuple(list(batch_dims) + [num_items, in_mv_channels])
     check_pin_equivariance(
         net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES

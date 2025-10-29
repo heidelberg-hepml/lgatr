@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any
 
 
 @dataclass
@@ -44,29 +45,27 @@ class SelfAttentionConfig:
         Dropout probability
     """
 
-    in_mv_channels: Optional[int] = None
-    out_mv_channels: Optional[int] = None
-    in_s_channels: Optional[int] = None
-    out_s_channels: Optional[int] = None
+    in_mv_channels: int | None = None
+    out_mv_channels: int | None = None
+    in_s_channels: int | None = None
+    out_s_channels: int | None = None
     additional_qk_mv_channels: int = 0
     additional_qk_s_channels: int = 0
     output_init: str = "default"
-    dropout_prob: Optional[float] = None
+    dropout_prob: float | None = None
     num_heads: int = 8
     multi_query: bool = False
     increase_hidden_channels: int = 1
     head_scale: bool = False
 
     @property
-    def hidden_mv_channels(self) -> Optional[int]:
+    def hidden_mv_channels(self) -> int | None:
         """Returns the number of hidden multivector channels."""
 
-        return max(
-            self.increase_hidden_channels * self.in_mv_channels // self.num_heads, 1
-        )
+        return max(self.increase_hidden_channels * self.in_mv_channels // self.num_heads, 1)
 
     @property
-    def hidden_s_channels(self) -> Optional[int]:
+    def hidden_s_channels(self) -> int | None:
         """Returns the number of hidden scalar channels."""
 
         if self.in_s_channels is None:
@@ -135,42 +134,38 @@ class CrossAttentionConfig:
         Dropout probability
     """
 
-    in_q_mv_channels: Optional[int] = None
-    in_kv_mv_channels: Optional[int] = None
-    out_mv_channels: Optional[int] = None
-    out_s_channels: Optional[int] = None
-    in_q_s_channels: Optional[int] = None
-    in_kv_s_channels: Optional[int] = None
+    in_q_mv_channels: int | None = None
+    in_kv_mv_channels: int | None = None
+    out_mv_channels: int | None = None
+    out_s_channels: int | None = None
+    in_q_s_channels: int | None = None
+    in_kv_s_channels: int | None = None
     additional_q_mv_channels: int = 0
     additional_q_s_channels: int = 0
     additional_k_mv_channels: int = 0
     additional_k_s_channels: int = 0
     output_init: str = "default"
-    dropout_prob: Optional[float] = None
+    dropout_prob: float | None = None
     num_heads: int = 8
     multi_query: bool = False
     increase_hidden_channels: int = 1
     head_scale: bool = False
 
     @property
-    def hidden_mv_channels(self) -> Optional[int]:
+    def hidden_mv_channels(self) -> int | None:
         """Returns the number of hidden multivector channels."""
 
-        return max(
-            self.increase_hidden_channels * self.in_q_mv_channels // self.num_heads, 1
-        )
+        return max(self.increase_hidden_channels * self.in_q_mv_channels // self.num_heads, 1)
 
     @property
-    def hidden_s_channels(self) -> Optional[int]:
+    def hidden_s_channels(self) -> int | None:
         """Returns the number of hidden scalar channels."""
 
         if self.in_q_s_channels is None:
             assert self.in_kv_s_channels is None
             return None
 
-        return max(
-            self.increase_hidden_channels * self.in_q_s_channels // self.num_heads, 4
-        )
+        return max(self.increase_hidden_channels * self.in_q_s_channels // self.num_heads, 4)
 
     @classmethod
     def cast(cls, config: Any) -> CrossAttentionConfig:

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import opt_einsum
 import pytest
 import torch
@@ -17,12 +15,12 @@ def einsum_eq_fixture() -> str:
 
 
 @pytest.fixture(name="example_operands")
-def example_operands_fixture() -> Tuple[torch.Tensor, ...]:
+def example_operands_fixture() -> tuple[torch.Tensor, ...]:
     """Provides tensors for a non-trivial einsum equation."""
     # Example tensors from https://optimized-einsum.readthedocs.io/en/stable/index.html
-    I = torch.rand(_DIM, _DIM, _DIM, _DIM)
+    A = torch.rand(_DIM, _DIM, _DIM, _DIM)
     C = torch.rand(_DIM, _DIM)
-    return (C, C, I, C, C)
+    return (C, C, A, C, C)
 
 
 def test_opt_einsum_shape() -> None:
@@ -40,13 +38,11 @@ def test_opt_einsum_shape() -> None:
     op_shape = tuple(x.size() for x in operands)
     assert (
         opt_einsum.contract_path(einsum_eq, *operands, optimize="optimal")[0]
-        == opt_einsum.contract_path(
-            einsum_eq, *op_shape, optimize="optimal", shapes=True
-        )[0]
+        == opt_einsum.contract_path(einsum_eq, *op_shape, optimize="optimal", shapes=True)[0]
     )
 
 
-def test_e2e_cached_path(einsum_eq: str, example_operands: Tuple[torch.Tensor]) -> None:
+def test_e2e_cached_path(einsum_eq: str, example_operands: tuple[torch.Tensor]) -> None:
     """Checks that torch.einsum and cached_einsum deliver the same values on a non-trivial einsum
     equation."""
     expected_result = torch.einsum(einsum_eq, *example_operands)

@@ -79,6 +79,4 @@ def test_dropout_equivariance(p, batch_dims):
     layer = GradeDropout(p=p)
     layer.eval()
     s = torch.randn(*batch_dims)
-    check_pin_equivariance(
-        layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES
-    )
+    check_pin_equivariance(layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)

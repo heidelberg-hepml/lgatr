@@ -1,12 +1,11 @@
 """Equivariant attention."""
-from typing import Tuple
 
 import torch
 from einops import rearrange
 from torch import Tensor
 
-from .invariants import _load_inner_product_factors
 from .attention_backends import get_attention_backend
+from .invariants import _load_inner_product_factors
 
 
 def sdp_attention(
@@ -17,7 +16,7 @@ def sdp_attention(
     k_s: Tensor,
     v_s: Tensor,
     **attn_kwargs,
-) -> Tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor]:
     """Equivariant geometric attention based on scaled dot products.
 
     Expects both multivector and scalar queries, keys, and values as inputs.
@@ -61,8 +60,7 @@ def sdp_attention(
     q = torch.cat(
         [
             rearrange(
-                q_mv
-                * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype),
+                q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype),
                 "... c x -> ... (c x)",
             ),
             q_s,
@@ -76,9 +74,7 @@ def sdp_attention(
 
     v_out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
 
-    v_out_mv = rearrange(
-        v_out[..., : num_channels_out * 16], "... (c x) -> ...  c x", x=16
-    )
+    v_out_mv = rearrange(v_out[..., : num_channels_out * 16], "... (c x) -> ...  c x", x=16)
     v_out_s = v_out[..., num_channels_out * 16 :]
 
     return v_out_mv, v_out_s

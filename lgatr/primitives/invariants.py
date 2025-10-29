@@ -1,4 +1,5 @@
 """Invariants, e.g. inner product, absolute squared norm, pin invariants."""
+
 import math
 from functools import lru_cache
 
@@ -6,12 +7,11 @@ import torch
 
 from ..utils.einsum import cached_einsum
 from ..utils.misc import minimum_autocast_precision
+from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 
-@lru_cache()
-def _load_inner_product_factors(
-    device=torch.device("cpu"), dtype=torch.float32
-) -> torch.Tensor:
+@lru_cache
+def _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
     """Constructs an array of 1's and -1's for the metric of the space,
     used to compute the inner product.
 
@@ -30,15 +30,13 @@ def _load_inner_product_factors(
 
     _INNER_PRODUCT_FACTORS = [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1]
     factors = torch.tensor(
-        _INNER_PRODUCT_FACTORS, dtype=torch.float32, device=torch.device("cpu")
+        _INNER_PRODUCT_FACTORS, dtype=DEFAULT_DTYPE, device=DEFAULT_DEVICE
     ).to_dense()
     return factors.to(device=device, dtype=dtype)
 
 
-@lru_cache()
-def _load_metric_grades(
-    device=torch.device("cpu"), dtype=torch.float32
-) -> torch.Tensor:
+@lru_cache
+def _load_metric_grades(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
     """Generate tensor of the diagonal of the GA metric, combined with a grade projection.
 
     Parameters
@@ -53,8 +51,8 @@ def _load_metric_grades(
     torch.Tensor
         Metric grades with shape (5, 16)
     """
-    m = _load_inner_product_factors(device=torch.device("cpu"), dtype=torch.float32)
-    m_grades = torch.zeros(5, 16, device=torch.device("cpu"), dtype=torch.float32)
+    m = _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
+    m_grades = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
     offset = 0
     for k in range(4 + 1):
         d = math.comb(4, k)

@@ -1,4 +1,5 @@
 """Embedding and extracting axial vectors into multivectors."""
+
 import torch
 
 
@@ -18,9 +19,7 @@ def embed_axialvector(axialvector: torch.Tensor) -> torch.Tensor:
 
     # Create multivector tensor with same batch shape, same device, same dtype as input
     batch_shape = axialvector.shape[:-1]
-    multivector = torch.zeros(
-        *batch_shape, 16, dtype=axialvector.dtype, device=axialvector.device
-    )
+    multivector = torch.zeros(*batch_shape, 16, dtype=axialvector.dtype, device=axialvector.device)
 
     # Embedding into Lorentz vectors
     multivector[..., 11:15] = axialvector.flip(-1)

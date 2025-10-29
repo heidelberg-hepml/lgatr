@@ -1,4 +1,5 @@
 """Tools to include reference multivectors ('spurions') for symmetry breaking."""
+
 import torch
 
 from .vector import embed_vector

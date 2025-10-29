@@ -13,6 +13,4 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 def test_gated_nonlin_equivariance(fn, batch_dims):
     """Tests an identity map for equivariance (testing the test)."""
     gates = torch.randn(*batch_dims, 1)
-    check_pin_equivariance(
-        fn, 1, fn_kwargs=dict(gates=gates), batch_dims=batch_dims, **TOLERANCES
-    )
+    check_pin_equivariance(fn, 1, fn_kwargs=dict(gates=gates), batch_dims=batch_dims, **TOLERANCES)
