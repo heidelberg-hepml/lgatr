@@ -2,9 +2,11 @@
 
 import torch
 
+from ..utils.misc import minimum_autocast_precision
 from .invariants import abs_squared_norm
 
 
+@minimum_autocast_precision(torch.float32)
 def equi_layer_norm(
     x: torch.Tensor, channel_dim: int = -2, gain: float = 1.0, epsilon: float = 0.01
 ) -> torch.Tensor:
@@ -43,6 +45,6 @@ def equi_layer_norm(
     abs_squared_norms = torch.clamp(abs_squared_norms, epsilon)
 
     # Rescale inputs
-    outputs = gain * x / torch.sqrt(abs_squared_norms)
+    outputs = gain * x * torch.rsqrt(abs_squared_norms)
 
     return outputs
