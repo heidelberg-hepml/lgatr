@@ -28,9 +28,9 @@ def attention(query, key, value, **kwargs):
     out : torch.Tensor
         Result with shape (batch, head, items_out, channel)
     """
-    assert (
-        len(query.shape) == 4
-    ), "xformers constrains attention input shape to (batch, head, items, channel)."
+    assert len(query.shape) == 4, (
+        "xformers constrains attention input shape to (batch, head, items, channel)."
+    )
     if key.shape[1] != query.shape[1]:
         # manual broadcasting for key and value; required for multi-query attention
         key = key.expand(key.shape[0], query.shape[1], *key.shape[2:])
