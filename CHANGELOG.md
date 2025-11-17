@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 18.11.2025
+
+### Changed
+
+- Improve autocast support (avoid nans; support old torch versions)
+`- Drop `black` as formatter and fully move to `ruff`
+
+### Fixed
+
+- Correct install commands with extras, e.g. `pip install lgatr[xformers_attention]` -> `pip install lgatr[xformers-attention]` (pypi doesn't support `_` in package names)
+
+### Removed
+
+- `requirements.txt` (already part of `pyproject.toml`)
+
 ## [1.3.2] - 29.10.2025
 
 ### Added
