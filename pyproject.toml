@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-xformers_attention = ["xformers"]
-flex_attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
+xformers-attention = ["xformers"]
+flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
 
 [project.entry-points."lgatr.primitives.attention_backends"]
 default_attention = "lgatr.primitives.attention_backends.default_attention"

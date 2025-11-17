@@ -42,7 +42,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 ## Features
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
-- Additional attention backends, installation via `pip install lgatr[xformers_attention]` and `pip install lgatr[flex_attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
+- Additional attention backends, installation via `pip install lgatr[xformers-attention]` and `pip install lgatr[flex-attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
 ` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
@@ -51,7 +51,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 ## Examples
 
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
-- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
+- https://github.com/heidelberg-hepml/lloca-experiments: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
 - https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`.
 - https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
 
