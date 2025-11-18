@@ -12,8 +12,7 @@ def custom_einsum(equation: str, *operands: torch.Tensor, path: list[int]) -> to
 
     # Justification: For the sake of performance, we need direct access to torch's private methods.
 
-    # pylint:disable-next=protected-access
-    return torch._VF.einsum(equation, operands, path=path)  # type: ignore[attr-defined]
+    return torch._VF.einsum(equation, operands, path=path)
 
 
 def cached_einsum(equation: str, *operands: torch.Tensor) -> torch.Tensor:
