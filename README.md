@@ -38,7 +38,7 @@ pre-commit install
 
 Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
 
-## Features
+Overview of features in L-GATr:
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
 - Additional attention backends, installation via `pip install lgatr[xformers-attention]` and `pip install lgatr[flex-attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
@@ -55,6 +55,17 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 - https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
+
+## Contributing
+
+Contributions are welcome! To get started:
+
+1. Fork this repository and create a new branch for your feature or fix.
+2. Make your changes, following the existing code style (and using `pre-commit`).
+3. Add or update tests where appropriate.
+4. Open a pull request with a clear description of your changes.
+
+If you’re not sure where to begin, feel free to open an issue to discuss your idea first.
 
 ## Citation
 
