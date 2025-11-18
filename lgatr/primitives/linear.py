@@ -14,6 +14,7 @@ DEFAULT_DTYPE = torch.float32
 
 @lru_cache
 def _compute_pin_equi_linear_basis(
+    use_fully_connected_subgroup: bool = True,
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ) -> torch.Tensor:
@@ -23,6 +24,18 @@ def _compute_pin_equi_linear_basis(
 
     Parameters
     ----------
+    use_fully_connected_subgroup : bool
+        If True, model is only equivariant with respect to
+        the fully connected subgroup of the Lorentz group,
+        the proper orthochronous Lorentz group :math:`SO^+(1,3)`,
+        which does not include parity and time reversal.
+        This setting affects how the EquiLinear maps work:
+        For :math:`SO^+(1,3)`, they include transitions scalars/pseudoscalars
+        vectors/axialvectors and among bivectors, effectively
+        treating the pseudoscalar/axialvector representations
+        like another scalar/vector.
+        Defaults to False, because parity-odd representations
+        are usually not important in high-energy physics simulations.
     device : torch.device
         Device
     dtype : torch.dtype
@@ -37,12 +50,12 @@ def _compute_pin_equi_linear_basis(
     """
 
     if device not in [DEFAULT_DEVICE, "cpu"] and dtype != DEFAULT_DTYPE:
-        basis = _compute_pin_equi_linear_basis()
+        basis = _compute_pin_equi_linear_basis(
+            use_fully_connected_subgroup=use_fully_connected_subgroup
+        )
     else:
         file = (
-            "linear_basis_subgroup.pt"
-            if gatr_config.use_fully_connected_subgroup
-            else "linear_basis_full.pt"
+            "linear_basis_subgroup.pt" if use_fully_connected_subgroup else "linear_basis_full.pt"
         )
         filename = Path(__file__).parent.resolve() / file
         basis = torch.load(filename).to(DEFAULT_DTYPE).to_dense()
@@ -112,7 +125,9 @@ def equi_linear(x: torch.Tensor, coeffs: torch.Tensor) -> torch.Tensor:
         Result with shape (..., 16).
         Batch dimensions are result of broadcasting between x and coeffs.
     """
-    basis = _compute_pin_equi_linear_basis(device=x.device, dtype=x.dtype)
+    basis = _compute_pin_equi_linear_basis(
+        gatr_config.use_fully_connected_subgroup, device=x.device, dtype=x.dtype
+    )
     return custom_einsum("y x a, a i j, ... x j -> ... y i", coeffs, basis, x, path=[0, 1, 0, 1])
 
 
@@ -135,6 +150,7 @@ def grade_project(x: torch.Tensor) -> torch.Tensor:
 
     # Select kernel on correct device
     basis = _compute_pin_equi_linear_basis(
+        gatr_config.use_fully_connected_subgroup,
         device=x.device,
         dtype=x.dtype,
     )

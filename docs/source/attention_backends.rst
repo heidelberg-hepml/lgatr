@@ -8,9 +8,9 @@ as described below, and including more backends is straight-forward.
 .. code-block:: python
 
     pip install lgatr  # only default attention
-    pip install lgatr[xformers_attention]  # add xformers attention
-    pip install lgatr[flex_attention]  # add flex_attention
-    pip install lgatr[xformers_attention,flex_attention]  # add both
+    pip install lgatr[xformers-attention]  # add xformers attention
+    pip install lgatr[flex-attention]  # add flex_attention
+    pip install lgatr[xformers-attention,flex-attention]  # add both
 
 You might have to run ``python -m pip install --upgrade pip setuptools wheel``
 to update your build environment, extra imports require the most recent versions.
@@ -62,11 +62,11 @@ by facebook, including `support for block-diagonal attention masks <https://face
 Unfortunately, xformers does not support MacOS anymore [2]_.
 For this reason, the xformers attention backend is not included in the default
 installation of ``lgatr``.
-To use it, you need to install ``lgatr`` with the ``xformers_attention`` extra:
+To use it, you need to install ``lgatr`` with the ``xformers-attention`` extra:
 
 .. code-block:: python
 
-    pip install lgatr[xformers_attention]
+    pip install lgatr[xformers-attention]
 
 PyTorch's flex_attention
 ------------------------
@@ -77,11 +77,11 @@ a tool that aims to generalize all variations of attention kernels while remaini
 The idea is to have two functions ``score_mod`` and ``block_mask`` as arguments
 that allow the user to create most attention variants, see `this Blog <https://pytorch.org/blog/flexattention/>`_.
 flex_attention is considered stable for ``torch>=2.7``, we therefore do not include
-it in the default installation of ``lgatr`` yet. You install ``lgatr`` with ``flex_attention`` as follows:
+it in the default installation of ``lgatr`` yet. You install ``lgatr`` with ``flex-attention`` as follows:
 
 .. code-block:: python
 
-    pip install lgatr[flex_attention]
+    pip install lgatr[flex-attention]
 
 More attention backends
 -----------------------

@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-xformers_attention = ["xformers"]
-flex_attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
+xformers-attention = ["xformers"]
+flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
 
 [project.entry-points."lgatr.primitives.attention_backends"]
 default_attention = "lgatr.primitives.attention_backends.default_attention"
@@ -42,10 +42,6 @@ packages = { find =  { include = ["lgatr", "lgatr.*"] } }
 version_scheme = "post-release"
 local_scheme = "no-local-version"
 
-[tool.black]
-line-length = 100
-target-version = ["py310"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
@@ -53,4 +49,4 @@ extend-exclude = ["data/", "runs/", "notebooks/"]
 
 [tool.ruff.lint]
 select = ["E","F","I","B","UP"]
-ignore = ["E203", "E501", "F401"]  # black compatibility for slices
+ignore = ["E501", "F401"]

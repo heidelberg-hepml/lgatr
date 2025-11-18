@@ -310,9 +310,7 @@ class EquiLinear(nn.Module):
         # The same holds for the scalar-to-MV map, where we also just want a variance of 0.5.
         # Note: This is not properly extended to scalar and pseudoscalar outputs yet
         if self.s2mvs is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(
-                self.s2mvs.weight
-            )  # pylint:disable=protected-access
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.s2mvs.weight)
             fan_in = max(fan_in, 1)  # Since in theory we could have 0-channel scalar "data"
             bound = mv_component_factors[0] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
             nn.init.uniform_(self.s2mvs.weight, a=-bound, b=bound)
@@ -339,21 +337,15 @@ class EquiLinear(nn.Module):
         if self.mvs2s:
             models.append(self.mvs2s)
         for model in models:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(
-                model.weight
-            )  # pylint:disable=protected-access
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(model.weight)
             fan_in = max(fan_in, 1)  # Since in theory we could have 0-channel scalar "data"
             bound = s_factor / math.sqrt(fan_in) / math.sqrt(len(models))
             nn.init.uniform_(model.weight, a=-bound, b=bound)
         # Bias needs to be adapted, as the overall fan in is different (need to account for MV and
         # s inputs)
         if self.mvs2s and self.mvs2s.bias is not None:
-            fan_in = nn.init._calculate_fan_in_and_fan_out(self.mvs2s.weight)[
-                0
-            ]  # pylint:disable=protected-access
+            fan_in = nn.init._calculate_fan_in_and_fan_out(self.mvs2s.weight)[0]
             if self.s2s:
-                fan_in += nn.init._calculate_fan_in_and_fan_out(self.s2s.weight)[
-                    0
-                ]  # pylint:disable=protected-access
+                fan_in += nn.init._calculate_fan_in_and_fan_out(self.s2s.weight)[0]
             bound = s_factor / math.sqrt(fan_in) if fan_in > 0 else 0
             nn.init.uniform_(self.mvs2s.bias, -bound, bound)

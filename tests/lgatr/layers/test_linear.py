@@ -14,6 +14,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize(
     "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
 )
+@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_linear_layer_initialization(
     initialization,
     batch_dims,
@@ -21,7 +22,7 @@ def test_linear_layer_initialization(
     out_mv_channels,
     in_s_channels,
     out_s_channels,
-    use_fully_connected_subgroup=True,
+    use_fully_connected_subgroup,
     var_tolerance=10.0,
 ):
     """Tests the initialization of `EquiLinear`.
@@ -160,10 +161,19 @@ def test_linear_layer_linearity(
 @pytest.mark.parametrize("bias", [False, True])
 @pytest.mark.parametrize("in_s_channels", [None, 3])
 @pytest.mark.parametrize("out_s_channels", [None, 4])
+@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_linear_layer_equivariance(
-    batch_dims, in_mv_channels, out_mv_channels, in_s_channels, out_s_channels, bias
+    batch_dims,
+    in_mv_channels,
+    out_mv_channels,
+    in_s_channels,
+    out_s_channels,
+    bias,
+    use_fully_connected_subgroup,
 ):
     """Tests the equi_linear() primitive for equivariance."""
+    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+
     layer = EquiLinear(
         in_mv_channels,
         out_mv_channels,
@@ -176,3 +186,6 @@ def test_linear_layer_equivariance(
     check_pin_equivariance(
         layer, 1, fn_kwargs=dict(scalars=scalars), batch_dims=data_dims, **TOLERANCES
     )
+
+    # restore defaults
+    gatr_config.use_fully_connected_subgroup = True

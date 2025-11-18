@@ -7,7 +7,6 @@
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/lgatr.svg)](https://anaconda.org/conda-forge/lgatr)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
-[![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
 
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
 [![LGATr-HEP](http://img.shields.io/badge/paper-arxiv.2411.00446-B31B1B.svg)](https://arxiv.org/abs/2411.00446)
@@ -39,10 +38,10 @@ pre-commit install
 
 Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
 
-## Features
+Overview of features in L-GATr:
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
-- Additional attention backends, installation via `pip install lgatr[xformers_attention]` and `pip install lgatr[flex_attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
+- Additional attention backends, installation via `pip install lgatr[xformers-attention]` and `pip install lgatr[flex-attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
 ` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
@@ -51,11 +50,22 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 ## Examples
 
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
-- https://github.com/heidelberg-hepml/lorentz-frames: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
+- https://github.com/heidelberg-hepml/lloca-experiments: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
 - https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`.
 - https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
+
+## Contributing
+
+Contributions are welcome! To get started:
+
+1. Fork this repository and create a new branch for your feature or fix.
+2. Make your changes, following the existing code style (and using `pre-commit`).
+3. Add or update tests where appropriate.
+4. Open a pull request with a clear description of your changes.
+
+If you’re not sure where to begin, feel free to open an issue to discuss your idea first.
 
 ## Citation
 
