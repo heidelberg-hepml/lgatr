@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.3] - 18.11.2025
 
+### Added
+
+- Unit tests for `use_fully_connected_subgroup=False`
+
 ### Changed
 
 - Improve autocast support (avoid nans; support old torch versions)
@@ -15,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Correct install commands with extras, e.g. `pip install lgatr[xformers_attention]` -> `pip install lgatr[xformers-attention]` (pypi doesn't support `_` in package names)
+- Subtle bug in `compute_pin_equi_linear_basis` triggered `when modifying `use_fully_connected_subgroup`
 
 ### Removed
 

@@ -4,6 +4,7 @@ import torch
 from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.mlp.config import MLPConfig
 from lgatr.nets import LGATr
+from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 S_CHANNELS = [(None, None, 7), (4, 5, 6)]
@@ -18,6 +19,7 @@ S_CHANNELS = [(None, None, 7), (4, 5, 6)]
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
+@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_lgatr_shape(
     batch_dims,
     num_items,
@@ -32,8 +34,11 @@ def test_lgatr_shape(
     multi_query_attention,
     dropout_prob,
     checkpoint_blocks,
+    use_fully_connected_subgroup,
 ):
     """Tests the output shape of LGATr."""
+    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
     scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
 
@@ -63,6 +68,9 @@ def test_lgatr_shape(
     assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
     if in_s_channels is not None:
         assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
+
+    # restore defaults
+    gatr_config.use_fully_connected_subgroup = True
 
 
 @pytest.mark.parametrize("batch_dims", [(64,)])

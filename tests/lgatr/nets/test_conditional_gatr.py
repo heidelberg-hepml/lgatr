@@ -3,6 +3,7 @@ import torch
 
 from lgatr.layers import CrossAttentionConfig, MLPConfig, SelfAttentionConfig
 from lgatr.nets import ConditionalLGATr
+from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 S_CHANNELS = [(3, 5), (2, 2)]
@@ -18,6 +19,7 @@ S_CHANNELS = [(3, 5), (2, 2)]
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
+@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_conditional_gatr_shape(
     batch_dims,
     num_items,
@@ -35,8 +37,11 @@ def test_conditional_gatr_shape(
     multi_query_attention,
     dropout_prob,
     checkpoint_blocks,
+    use_fully_connected_subgroup,
 ):
     """Tests the output shape of ConditionalLGATr."""
+    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
     scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
     condition_mv = torch.randn(*batch_dims, num_items_condition, in_mv_channels_condition, 16)
@@ -83,6 +88,9 @@ def test_conditional_gatr_shape(
     assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
     if in_s_channels is not None:
         assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
+
+    # restore defaults
+    gatr_config.use_fully_connected_subgroup = True
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
