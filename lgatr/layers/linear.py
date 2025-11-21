@@ -80,6 +80,10 @@ class EquiLinear(nn.Module):
                 )
 
         self._in_mv_channels = in_mv_channels
+        self._out_mv_channels = out_mv_channels
+        self._in_s_channels = in_s_channels
+        self._out_s_channels = out_s_channels
+        self._bias = bias
 
         # MV -> MV
         self.weight = nn.Parameter(
