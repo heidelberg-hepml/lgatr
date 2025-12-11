@@ -1,7 +1,8 @@
-Quickstart
-==========
+Quickstart L-GATr
+=================
 
 This page sets you up for building and running L-GATr models.
+You can execute this code with the `LGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr.ipynb>`_ notebook.
 
 Installation
 ------------
@@ -92,8 +93,7 @@ Next steps
 ----------
 
 - Have a look at the :doc:`api`
-- Try the `LGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr.ipynb>`_
-  and `ConditionalLGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_conditional_lgatr.ipynb>`_ notebooks
+- Try the `ConditionalLGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_conditional_lgatr.ipynb>`_ notebook
 - Introduction to the :doc:`geometric_algebra`
 - Custom :doc:`attention_backends`
 - How to implement :doc:`symmetry_breaking`
