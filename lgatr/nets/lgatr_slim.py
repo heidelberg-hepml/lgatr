@@ -497,7 +497,7 @@ class LGATrSlimBlock(nn.Module):
 
 
 class LGATrSlim(nn.Module):
-    """L-GATr-slim model for processing Lorentz vectors and scalar features."""
+    """L-GATr-slim network."""
 
     def __init__(
         self,
