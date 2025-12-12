@@ -65,7 +65,7 @@ def test_RMSNorm_equivariance(batch_dims):
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("nonlinearity", ["relu", "sigmoid", "tanh", "gelu"])
+@pytest.mark.parametrize("nonlinearity", ["relu", "sigmoid", "tanh", "gelu", "silu"])
 @pytest.mark.parametrize("in_v_channels,out_v_channels,in_s_channels,out_s_channels", CHANNELS)
 def test_GatedLinearUnit_equivariance(
     batch_dims, nonlinearity, in_v_channels, out_v_channels, in_s_channels, out_s_channels
@@ -239,6 +239,7 @@ def test_LGATrSlimBlock_equivariance(
 @pytest.mark.parametrize("hidden_v_channels,hidden_s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 @pytest.mark.parametrize("num_blocks", [1, 2])
+@pytest.mark.parametrize("checkpoint_blocks", [False, True])
 def test_LGATrSlim_equivariance(
     batch_dims,
     in_v_channels,
@@ -250,6 +251,7 @@ def test_LGATrSlim_equivariance(
     num_heads,
     num_blocks,
     dropout_prob,
+    checkpoint_blocks,
 ):
     layer = LGATrSlim(
         in_v_channels=in_v_channels,
@@ -261,6 +263,49 @@ def test_LGATrSlim_equivariance(
         num_blocks=num_blocks,
         num_heads=num_heads,
         dropout_prob=dropout_prob,
+        checkpoint_blocks=checkpoint_blocks,
+    )
+    layer.eval()
+    s = torch.randn(*batch_dims, in_s_channels)
+    v = torch.randn(*batch_dims, in_v_channels, 4)
+    out_v, out_s = layer(v, s)
+    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+
+    # equivariance
+    batch_dims = batch_dims + [in_v_channels]
+    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+@pytest.mark.parametrize(
+    "in_v_channels,in_s_channels,out_v_channels,out_s_channels", [(4, 3, 9, 2)]
+)
+@pytest.mark.parametrize(
+    "hidden_v_channels,hidden_s_channels,num_heads,num_blocks", [(16, 8, 4, 1)]
+)
+def test_LGATrSlim_equivariance_compiled(
+    batch_dims,
+    in_v_channels,
+    in_s_channels,
+    out_v_channels,
+    out_s_channels,
+    hidden_v_channels,
+    hidden_s_channels,
+    num_heads,
+    num_blocks,
+    compile=True,
+):
+    layer = LGATrSlim(
+        in_v_channels=in_v_channels,
+        out_v_channels=out_v_channels,
+        hidden_v_channels=hidden_v_channels,
+        in_s_channels=in_s_channels,
+        out_s_channels=out_s_channels,
+        hidden_s_channels=hidden_s_channels,
+        num_blocks=num_blocks,
+        num_heads=num_heads,
+        compile=compile,
     )
     layer.eval()
     s = torch.randn(*batch_dims, in_s_channels)
