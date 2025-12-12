@@ -6,6 +6,8 @@ is a multi-purpose neural architecture for high-energy physics.
 It uses spacetime geometric algebra representations throughout, allowing
 to easily construct Lorentz-equivariant layers.
 These layers are combined into a transformer architecture.
+The L-GATr-slim variant further improves efficiency by using only
+scalar and vector representations.
 
 .. image:: /_static/gatr.png
    :align: center
@@ -15,6 +17,7 @@ This documentation describes the ``lgatr`` package,
 available under https://github.com/heidelberg-hepml/lgatr.
 
 * :doc:`quickstart`
+* :doc:`quickstart_slim`
 * :doc:`geometric_algebra`
 * :doc:`attention_backends`
 * :doc:`symmetry_breaking`
@@ -63,6 +66,7 @@ If you find this package useful, please cite our papers:
    :titlesonly:
 
    quickstart
+   quickstart_slim
    geometric_algebra
    attention_backends
    symmetry_breaking

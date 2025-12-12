@@ -10,11 +10,12 @@ For tasks where conditional inputs are required, you can process the condition w
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
 
 .. autosummary::
-    :toctree: generated/
-    :recursive:
+   :toctree: generated/
+   :recursive:
 
-    lgatr.nets.lgatr.LGATr
-    lgatr.nets.conditional_lgatr.ConditionalLGATr
+   lgatr.nets.lgatr.LGATr
+   lgatr.nets.conditional_lgatr.ConditionalLGATr
+   lgatr.nets.lgatr_slim.LGATrSlim
 
 L-GATr Layers
 -------------
@@ -89,3 +90,21 @@ which can be added as extra items or channels to break equivariance at the input
    lgatr.interface.pseudoscalar
    lgatr.interface.axialvector
    lgatr.interface.spurions
+
+L-GATr-slim Layers
+------------------
+
+In addition to the full L-GATr network, we provide a slimmed-down version that uses only scalar and vector representations instead of full multivectors.
+This approach allows a more efficient implementation while achieving similar performance on all high-energy physics tasks we have tested so far.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.nets.lgatr_slim.LGATrSlimBlock
+   lgatr.nets.lgatr_slim.Attention
+   lgatr.nets.lgatr_slim.MLP
+   lgatr.nets.lgatr_slim.GatedLinearUnit
+   lgatr.nets.lgatr_slim.Linear
+   lgatr.nets.lgatr_slim.RMSNorm
+   lgatr.nets.lgatr_slim.Dropout
