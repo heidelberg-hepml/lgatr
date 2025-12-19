@@ -60,7 +60,7 @@ non-zero entries in all other representations. For example:
     print(multivector.shape)  # torch.Size([1, 16])
 
     vector2 = extract_vector(multivector) # same as vector
-    scalar = extract_scalar(scalar) # torch.Size([1, 1])
+    scalar = extract_scalar(multivector) # torch.Size([1, 1])
     print(scalar) # tensor([[0.]])
 
 L-GATr follows the convention of the

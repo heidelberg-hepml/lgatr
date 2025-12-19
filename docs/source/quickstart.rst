@@ -93,6 +93,7 @@ Next steps
 ----------
 
 - Have a look at the :doc:`api`
+- Try the more efficient L-GATr-slim at :doc:`quickstart_slim`
 - Try the `ConditionalLGATr <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_conditional_lgatr.ipynb>`_ notebook
 - Introduction to the :doc:`geometric_algebra`
 - Custom :doc:`attention_backends`
