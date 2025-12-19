@@ -49,10 +49,12 @@ Overview of features in L-GATr:
 
 ## Examples
 
-- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
-- https://github.com/heidelberg-hepml/lloca-experiments: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package.
-- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`.
-- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder.
+- https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder. ([paper1](https://arxiv.org/abs/2405.14806) [paper2](https://arxiv.org/abs/2411.00446))
+- https://github.com/heidelberg-hepml/lloca-experiments: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package. ([paper1](https://arxiv.org/abs/2505.20280) [paper2](https://arxiv.org/abs/2508.14898))
+- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.ing
+- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](arxiv.org/abs/2510.19906))
+- https://github.com/gregorkrz/jetcluster: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
+- https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim.
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
