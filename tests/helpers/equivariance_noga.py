@@ -14,9 +14,11 @@ def check_invariance(
 ):
     if fn_kwargs is None:
         fn_kwargs = {}
+    if num_args == 1:
+        batch_dims = [batch_dims]
 
     for _ in range(num_checks):
-        inputs = [torch.randn(*batch_dims, 4) for _ in range(num_args)]
+        inputs = [torch.randn(*batch_dims[i], 4) for i in range(num_args)]
         trafo = rand_lorentz((1,) * len(batch_dims))
 
         outputs = function(*inputs, **fn_kwargs)[0]
@@ -37,9 +39,11 @@ def check_equivariance(
 ):
     if fn_kwargs is None:
         fn_kwargs = {}
+    if num_args == 1:
+        batch_dims = [batch_dims]
 
     for _ in range(num_checks):
-        inputs = [torch.randn(*batch_dims, 4) for _ in range(num_args)]
+        inputs = [torch.randn(*batch_dims[i], 4) for i in range(num_args)]
         trafo = rand_lorentz((1,) * len(batch_dims))
 
         outputs = function(*inputs, **fn_kwargs)[0]

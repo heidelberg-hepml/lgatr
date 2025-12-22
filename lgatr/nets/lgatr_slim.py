@@ -257,8 +257,8 @@ class GatedLinearUnit(nn.Module):
         return vectors_out, scalars_out
 
 
-class Attention(nn.Module):
-    """Attention module for Lorentz vectors and scalar features."""
+class SelfAttention(nn.Module):
+    """Self-attention module for Lorentz vectors and scalar features."""
 
     def __init__(
         self,
@@ -425,7 +425,7 @@ class MLP(nn.Module):
 
 class LGATrSlimBlock(nn.Module):
     """A single block of the L-GATr-slim,
-    consisting of attention and MLP layers, pre-norm and residual connections."""
+    consisting of self-attention and MLP layers, pre-norm and residual connections."""
 
     def __init__(
         self,
@@ -442,7 +442,7 @@ class LGATrSlimBlock(nn.Module):
 
         self.norm = RMSNorm()
 
-        self.attention = Attention(
+        self.attention = SelfAttention(
             v_channels=v_channels,
             s_channels=s_channels,
             num_heads=num_heads,

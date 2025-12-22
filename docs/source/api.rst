@@ -8,6 +8,8 @@ We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack
 and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders.
 For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr`
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
+In addition :class:`~lgatr.nets.lgatr_slim.LGATrSlim` and :class:`~lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim`
+provide more efficient versions of the respective networks using only scalar and vector representations.
 
 .. autosummary::
    :toctree: generated/
@@ -16,6 +18,7 @@ and then include this processed condition using a :class:`~lgatr.nets.conditiona
    lgatr.nets.lgatr.LGATr
    lgatr.nets.conditional_lgatr.ConditionalLGATr
    lgatr.nets.lgatr_slim.LGATrSlim
+   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim
 
 L-GATr Layers
 -------------
