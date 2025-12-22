@@ -75,14 +75,28 @@ If you find this code useful in your research, please cite our papers
 
 ```bibtex
 @article{Brehmer:2024yqw,
-    author = "Brehmer, Johann and Bres\'o, V\'\i{}ctor and de Haan, Pim and Plehn, Tilman and Qu, Huilin and Spinner, Jonas and Thaler, Jesse",
-    title = "{A Lorentz-Equivariant Transformer for All of the LHC}",
+    author = "Brehmer, Johann and Bres{\'o}, V{\'\i}ctor and de Haan, Pim and Plehn, Tilman and Qu, Huilin and Spinner, Jonas and Thaler, Jesse",
+    title = "{A Lorentz-equivariant transformer for all of the LHC}",
     eprint = "2411.00446",
     archivePrefix = "arXiv",
     primaryClass = "hep-ph",
     reportNumber = "MIT-CTP/5802",
-    month = "11",
-    year = "2024"
+    doi = "10.21468/SciPostPhys.19.4.108",
+    journal = "SciPost Phys.",
+    volume = "19",
+    number = "4",
+    pages = "108",
+    year = "2025"
+}
+@article{Petitjean:2025zjf,
+    author = {Petitjean, Antoine and Plehn, Tilman and Spinner, Jonas and K{\"o}the, Ullrich},
+    title = "{Economical Jet Taggers -- Equivariant, Slim, and Quantized}",
+    eprint = "2512.17011",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-ph",
+    reportNumber = "IPPP/25/93",
+    month = "12",
+    year = "2025"
 }
 @inproceedings{spinner2025lorentz,
   title={Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics},
