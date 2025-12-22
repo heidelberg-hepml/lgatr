@@ -7,7 +7,7 @@ from torch import nn
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .attention import GeometricAttention
-from .config import SelfAttentionConfig
+from .config import CrossAttentionConfig
 
 
 class CrossAttention(nn.Module):
@@ -17,13 +17,13 @@ class CrossAttention(nn.Module):
 
     Parameters
     ----------
-    config : SelfAttentionConfig
+    config : CrossAttentionConfig
         Attention configuration.
     """
 
     def __init__(
         self,
-        config: SelfAttentionConfig,
+        config: CrossAttentionConfig,
     ) -> None:
         super().__init__()
 
