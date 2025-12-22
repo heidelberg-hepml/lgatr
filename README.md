@@ -46,6 +46,7 @@ Overview of features in L-GATr:
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATRConfig` objects
+- `LGATrSlim` and `ConditionalLGATrSlim` as more efficient variants that use only scalar and vector representations
 
 ## Examples
 
@@ -54,7 +55,7 @@ Overview of features in L-GATr:
 - https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.ing
 - https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](arxiv.org/abs/2510.19906))
 - https://github.com/gregorkrz/jetcluster: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
-- https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim.
+- https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
