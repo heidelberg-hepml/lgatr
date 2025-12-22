@@ -3,13 +3,13 @@ import torch
 
 from lgatr.nets.lgatr_slim import (
     MLP,
-    Attention,
     Dropout,
     GatedLinearUnit,
     LGATrSlim,
     LGATrSlimBlock,
     Linear,
     RMSNorm,
+    SelfAttention,
     squared_norm,
 )
 
@@ -157,31 +157,29 @@ def test_Linear_initialization(
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("N", [3, 13])
 @pytest.mark.parametrize("v_channels,s_channels", [(24, 14)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
-def test_Attention_equivariance(
+def test_SelfAttention_equivariance(
     batch_dims,
-    N,
     v_channels,
     s_channels,
     num_heads,
     attn_ratio,
 ):
-    layer = Attention(
+    layer = SelfAttention(
         v_channels=v_channels,
         s_channels=s_channels,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
     )
-    s = torch.randn(*batch_dims, N, s_channels)
+    s = torch.randn(*batch_dims, s_channels)
 
-    v = torch.randn(*batch_dims, N, v_channels, 4)
+    v = torch.randn(*batch_dims, v_channels, 4)
     out_v, out_s = layer(v, s)
     assert out_v.shape == v.shape
     assert out_s.shape == s.shape
 
-    batch_dims = batch_dims + [N, v_channels]
+    batch_dims = batch_dims + [v_channels]
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
 
 
