@@ -10,13 +10,15 @@
 
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
 [![LGATr-HEP](http://img.shields.io/badge/paper-arxiv.2411.00446-B31B1B.svg)](https://arxiv.org/abs/2411.00446)
+[![LGATr-Slim](http://img.shields.io/badge/paper-arxiv.2512.17011-B31B1B.svg)](https://arxiv.org/abs/2512.17011)
 
 </div>
 
 This repository contains a standalone implementation of the **Lorentz-Equivariant Geometric Algebra Transformer (L-GATr)** by [Jonas Spinner](mailto:jonas.spinner@durham.ac.uk), [Víctor Bresó](mailto:vbresopla@fas.harvard.edu), Pim de Haan, Tilman Plehn, Huilin Qu, Jesse Thaler, and Johann Brehmer. L-GATr uses spacetime geometric algebra representations to construct Lorentz-equivariant layers and combines them into a transformer architecture.
-You can read more about L-GATr in the following two papers and in the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/):
-- [Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics](https://arxiv.org/abs/2405.14806) (ML audience)
-- [A Lorentz-Equivariant Transformer for All of the LHC](https://arxiv.org/abs/2411.00446) (HEP audience)
+You can read more about L-GATr as well as the more efficient L-GATr-slim in the following three papers and in the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/):
+- [Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics](https://arxiv.org/abs/2405.14806) (L-GATr; for ML audience)
+- [A Lorentz-Equivariant Transformer for All of the LHC](https://arxiv.org/abs/2411.00446) (L-GATr; for HEP audience)
+- [Economical Jet Taggers - Equivariant, Slim, and Quantized](https://arxiv.org/abs/2512.17011) (L-GATr-slim)
 
 ![](img/gatr.png)
 
