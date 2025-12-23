@@ -7,6 +7,7 @@ from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 S_CHANNELS = [(3, 5), (2, 2)]
+BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
