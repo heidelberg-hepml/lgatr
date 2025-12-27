@@ -22,6 +22,17 @@ dependencies = [
 [project.optional-dependencies]
 xformers-attention = ["xformers"]
 flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
+dev = [
+    # unit tests
+    "pytest",
+    "pytest-cov",
+    "git+https://github.com/pygae/clifford", # for lgatr equivariance tests
+    "lloca", # for lgatr_slim equivariance tests
+    # docs
+    "sphinx<9.0",
+    "sphinx-autodoc-typehints",
+    "sphinx-rtd-theme",
+]
 
 [project.entry-points."lgatr.primitives.attention_backends"]
 default_attention = "lgatr.primitives.attention_backends.default_attention"
