@@ -22,6 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 xformers-attention = ["xformers"]
 flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
+flash-attention = ["flash-attn"]  # this is non-trivial, for build instructions check https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup
 dev = [
     # unit tests
     "pytest",
@@ -38,6 +39,7 @@ dev = [
 default_attention = "lgatr.primitives.attention_backends.default_attention"
 xformers_attention = "lgatr.primitives.attention_backends.xformers_attention"
 flex_attention = "lgatr.primitives.attention_backends.flex_attention"
+flash_attention = "lgatr.primitives.attention_backends.flash_attention"
 
 [project.urls]
 homepage = "https://heidelberg-hepml.github.io/lgatr"
