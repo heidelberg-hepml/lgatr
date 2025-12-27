@@ -27,7 +27,7 @@ dev = [
     # unit tests
     "pytest",
     "pytest-cov",
-    "git+https://github.com/pygae/clifford", # for lgatr equivariance tests
+    "git+https://github.com/pygae/clifford.git@master#egg=clifford", # for lgatr equivariance tests
     "lloca", # for lgatr_slim equivariance tests
     # docs
     "sphinx<9.0",
