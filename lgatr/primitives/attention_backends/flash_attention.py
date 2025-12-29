@@ -12,7 +12,9 @@ except ModuleNotFoundError as err:
 
 # There is no fancy docs website, so one has to check the source code for the interface:
 # https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_attn_interface.py
-def attention(q, k, v, dtype=torch.bfloat16, **kwargs):
+def attention(q, k, v, dtype=None, **kwargs):
+    if dtype is None:
+        dtype = torch.get_autocast_gpu_dtype()
     in_dtype = q.dtype
 
     def prepare(x):
