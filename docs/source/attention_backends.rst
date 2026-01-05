@@ -10,7 +10,8 @@ as described below, and including more backends is straight-forward.
     pip install lgatr  # only default attention
     pip install lgatr[xformers-attention]  # add xformers attention
     pip install lgatr[flex-attention]  # add flex_attention
-    pip install lgatr[xformers-attention,flex-attention]  # add both
+    pip install lgatr[flash-attention]  # add flash attention
+    pip install lgatr[xformers-attention,flex-attention,flash-attention]  # add all
 
 You might have to run ``python -m pip install --upgrade pip setuptools wheel``
 to update your build environment, extra imports require the most recent versions.
@@ -29,23 +30,28 @@ to memory but instead computes attention in smaller chunks. Today, FlashAttentio
 xFormers, and others) is the standard in most transformer libraries.
 
 However, these highly optimized CUDA kernels impose constraints on the attention
-inputs. For example, PyTorch’s default attention path assumes dense tensors for
+inputs and structure of the attention mask.
+
+- PyTorch’s default attention path assumes dense tensors for
 queries, keys, values, and the attention mask. In particle physics applications, each
 event often contains a different number of particles—so using dense tensors would require
-padding all events to the maximum length. An alternative is to work with “sparse” representations
+**padding all events to the maximum length**. An alternative is to work with “sparse” representations
 (e.g., concatenating all particles in a long list and tracking event boundaries), then apply
 a block-diagonal mask so that only particles within the same event attend to one another.
 By avoiding operations on padded particles, this approach can dramatically reduce both memory
-usage and computation time. Beyond sparse masks, many advanced positional-encoding schemes
+usage and computation time.
+- Beyond sparse masks, many **advanced positional-encoding schemes**
 (such as relative positional embeddings, ALiBi, sliding-window attention, PrefixLM,
 tanh-soft-capping, and so on) also require custom attention kernels that deviate from
 the dense, full-matrix assumption.
+- Optimized attention backends are typically optimized for the **most recent NVIDIA GPUs**, and do not or only partially support older hardware.
+- Optimized operations typically only support certain data types. ``float16`` and ``bfloat16`` are most widely supported, and ``float32`` and ``float8`` upcoming.
+- Most backends currently only support certain head dimensions, e.g. only powers of 2.
 
+PyTorch's native Attention
+--------------------------
 
-PyTorch's default Attention
----------------------------
-
-PyTorch's default
+PyTorch's native
 `scaled_dot_product_attention <https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html>`_
 is easy to use, but it requires dense tensors for queries, keys and values.
 It is the only backend that you get if you install via
@@ -60,8 +66,9 @@ xformers Attention
 Xformers is a library for `efficient attention implementations <https://facebookresearch.github.io/xformers/components/ops.html#module-xformers.ops>`_ maintained
 by facebook, including `support for block-diagonal attention masks <https://facebookresearch.github.io/xformers/components/ops.html#xformers.ops.fmha.attn_bias.BlockDiagonalMask>`_.
 Unfortunately, xformers does not support MacOS anymore [2]_.
-For this reason, the xformers attention backend is not included in the default
-installation of ``lgatr``.
+Under the hood, xformers supports `multiple attention backends <https://github.com/facebookresearch/xformers/tree/main/xformers/ops/fmha>`_,
+including the varlen FlashAttention mentioned below, and selects the best one for your hardware automatically.
+For this reason, the xformers attention backend is not included in the default installation of ``lgatr``.
 To use it, you need to install ``lgatr`` with the ``xformers-attention`` extra:
 
 .. code-block:: python
@@ -75,13 +82,27 @@ To mitigate the increasing need for custom attention kernels, PyTorch developers
 designed `flex_attention <https://docs.pytorch.org/docs/stable/nn.attention.flex_attention.html>`_,
 a tool that aims to generalize all variations of attention kernels while remaining efficient.
 The idea is to have two functions ``score_mod`` and ``block_mask`` as arguments
-that allow the user to create most attention variants, see `this Blog <https://pytorch.org/blog/flexattention/>`_.
+that allow the user to create most attention variants, see `this blog <https://pytorch.org/blog/flexattention/>`_.
 flex_attention is considered stable for ``torch>=2.7``, we therefore do not include
 it in the default installation of ``lgatr`` yet. You install ``lgatr`` with ``flex-attention`` as follows:
 
 .. code-block:: python
 
     pip install lgatr[flex-attention]
+
+Original FlashAttention
+-----------------------
+
+The `original FlashAttention implementation <https://github.com/Dao-AILab/flash-attention>`_ by Tri Dao is
+still actively maintained and widely used within the community. Its support for variable-length sequences
+is not yet part of native PyTorch, so we provide an extra for it in ``lgatr``.
+Note that xformers might default to using FlashAttention under the hood if it detects that your attention inputs and hardware support it.
+See its `documentation <https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup>`_ for installation instructions for this package,
+the process is a bit more involved than for other backends.
+You can install ``lgatr`` with the ``flash-attention`` extra as follows:
+.. code-block:: python
+
+    pip install lgatr[flash-attention]
 
 More attention backends
 -----------------------
