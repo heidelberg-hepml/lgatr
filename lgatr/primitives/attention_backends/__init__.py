@@ -25,7 +25,7 @@ for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
     except ImportError:
         continue
 
-    if ep.name in ["xformers_attention", "flash_attention"] and get_device() == torch.device("cpu"):
+    if ep.name in ["xformers", "flash"] and get_device() == torch.device("cpu"):
         # xformers and flash-attn are not available on CPU
         continue
     _REGISTRY[ep.name] = module
@@ -48,15 +48,15 @@ def get_attention_backend(**kwargs):
 
     # automatic fall-back based on other **kwargs
     if any(kwargs.get(kwarg, None) is not None for kwarg in XFORMERS_KWARGS):
-        return _REGISTRY["xformers_attention"].attention
+        return _REGISTRY["xformers"].attention
     elif any(kwargs.get(kwarg, None) is not None for kwarg in FLEX_KWARGS):
-        return _REGISTRY["flex_attention"].attention
+        return _REGISTRY["flex"].attention
     elif any(kwargs.get(kwarg, None) is not None for kwarg in FLASH_KWARGS):
-        return _REGISTRY["flash_attention"].attention
+        return _REGISTRY["flash"].attention
 
     # fall-back to default torch attention
     try:
-        return _REGISTRY["default_attention"].attention
+        return _REGISTRY["default"].attention
     except KeyError as err:
         raise RuntimeError(
             f"No attention backend could be resolved. Available backends: {list(_REGISTRY)}"
