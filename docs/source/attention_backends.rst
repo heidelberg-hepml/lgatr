@@ -100,6 +100,7 @@ Note that xformers might default to using FlashAttention under the hood if it de
 See its `documentation <https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup>`_ for installation instructions for this package,
 the process is a bit more involved than for other backends.
 You can install ``lgatr`` with the ``flash-attention`` extra as follows:
+
 .. code-block:: python
 
     pip install lgatr[flash-attention]
