@@ -32,7 +32,7 @@ or clone the repository and install the package in dev mode
 ```
 git clone https://github.com/heidelberg-hepml/lgatr.git
 cd lgatr
-pip install -e .
+pip install -e ".[dev]"
 pre-commit install
 ```
 
@@ -43,7 +43,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 Overview of features in L-GATr:
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
-- Additional attention backends, installation via `pip install lgatr[xformers-attention]` and `pip install lgatr[flex-attention]`. You might have to run `python -m pip install --upgrade pip setuptools wheel
+- Additional attention backends, installation via `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel
 ` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
