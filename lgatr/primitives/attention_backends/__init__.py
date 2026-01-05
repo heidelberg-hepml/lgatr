@@ -36,7 +36,7 @@ def get_attention_backend(**kwargs):
     Dynamically determine the attention backend based on the extra keyword arguments.
 
     Implemented backends:
-    - PyTorch's default attention: torch.nn.functional.scaled_dot_product_attention
+    - PyTorch's native attention: torch.nn.functional.scaled_dot_product_attention
     - Xformers attention: xformers.ops.memory_efficient_attention
     - PyTorch's flex_attention: torch.nn.attention.flex_attention.flex_attention
     - Original flash attention (supports variable sequence length): flash_attn.flash_attn_varlen_func
@@ -54,9 +54,9 @@ def get_attention_backend(**kwargs):
     elif any(kwargs.get(kwarg, None) is not None for kwarg in FLASH_KWARGS):
         return _REGISTRY["flash"].attention
 
-    # fall-back to default torch attention
+    # fall-back to native torch attention
     try:
-        return _REGISTRY["default"].attention
+        return _REGISTRY["native"].attention
     except KeyError as err:
         raise RuntimeError(
             f"No attention backend could be resolved. Available backends: {list(_REGISTRY)}"

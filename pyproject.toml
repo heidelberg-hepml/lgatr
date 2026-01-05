@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.entry-points."lgatr.primitives.attention_backends"]
-default = "lgatr.primitives.attention_backends.default"
+native = "lgatr.primitives.attention_backends.native"
 xformers = "lgatr.primitives.attention_backends.xformers"
 flex = "lgatr.primitives.attention_backends.flex"
 flash = "lgatr.primitives.attention_backends.flash"
