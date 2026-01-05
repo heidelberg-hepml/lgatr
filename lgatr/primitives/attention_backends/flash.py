@@ -1,4 +1,4 @@
-"""original flash-attention backend."""
+"""Original flash-attention backend."""
 
 import torch
 
