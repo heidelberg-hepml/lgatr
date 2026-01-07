@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 07.01.2026
+
+### Added
+
+- FlashAttention varlen attention backend https://github.com/Dao-AILab/flash-attention
+- References to L-GATr-slim paper
+
+### Changed
+
+- Collect optional requirements in `[dev]` extra
+- Improvements in unit tests
+
 ## [1.4.1] - 22.12.2025
 
 ### Added

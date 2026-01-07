@@ -1,4 +1,4 @@
-"""Default PyTorch scaled-dot-product attention implementation."""
+"""Native PyTorch scaled-dot-product attention implementation."""
 
 from torch.nn.functional import scaled_dot_product_attention
 

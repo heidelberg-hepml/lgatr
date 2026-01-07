@@ -105,7 +105,9 @@ This approach allows a more efficient implementation while achieving similar per
    :recursive:
 
    lgatr.nets.lgatr_slim.LGATrSlimBlock
-   lgatr.nets.lgatr_slim.Attention
+   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlimBlock
+   lgatr.nets.lgatr_slim.SelfAttention
+   lgatr.nets.conditional_lgatr_slim.CrossAttention
    lgatr.nets.lgatr_slim.MLP
    lgatr.nets.lgatr_slim.GatedLinearUnit
    lgatr.nets.lgatr_slim.Linear

@@ -10,7 +10,7 @@ except ModuleNotFoundError as err:
 
 def attention(query, key, value, **kwargs):
     """Pass to xformers memory-efficient attention.
-    Note that this xformers expects the shape (batch, head, items_out, channel).
+    Note that this xformers expects the shape (batch, head, items, channel).
 
     Parameters
     ----------
