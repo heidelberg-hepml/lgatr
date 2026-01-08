@@ -1,0 +1,8 @@
+﻿lgatr.nets.lgatr_slim.MLP
+=========================
+
+.. autoclass:: lgatr.nets.lgatr_slim.MLP
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

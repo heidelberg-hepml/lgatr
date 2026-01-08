@@ -1,0 +1,8 @@
+﻿lgatr.nets.conditional_lgatr_slim.CrossAttention
+================================================
+
+.. autoclass:: lgatr.nets.conditional_lgatr_slim.CrossAttention
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:
