@@ -8,10 +8,11 @@ as described below, and including more backends is straight-forward.
 .. code-block:: python
 
     pip install lgatr  # only default attention
+    pip install lgatr[varlen-attention]  # add varlen attention
     pip install lgatr[xformers-attention]  # add xformers attention
     pip install lgatr[flex-attention]  # add flex_attention
     pip install lgatr[flash-attention]  # add flash attention
-    pip install lgatr[xformers-attention,flex-attention,flash-attention]  # add all
+    pip install lgatr[varlen-attention, xformers-attention,flex-attention,flash-attention]  # add all
 
 You might have to run ``python -m pip install --upgrade pip setuptools wheel``
 to update your build environment, extra imports require the most recent versions.
@@ -104,6 +105,11 @@ You can install ``lgatr`` with the ``flash-attention`` extra as follows:
 .. code-block:: python
 
     pip install lgatr[flash-attention]
+
+PyTorch's native varlen attention
+---------------------------------
+
+PyTorch 2.10 natively includes a varlen attention kernel that is closely inspired by the original flash attention implementation.
 
 More attention backends
 -----------------------

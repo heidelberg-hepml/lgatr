@@ -20,6 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+varlen-attention = ["torch>=2.10"]
 xformers-attention = ["xformers"]
 flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
 flash-attention = ["flash-attn"]  # non-trivial, check https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup for build instructions
@@ -37,6 +38,7 @@ dev = [
 
 [project.entry-points."lgatr.primitives.attention_backends"]
 native = "lgatr.primitives.attention_backends.native"
+varlen = "lgatr.primitives.attention_backends.varlen"
 xformers = "lgatr.primitives.attention_backends.xformers"
 flex = "lgatr.primitives.attention_backends.flex"
 flash = "lgatr.primitives.attention_backends.flash"
