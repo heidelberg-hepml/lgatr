@@ -41,6 +41,12 @@ def attention(query, key, value, dtype=None, **kwargs):
         key = key.expand(key.shape[0], query.shape[1], *key.shape[2:])
         value = value.expand(value.shape[0], query.shape[1], *value.shape[2:])
 
+    if dtype is not None:
+        in_dtype = query.dtype
+        query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
+    else:
+        in_dtype = None
+
     # xformers expects input shape (batch, item, head, channel)
     query = query.transpose(1, 2).contiguous()
     key = key.transpose(1, 2).contiguous()
@@ -48,4 +54,7 @@ def attention(query, key, value, dtype=None, **kwargs):
 
     out = memory_efficient_attention(query, key, value, **kwargs)
     out = out.transpose(1, 2).contiguous()
+
+    if in_dtype is not None:
+        out = out.to(in_dtype)
     return out
