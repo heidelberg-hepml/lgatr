@@ -10,6 +10,7 @@ except ModuleNotFoundError as err:
     ) from err
 
 
+@torch.compiler.disable(reason="Currently breaks torch.compile")
 def attention(query, key, value, dtype=None, **kwargs):
     """Pass to flash-attention's flash_attn_varlen_func.
     Note that flash-attention expects the shape (batch=1, items, head, channel).

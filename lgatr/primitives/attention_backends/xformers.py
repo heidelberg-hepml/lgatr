@@ -1,5 +1,7 @@
 """xformers memory-efficient attention backend."""
 
+import torch
+
 try:
     from xformers.ops import memory_efficient_attention
 except ModuleNotFoundError as err:
@@ -7,8 +9,8 @@ except ModuleNotFoundError as err:
         "xformers is not installed. Run 'pip install lgatr[xformers-attention]'."
     ) from err
 
-
-def attention(query, key, value, **kwargs):
+@torch.compiler.disable(reason="Currently breaks torch.compile")
+def attention(query, key, value, dtype=None, **kwargs):
     """Pass to xformers memory-efficient attention.
     Note that this xformers expects the shape (batch, head, items, channel).
 
@@ -20,6 +22,9 @@ def attention(query, key, value, **kwargs):
         Keys with shape (batch, head, items_in, channel)
     value : torch.Tensor
         Values with shape (batch, head, items_in, channel)
+    dtype : torch.dtype, optional
+        If specified, cast input tensors to this dtype before passing to attention.
+        This can be useful to trigger flash-attention.
     **kwargs
         Additional keyword arguments passed to memory_efficient_attention.
 
