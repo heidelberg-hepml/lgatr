@@ -19,7 +19,7 @@ Alternatively, if you're developing locally:
 
    git clone https://github.com/heidelberg-hepml/lgatr.git
    cd lgatr
-   pip install -e .
+   pip install -e ".[dev]"
    pre-commit install
 
 Building L-GATr-slim
