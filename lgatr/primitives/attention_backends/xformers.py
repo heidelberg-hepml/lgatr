@@ -10,7 +10,7 @@ except ModuleNotFoundError as err:
     ) from err
 
 
-@torch._dynamo.disable()  # for old pytorch; eventually move to torch.compiler.disable
+@torch.compiler.disable()
 def attention(query, key, value, dtype=None, **kwargs):
     """Pass to xformers memory-efficient attention.
     Note that this xformers expects the shape (batch, head, items, channel).

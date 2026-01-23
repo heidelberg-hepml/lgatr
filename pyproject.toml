@@ -13,7 +13,7 @@ authors = [
   { name = "Víctor Bresó", email = "breso@thphys.uni-heidelberg.de" },
 ]
 dependencies = [
-    "torch>=2.0",
+    "torch>=2.1",
     "numpy",
     "einops",
     "opt_einsum",
