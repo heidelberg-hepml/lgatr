@@ -9,7 +9,8 @@ except ModuleNotFoundError as err:
         "xformers is not installed. Run 'pip install lgatr[xformers-attention]'."
     ) from err
 
-@torch.compiler.disable(reason="Currently breaks torch.compile")
+
+@torch._dynamo.disable()  # for old pytorch; eventually move to torch.compiler.disable
 def attention(query, key, value, dtype=None, **kwargs):
     """Pass to xformers memory-efficient attention.
     Note that this xformers expects the shape (batch, head, items, channel).

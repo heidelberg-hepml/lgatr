@@ -10,7 +10,6 @@ except ModuleNotFoundError as err:
     ) from err
 
 
-@torch.compiler.disable(reason="Currently breaks torch.compile")
 def attention(query, key, value, dtype=None, **kwargs):
     """Pass to pytorchs native varlen_attn.
     Note that pytorchs native varlen_attn closely follows flash-attn, see flash.py.
