@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `dtype` keyword argument to xformers attention to allow downcasting to float16/bfloat16 and enforcing flash-attention backends
 - Improve `attention_backends` unit tests
 
+### Fixed
+
+- Bug in `minimum_autocast_precision`
+
 ## [1.4.2] - 08.01.2026
 
 ### Added
