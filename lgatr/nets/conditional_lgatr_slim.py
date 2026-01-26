@@ -4,13 +4,13 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
+from ..primitives.attention import scaled_dot_product_attention
 from .lgatr_slim import (
     MLP,
     Dropout,
     Linear,
     RMSNorm,
     SelfAttention,
-    scaled_dot_product_attention_careful,
 )
 
 
@@ -124,7 +124,7 @@ class CrossAttention(nn.Module):
         kv_v, kv_s = self.linear_in_kv(vectors_condition, scalars_condition)
 
         q, k, v = self._pre_reshape(q_v, kv_v, q_s, kv_s)
-        out = scaled_dot_product_attention_careful(q, k, v, **attn_kwargs)
+        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
         h_v, h_s = self._post_reshape(out)
 
         out_v, out_s = self.linear_out(h_v, h_s)

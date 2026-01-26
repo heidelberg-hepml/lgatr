@@ -1,22 +1,19 @@
-"""Original flash-attention backend."""
+"""Native PyTorch varlen scaled-dot-product attention implementation."""
 
 import torch
 
 try:
-    from flash_attn import flash_attn_varlen_func
+    from torch.nn.attention.varlen import varlen_attn
 except ModuleNotFoundError as err:
     raise ImportError(
-        "flash-attn is not installed. Run 'pip install lgatr[flash-attention]'."
+        "torch>=2.10 is not installed. Run 'pip install lgatr[varlen-attention]'."
     ) from err
 
 
-@torch.compiler.disable()
 def attention(query, key, value, dtype=None, **kwargs):
-    """Pass to flash-attention's flash_attn_varlen_func.
+    """Pass to pytorchs native varlen_attn.
+    Note that pytorchs native varlen_attn closely follows flash-attn, see flash.py.
     Note that flash-attention expects the shape (batch=1, items, head, channel).
-
-    There is no fancy docs website, so one has to check the source code for the interface:
-    https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_attn_interface.py
 
     Parameters
     ----------
@@ -30,7 +27,7 @@ def attention(query, key, value, dtype=None, **kwargs):
         If specified, cast input tensors to this dtype before passing to flash-attention.
         If None, use torch.get_autocast_gpu_dtype().
     **kwargs
-        Additional keyword arguments passed to flash_attn_varlen_func.
+        Additional keyword arguments passed to varlen_attn.
 
     Returns
     -------
@@ -38,7 +35,7 @@ def attention(query, key, value, dtype=None, **kwargs):
         Result with shape (batch, head, items_out, channel)
     """
     assert len(query.shape) == 4, (
-        "flash-attn constrains attention input shape to (batch, head, items, channel)."
+        "varlen_attn constrains attention input shape to (batch, head, items, channel)."
     )
 
     if query.dtype not in [torch.float16, torch.bfloat16]:
@@ -55,7 +52,7 @@ def attention(query, key, value, dtype=None, **kwargs):
         return x.squeeze(0).transpose(0, 1).contiguous()
 
     query, key, value = reshape(query), reshape(key), reshape(value)
-    out = flash_attn_varlen_func(query, key, value, **kwargs)
+    out = varlen_attn(query, key, value, **kwargs)
     out = out.transpose(0, 1).unsqueeze(0).contiguous()
 
     if in_dtype is not None:

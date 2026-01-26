@@ -8,7 +8,6 @@ from torch.nn.functional import dropout, dropout1d
 from torch.utils.checkpoint import checkpoint
 
 from ..primitives.attention import scaled_dot_product_attention
-from ..primitives.attention_backends import XFORMERS_KWARGS
 from ..utils.misc import minimum_autocast_precision
 
 
@@ -35,20 +34,6 @@ def get_nonlinearity(label):
         return nn.SiLU()
     else:
         raise ValueError(f"Unsupported nonlinearity type: {label}")
-
-
-def scaled_dot_product_attention_careful(*args, **attn_kwargs):
-    # xformers does not support torch.compile
-    use_xformers = any(kwarg in attn_kwargs for kwarg in XFORMERS_KWARGS)
-    attn_func = (
-        scaled_dot_product_attention_nocompile if use_xformers else scaled_dot_product_attention
-    )
-    return attn_func(*args, **attn_kwargs)
-
-
-@torch.compiler.disable
-def scaled_dot_product_attention_nocompile(*args, **attn_kwargs):
-    return scaled_dot_product_attention(*args, **attn_kwargs)
 
 
 class Dropout(nn.Module):
@@ -349,7 +334,7 @@ class SelfAttention(nn.Module):
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
 
         q, k, v = self._pre_reshape(qkv_v, qkv_s)
-        out = scaled_dot_product_attention_careful(q, k, v, **attn_kwargs)
+        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
         h_v, h_s = self._post_reshape(out)
 
         out_v, out_s = self.linear_out(h_v, h_s)

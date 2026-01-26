@@ -6,6 +6,7 @@ from importlib import metadata
 import torch
 
 # common kwargs used in custom attention backends
+VARLEN_KWARGS = ["cu_seq_q", "cu_seq_k", "max_q", "max_k"]
 XFORMERS_KWARGS = ["attn_bias", "op"]
 FLEX_KWARGS = ["score_mod", "block_mask"]
 FLASH_KWARGS = ["cu_seqlens_q", "cu_seqlens_k", "max_seqlen_q", "max_seqlen_k"]
@@ -37,6 +38,7 @@ def get_attention_backend(**kwargs):
 
     Implemented backends:
     - PyTorch's native attention: torch.nn.functional.scaled_dot_product_attention
+    - PyTorch's varlen attention: torch.nn.attention.varlen.varlen_attn
     - Xformers attention: xformers.ops.memory_efficient_attention
     - PyTorch's flex_attention: torch.nn.attention.flex_attention.flex_attention
     - Original flash attention (supports variable sequence length): flash_attn.flash_attn_varlen_func
@@ -47,7 +49,9 @@ def get_attention_backend(**kwargs):
         return _REGISTRY[backend].attention
 
     # automatic fall-back based on other **kwargs
-    if any(kwargs.get(kwarg, None) is not None for kwarg in XFORMERS_KWARGS):
+    if any(kwargs.get(kwarg, None) is not None for kwarg in VARLEN_KWARGS):
+        return _REGISTRY["varlen"].attention
+    elif any(kwargs.get(kwarg, None) is not None for kwarg in XFORMERS_KWARGS):
         return _REGISTRY["xformers"].attention
     elif any(kwargs.get(kwarg, None) is not None for kwarg in FLEX_KWARGS):
         return _REGISTRY["flex"].attention

@@ -53,8 +53,9 @@ def minimum_autocast_precision(
             if not var.dtype.is_floating_point:
                 # Integer / boolean tensors are also not touched
                 return var
-            dtype = max(var.dtype, min_dtype, key=lambda dt: torch.finfo(dt).bits)
-            return var.to(dtype)
+            if torch.finfo(var.dtype).bits >= torch.finfo(min_dtype).bits:
+                return var
+            return var.to(min_dtype)
 
         def _cast_out(var: Any, dtype: torch.dtype):
             """Casts a single output to desired precision."""
