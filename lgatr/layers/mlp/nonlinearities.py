@@ -66,7 +66,7 @@ class ScalarGatedNonlinearity(nn.Module):
             Output scalars with shape (...)
         """
 
-        gates = multivectors[..., [0]]
+        gates = multivectors[..., 0:1]
         outputs_mv = self.gated_nonlinearity(multivectors, gates=gates)
         outputs_s = self.scalar_nonlinearity(scalars) if scalars is not None else None
 
