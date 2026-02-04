@@ -226,14 +226,18 @@ class GatedLinearUnit(nn.Module):
         v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-2)
         s_pre, s_gates = s_full.chunk(2, dim=-1)
 
-        with minimum_autocast_precision(torch.float32):
-            t = v_gates_1[..., 0] * v_gates_2[..., 0]
-            s = (v_gates_1[..., 1:] * v_gates_2[..., 1:]).sum(dim=-1)
-            v_gates = (t - s).unsqueeze(-1)
+        v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
         vectors_out = self.nonlinearity(v_gates) * v_pre
         scalars_out = self.nonlinearity(s_gates) * s_pre
         return vectors_out, scalars_out
+
+    @minimum_autocast_precision(torch.float32)
+    def _get_inner_product(self, v_gates_1, v_gates_2):
+        t = v_gates_1[..., 0] * v_gates_2[..., 0]
+        s = (v_gates_1[..., 1:] * v_gates_2[..., 1:]).sum(dim=-1)
+        v_gates = (t - s).unsqueeze(-1)
+        return v_gates
 
 
 class SelfAttention(nn.Module):
