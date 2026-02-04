@@ -11,16 +11,6 @@ from ..primitives.attention import scaled_dot_product_attention
 from ..utils.misc import minimum_autocast_precision
 
 
-def inner_product(x, y):
-    t = x[..., 0] * y[..., 0]
-    s = (x[..., 1:] * y[..., 1:]).sum(dim=-1)
-    return t - s
-
-
-def squared_norm(x):
-    return inner_product(x, x)
-
-
 def get_nonlinearity(label):
     if label == "relu":
         return nn.ReLU()
@@ -94,14 +84,14 @@ class RMSNorm(nn.Module):
         torch.Tensor, torch.Tensor
             Tensors of the same shape as input representing the normalized vectors and scalars.
         """
-        v_squared_norm = squared_norm(vectors).abs()
+        v_squared_norm = (vectors[..., 0].square() - vectors[..., 1:].square().sum(dim=-1)).abs()
         s_squared_norm = scalars.square()
-        sum_squared_norms = v_squared_norm.sum(dim=-1) + s_squared_norm.sum(dim=-1)
-        mean_squared_norms = sum_squared_norms / (vectors.shape[-2] + scalars.shape[-1])
-        norm = torch.rsqrt(mean_squared_norms + self.epsilon).unsqueeze(-1)
+        squared_norms = torch.cat([v_squared_norm, s_squared_norm], dim=-1)
+        mean_squared_norms = squared_norms.mean(dim=-1)
+        norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
-        vectors_out = vectors * norm.unsqueeze(-1)
-        scalars_out = scalars * norm
+        vectors_out = vectors * norm[..., None, None]
+        scalars_out = scalars * norm[..., None]
         return vectors_out, scalars_out
 
 
@@ -236,7 +226,11 @@ class GatedLinearUnit(nn.Module):
         v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-2)
         s_pre, s_gates = s_full.chunk(2, dim=-1)
 
-        v_gates = inner_product(v_gates_1, v_gates_2).unsqueeze(-1)
+        with minimum_autocast_precision(torch.float32):
+            t = v_gates_1[..., 0] * v_gates_2[..., 0]
+            s = (v_gates_1[..., 1:] * v_gates_2[..., 1:]).sum(dim=-1)
+            v_gates = (t - s).unsqueeze(-1)
+
         vectors_out = self.nonlinearity(v_gates) * v_pre
         scalars_out = self.nonlinearity(s_gates) * s_pre
         return vectors_out, scalars_out
