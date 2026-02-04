@@ -495,6 +495,7 @@ class LGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
         compile: bool = False,
+        compile_mode: str = "default",
     ):
         """
         Parameters
@@ -529,6 +530,8 @@ class LGATrSlim(nn.Module):
             Whether to use gradient checkpointing for blocks, by default False.
         compile : bool, optional
             Whether to compile the model with torch.compile, by default False.
+        compile_mode : str
+            torch.compile compilation mode, see torch docs for more information.
         """
         super().__init__()
 
@@ -568,7 +571,7 @@ class LGATrSlim(nn.Module):
             # ugly hack to make torch.compile convenient for users
             # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
             # note that we need fullgraph=False because of the torch.compiler.disable for attention
-            self.__class__ = torch.compile(self.__class__, dynamic=True, mode="default")
+            self.__class__ = torch.compile(self.__class__, dynamic=True, mode=compile_mode)
 
     def forward(self, vectors, scalars, **attn_kwargs):
         """
