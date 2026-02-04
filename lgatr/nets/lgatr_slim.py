@@ -86,7 +86,8 @@ class RMSNorm(nn.Module):
         """
         v_squared_norm = (vectors[..., 0].square() - vectors[..., 1:].square().sum(dim=-1)).abs()
         s_squared_norm = scalars.square()
-        squared_norms = torch.cat([v_squared_norm, s_squared_norm], dim=-1)
+        total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
+        squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
         mean_squared_norms = squared_norms.mean(dim=-1)
         norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
