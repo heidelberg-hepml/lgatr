@@ -392,7 +392,8 @@ class ConditionalLGATrSlim(nn.Module):
                     vectors_condition=vectors_condition,
                     scalars_condition=scalars_condition,
                     use_reentrant=False,
-                    **attn_kwargs,
+                    attn_kwargs=attn_kwargs,
+                    crossattn_kwargs=crossattn_kwargs,
                 )
             else:
                 h_v, h_s = block(
@@ -400,7 +401,8 @@ class ConditionalLGATrSlim(nn.Module):
                     scalars=h_s,
                     vectors_condition=vectors_condition,
                     scalars_condition=scalars_condition,
-                    **attn_kwargs,
+                    attn_kwargs=attn_kwargs,
+                    crossattn_kwargs=crossattn_kwargs,
                 )
 
         outputs_v, outputs_s = self.linear_out(h_v, h_s)
