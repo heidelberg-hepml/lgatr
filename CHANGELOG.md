@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `compile_mode` argument for `LGATrSlim`
+
 ### Fixed
 
 - Simpler indexing method for the gated nonlinearity to improve memory usage and speed
+- Improve `LGATrSlim` performance with amp
 
 ## [1.4.3] - 27.01.2026
 
