@@ -1,0 +1,225 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.primitives.attention &mdash; L-GATr  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lgatr.primitives.attention</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lgatr.primitives.attention</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Equivariant attention.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">einops</span><span class="w"> </span><span class="kn">import</span> <span class="n">rearrange</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.attention_backends</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_attention_backend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.invariants</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_inner_product_factors</span>
+
+
+<div class="viewcode-block" id="sdp_attention">
+<a class="viewcode-back" href="../../../generated/lgatr.primitives.attention.html#lgatr.primitives.attention.sdp_attention">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sdp_attention</span><span class="p">(</span>
+    <span class="n">q_mv</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">k_mv</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">v_mv</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">q_s</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">k_s</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">v_s</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Equivariant geometric attention based on scaled dot products.</span>
+
+<span class="sd">    Expects both multivector and scalar queries, keys, and values as inputs.</span>
+<span class="sd">    Then this function computes multivector and scalar outputs in the following way:</span>
+
+<span class="sd">    .. code-block::</span>
+
+<span class="sd">        attn_weights[..., i, j] = softmax_j[</span>
+<span class="sd">            ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])</span>
+<span class="sd">            + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])</span>
+<span class="sd">        ]</span>
+<span class="sd">        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm</span>
+<span class="sd">        out_s[..., i, c] = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    q_mv : torch.Tensor</span>
+<span class="sd">        Multivector queries with shape (..., items_out, mv_channels, 16)</span>
+<span class="sd">    k_mv : torch.Tensor</span>
+<span class="sd">        Multivector keys with shape (..., items_out, mv_channels, 16)</span>
+<span class="sd">    v_mv : torch.Tensor</span>
+<span class="sd">        Multivector values with shape (..., items_out, mv_channels, 16)</span>
+<span class="sd">    q_s : torch.Tensor</span>
+<span class="sd">        Scalar queries with shape (..., items_out, s_channels)</span>
+<span class="sd">    k_s : torch.Tensor</span>
+<span class="sd">        Scalar keys with shape (..., items_out, s_channels)</span>
+<span class="sd">    v_s : torch.Tensor</span>
+<span class="sd">        Scalar values with shape (..., items_out, s_channels)</span>
+<span class="sd">    **attn_kwargs</span>
+<span class="sd">        Optional keyword arguments passed to attention.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    outputs_mv : torch.Tensor</span>
+<span class="sd">        Multivector result with shape (..., items_out, mv_channels, 16)</span>
+<span class="sd">    outputs_s : torch.Tensor</span>
+<span class="sd">        Scalar result with shape (..., items_out, s_channels)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Construct queries and keys by concatenating relevant MV components and aux scalars</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">rearrange</span><span class="p">(</span>
+                <span class="n">q_mv</span> <span class="o">*</span> <span class="n">_load_inner_product_factors</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">q_mv</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">q_mv</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+                <span class="s2">&quot;... c x -&gt; ... (c x)&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">q_s</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">rearrange</span><span class="p">(</span><span class="n">k_mv</span><span class="p">,</span> <span class="s2">&quot;... c x -&gt; ... (c x)&quot;</span><span class="p">),</span> <span class="n">k_s</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">num_channels_out</span> <span class="o">=</span> <span class="n">v_mv</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">rearrange</span><span class="p">(</span><span class="n">v_mv</span><span class="p">,</span> <span class="s2">&quot;... c x -&gt; ... (c x)&quot;</span><span class="p">),</span> <span class="n">v_s</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">v_out</span> <span class="o">=</span> <span class="n">scaled_dot_product_attention</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">)</span>
+
+    <span class="n">v_out_mv</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span><span class="n">v_out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="n">num_channels_out</span> <span class="o">*</span> <span class="mi">16</span><span class="p">],</span> <span class="s2">&quot;... (c x) -&gt; ...  c x&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+    <span class="n">v_out_s</span> <span class="o">=</span> <span class="n">v_out</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">num_channels_out</span> <span class="o">*</span> <span class="mi">16</span> <span class="p">:]</span>
+
+    <span class="k">return</span> <span class="n">v_out_mv</span><span class="p">,</span> <span class="n">v_out_s</span></div>
+
+
+
+<div class="viewcode-block" id="scaled_dot_product_attention">
+<a class="viewcode-back" href="../../../generated/lgatr.primitives.attention.html#lgatr.primitives.attention.scaled_dot_product_attention">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scaled_dot_product_attention</span><span class="p">(</span>
+    <span class="n">query</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">key</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute scaled dot-product attention.</span>
+<span class="sd">    The attention backend is determined dynamically</span>
+<span class="sd">    based on the ``attn_kwargs`` provided.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    query : torch.Tensor</span>
+<span class="sd">        Tensor of shape (..., items_out, channels)</span>
+<span class="sd">    key : torch.Tensor</span>
+<span class="sd">        Tensor of shape (..., items_in, channels)</span>
+<span class="sd">    value : torch.Tensor</span>
+<span class="sd">        Tensor of shape (..., items_in, channels)</span>
+<span class="sd">    **attn_kwargs</span>
+<span class="sd">        Optional keyword arguments passed to attention.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    torch.Tensor</span>
+<span class="sd">        Tensor of shape (..., head, item_out, channels)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">attention_backend</span> <span class="o">=</span> <span class="n">get_attention_backend</span><span class="p">(</span><span class="o">**</span><span class="n">attn_kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">attention_backend</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Jonas Spinner.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

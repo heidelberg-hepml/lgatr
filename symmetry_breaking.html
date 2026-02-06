@@ -1,0 +1,197 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lorentz Symmetry Breaking &mdash; L-GATr  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="prev" title="Attention Backends" href="attention_backends.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Lorentz Symmetry Breaking</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Lorentz Symmetry Breaking</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/symmetry_breaking.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="lorentz-symmetry-breaking">
+<h1>Lorentz Symmetry Breaking<a class="headerlink" href="#lorentz-symmetry-breaking" title="Link to this heading"></a></h1>
+<section id="why-lorentz-symmetry-breaking">
+<h2>Why Lorentz Symmetry Breaking?<a class="headerlink" href="#why-lorentz-symmetry-breaking" title="Link to this heading"></a></h2>
+<p>In many LHC contexts, Lorentz symmetry is only partially preserved. If this partial symmetry
+breaking is not accounted for when applying a Lorentz-equivariant architecture, performance
+can degrade significantly. This is because these architectures inherently treat inputs related by
+global Lorentz transformations as equivalent. However, in the presence of symmetry breaking,
+these inputs may carry different physical information. A fully Lorentz-equivariant architecture
+is, by construction, blind to these differences, which can limit its effectiveness.</p>
+<p>In LHC simulations, full Lorentz symmetry is only present in the first steps of the
+simulation workflow, where no detector or reconstruction effects are applied.
+Once detector simulation and reconstruction (e.g. jet algorithms) are applied,
+Lorentz symmetry is typically broken in two ways:</p>
+<ul class="simple">
+<li><p>Several effects break the full Lorentz symmetry <span class="math notranslate nohighlight">\(SO(1,3)\)</span> down to the subgroup
+of rotations <span class="math notranslate nohighlight">\(SO(3)\)</span>. Examples include the detector symmetry, which is not
+invariant under boosts, and jet reconstruction algorithms which typically use
+the transverse momentum <span class="math notranslate nohighlight">\(p_T\)</span>, which is only invariant under <span class="math notranslate nohighlight">\(SO(2)\)</span>
+rotations around the beam axis.</p></li>
+<li><p>The detector geometry singles out the proton beam direction as a preferred spatial axis,
+breaking the <span class="math notranslate nohighlight">\(SO(3)\)</span> rotation symmetry down to <span class="math notranslate nohighlight">\(SO(2)\)</span> rotations around the beam axis.</p></li>
+</ul>
+<p>For these reasons, most problems in LHC physics only have a residual <span class="math notranslate nohighlight">\(SO(2)\)</span> symmetry.</p>
+</section>
+<section id="lorentz-symmetry-breaking-at-the-input-level">
+<h2>Lorentz Symmetry Breaking at the Input Level<a class="headerlink" href="#lorentz-symmetry-breaking-at-the-input-level" title="Link to this heading"></a></h2>
+<p>If most situations only require <span class="math notranslate nohighlight">\(SO(2)\)</span> invariance, why should we care about
+full Lorentz equivariance <span class="math notranslate nohighlight">\(SO(1,3)\)</span> in the first place? Empirically, <span class="math notranslate nohighlight">\(SO(1,3)\)</span>
+equivariant models with symmetry breaking outperform <span class="math notranslate nohighlight">\(SO(2)\)</span>-equivariant models.
+For instance, the ParT and ParticleNet jet taggers are formally <span class="math notranslate nohighlight">\(SO(2)\)</span>-equivariant
+because all their input features are <span class="math notranslate nohighlight">\(SO(2)\)</span>-invariant – but LorentzNet, PELICAN
+and L-GATr still outperform them.</p>
+<p>LorentzNet, PELICAN and L-GATr all break Lorentz symmetry in a tuneable way:
+symmetry-breaking inputs are provided, and the network can decide to use them or not,
+depending on the phase space region. In other words, symmetry breaking happens at the input
+level, while the architecture itself remains fully Lorentz-equivariant.</p>
+<p>We discuss two kinds of symmetry-breaking inputs below.
+They can be used individually or together and also come with internal design choices,
+the exact choice of symmetry breaking is a hyperparameter that has to be tuned for each problem.
+For more details and studies on the impact of Lorentz symmetry breaking,
+see <a class="reference external" href="https://arxiv.org/abs/2411.00446">https://arxiv.org/abs/2411.00446</a>.</p>
+<section id="reference-vectors">
+<h3>Reference Vectors<a class="headerlink" href="#reference-vectors" title="Link to this heading"></a></h3>
+<p>Reference vectors (<code class="docutils literal notranslate"><span class="pre">spurions</span></code> in our code) break Lorentz symmetry
+by providing reference directions that should remain invariant under the unbroken
+symmetry group (typically <span class="math notranslate nohighlight">\(SO(2)\)</span>). They should be regarded as part of the network
+architecture rather than as part of the input data, because they are always appended to
+the input data in the same way. For example, when applying data augmentation, one should
+augment only the input particle data, and not the reference vectors.
+Reference vectors can be included as extra tokens or as extra channels.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> package provides functions to create the most common reference multivectors.
+Note that the beam direction can be either encoded as a vector along the z-axis <span class="math notranslate nohighlight">\((0,0,0,1)\)</span>,
+or as the plane orthogonal to the z-axis, which can be represented as a
+bivector <span class="math notranslate nohighlight">\((0,0,1,0,0,0,)\)</span> in the geometric algebra. Common choices for reference vectors
+that break <span class="math notranslate nohighlight">\(SO(1,3) \to SO(2)\)</span> are</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lgatr</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_spurions</span>
+
+<span class="n">spurions</span> <span class="o">=</span> <span class="n">get_spurions</span><span class="p">(</span><span class="n">beam_spurion</span><span class="o">=</span><span class="s2">&quot;xyplane&quot;</span><span class="p">,</span> <span class="n">add_time_spurion</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">spurions</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (2, 16)</span>
+
+<span class="n">spurions</span> <span class="o">=</span> <span class="n">get_spurions</span><span class="p">(</span><span class="n">beam_spurion</span><span class="o">=</span><span class="s2">&quot;spacelike&quot;</span><span class="p">,</span> <span class="n">add_time_spurion</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">beam_mirror</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">spurions</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (2, 16)</span>
+
+<span class="n">spurions</span> <span class="o">=</span> <span class="n">get_spurions</span><span class="p">(</span><span class="n">beam_spurion</span><span class="o">=</span><span class="s2">&quot;timelike&quot;</span><span class="p">,</span> <span class="n">add_time_spurion</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">beam_mirror</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">spurions</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># (2, 16)</span>
+</pre></div>
+</div>
+</section>
+<section id="non-invariant-scalars">
+<h3>Non-Invariant Scalars<a class="headerlink" href="#non-invariant-scalars" title="Link to this heading"></a></h3>
+<p>Another approach is to include invariants under the unbroken subgroup (typically <span class="math notranslate nohighlight">\(SO(2)\)</span>)
+as <cite>scalar</cite> input features under the full Lorentz group.
+For example, one can embed <span class="math notranslate nohighlight">\(E\)</span> (invariant under <span class="math notranslate nohighlight">\(SO(3)\)</span>), <span class="math notranslate nohighlight">\(p_T\)</span>
+(only invariant under <span class="math notranslate nohighlight">\(SO(2)\)</span>) or <span class="math notranslate nohighlight">\(\Delta R\)</span> (invariant under <span class="math notranslate nohighlight">\(SO(2)\)</span>)
+as a scalar input feature in L-GATr. The Lorentz-equivariant architecture treats
+these inputs as scalars by construction, leading to Lorentz symmetry breaking.</p>
+<p>Implementing this approach is straightforward, just construct the unbroken-subgroup-invariant
+feature and pass it as a scalar input to the model.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="attention_backends.html" class="btn btn-neutral float-left" title="Attention Backends" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Jonas Spinner.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

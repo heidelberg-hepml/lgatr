@@ -1,0 +1,260 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.layers.attention.self_attention &mdash; L-GATr  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lgatr.layers.attention.self_attention</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lgatr.layers.attention.self_attention</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;L-GATr self-attention.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">einops</span><span class="w"> </span><span class="kn">import</span> <span class="n">rearrange</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..dropout</span><span class="w"> </span><span class="kn">import</span> <span class="n">GradeDropout</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..linear</span><span class="w"> </span><span class="kn">import</span> <span class="n">EquiLinear</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.attention</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeometricAttention</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelfAttentionConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.qkv</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiQueryQKVModule</span><span class="p">,</span> <span class="n">QKVModule</span>
+
+
+<div class="viewcode-block" id="SelfAttention">
+<a class="viewcode-back" href="../../../../generated/lgatr.layers.attention.self_attention.SelfAttention.html#lgatr.layers.attention.self_attention.SelfAttention">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SelfAttention</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;L-GATr self-attention.</span>
+
+<span class="sd">    Constructs queries, keys, and values, computes attention, and projects linearly to outputs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config : SelfAttentionConfig</span>
+<span class="sd">        Attention configuration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SelfAttentionConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Store settings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+
+        <span class="c1"># QKV computation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qkv_module</span> <span class="o">=</span> <span class="n">MultiQueryQKVModule</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">multi_query</span> <span class="k">else</span> <span class="n">QKVModule</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Output projection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_linear</span> <span class="o">=</span> <span class="n">EquiLinear</span><span class="p">(</span>
+            <span class="n">in_mv_channels</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">hidden_mv_channels</span> <span class="o">*</span> <span class="n">config</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span>
+            <span class="n">out_mv_channels</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">out_mv_channels</span><span class="p">,</span>
+            <span class="n">in_s_channels</span><span class="o">=</span><span class="p">(</span>
+                <span class="kc">None</span>
+                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">in_s_channels</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="n">config</span><span class="o">.</span><span class="n">hidden_s_channels</span> <span class="o">*</span> <span class="n">config</span><span class="o">.</span><span class="n">num_heads</span>
+            <span class="p">),</span>
+            <span class="n">out_s_channels</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">out_s_channels</span><span class="p">,</span>
+            <span class="n">initialization</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">output_init</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Attention</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attention</span> <span class="o">=</span> <span class="n">GeometricAttention</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Dropout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">GradeDropout</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dropout_prob</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># HeadScaleMHA</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_head_scale</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">head_scale</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_head_scale</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">head_scale</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">num_heads</span><span class="p">))</span>
+
+<div class="viewcode-block" id="SelfAttention.forward">
+<a class="viewcode-back" href="../../../../generated/lgatr.layers.attention.self_attention.SelfAttention.html#lgatr.layers.attention.self_attention.SelfAttention.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">multivectors</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">additional_qk_features_mv</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">scalars</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">additional_qk_features_s</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes self-attention.</span>
+
+<span class="sd">        The result is the following:</span>
+
+<span class="sd">        .. code-block::</span>
+
+<span class="sd">            # For each head</span>
+<span class="sd">            queries = linear_channels(inputs)</span>
+<span class="sd">            keys = linear_channels(inputs)</span>
+<span class="sd">            values = linear_channels(inputs)</span>
+<span class="sd">            hidden = attention_items(queries, keys, values, biases=biases)</span>
+<span class="sd">            head_output = linear_channels(hidden)</span>
+
+<span class="sd">            # Combine results</span>
+<span class="sd">            output = concatenate_heads head_output</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        multivectors : torch.Tensor</span>
+<span class="sd">            Input multivectors with shape (..., items, mv_channels, 16).</span>
+<span class="sd">        additional_qk_features_mv : None or torch.Tensor</span>
+<span class="sd">            Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16)</span>
+<span class="sd">        scalars : None or torch.Tensor</span>
+<span class="sd">            Optional input scalars with shape (..., items, num_items, s_channels)</span>
+<span class="sd">        additional_qk_features_s : None or torch.Tensor</span>
+<span class="sd">            Additional scalar Q/K features with shape (..., items, add_qk_mv_channels, 16)</span>
+<span class="sd">        scalars : None or torch.Tensor</span>
+<span class="sd">            Optional input scalars with shape (..., items, s_channels).</span>
+<span class="sd">        **attn_kwargs</span>
+<span class="sd">            Optional keyword arguments passed to attention.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        outputs_mv : torch.Tensor</span>
+<span class="sd">            Output multivectors with shape (..., items, mv_channels, 16).</span>
+<span class="sd">        output_scalars : torch.Tensor</span>
+<span class="sd">            Output scalars with shape (..., items, s_channels).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Compute Q, K, V</span>
+        <span class="n">q_mv</span><span class="p">,</span> <span class="n">k_mv</span><span class="p">,</span> <span class="n">v_mv</span><span class="p">,</span> <span class="n">q_s</span><span class="p">,</span> <span class="n">k_s</span><span class="p">,</span> <span class="n">v_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qkv_module</span><span class="p">(</span>
+            <span class="n">multivectors</span><span class="p">,</span> <span class="n">scalars</span><span class="p">,</span> <span class="n">additional_qk_features_mv</span><span class="p">,</span> <span class="n">additional_qk_features_s</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Attention layer</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attention</span><span class="p">(</span>
+            <span class="n">q_mv</span><span class="p">,</span>
+            <span class="n">k_mv</span><span class="p">,</span>
+            <span class="n">v_mv</span><span class="p">,</span>
+            <span class="n">q_s</span><span class="p">,</span>
+            <span class="n">k_s</span><span class="p">,</span>
+            <span class="n">v_s</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_head_scale</span><span class="p">:</span>
+            <span class="n">h_mv</span> <span class="o">=</span> <span class="n">h_mv</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">h_mv</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">5</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">head_scale</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+            <span class="p">)</span>
+            <span class="n">h_s</span> <span class="o">=</span> <span class="n">h_s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">h_s</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">head_scale</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">h_mv</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span>
+            <span class="n">h_mv</span><span class="p">,</span>
+            <span class="s2">&quot;... n_heads n_items hidden_channels x -&gt; ... n_items (n_heads hidden_channels) x&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">h_s</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span>
+            <span class="n">h_s</span><span class="p">,</span>
+            <span class="s2">&quot;... n_heads n_items hidden_channels -&gt; ... n_items (n_heads hidden_channels)&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Transform linearly one more time</span>
+        <span class="n">outputs_mv</span><span class="p">,</span> <span class="n">outputs_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_linear</span><span class="p">(</span><span class="n">h_mv</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">h_s</span><span class="p">)</span>
+
+        <span class="c1"># Dropout</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">outputs_mv</span><span class="p">,</span> <span class="n">outputs_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">outputs_mv</span><span class="p">,</span> <span class="n">outputs_s</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">outputs_mv</span><span class="p">,</span> <span class="n">outputs_s</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Jonas Spinner.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

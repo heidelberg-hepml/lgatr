@@ -1,0 +1,8 @@
+﻿lgatr.nets.lgatr_slim.SelfAttention
+===================================
+
+.. autoclass:: lgatr.nets.lgatr_slim.SelfAttention
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

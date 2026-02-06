@@ -1,0 +1,8 @@
+﻿lgatr.nets.lgatr_slim.Dropout
+=============================
+
+.. autoclass:: lgatr.nets.lgatr_slim.Dropout
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:
