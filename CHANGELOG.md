@@ -14,7 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Simpler indexing method for the gated nonlinearity to improve memory usage and speed
+- Correct attention keywords in `ConditionalLGATrSlim`
 - Improve `LGATrSlim` performance with amp
+
+### Added
+
+- Import `LGATrSlim` and `ConditionalLGATrSlim` from `lgatr.nets`
 
 ## [1.4.3] - 27.01.2026
 
