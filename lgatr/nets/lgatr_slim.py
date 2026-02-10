@@ -297,7 +297,7 @@ class SelfAttention(nn.Module):
         q_v, k_v, v_v = qkv_v.unbind(0)
         q_s, k_s, v_s = qkv_s.unbind(0)
 
-        q_v_mod = q_v * self.metric
+        q_v_mod = q_v * self.metric.to(q_v.dtype)
         q = torch.cat([q_v_mod.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
