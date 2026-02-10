@@ -313,6 +313,7 @@ class SelfAttention(nn.Module):
         h_s = h_s.movedim(-2, -3).flatten(-2, -1)
         return h_v, h_s
 
+    @minimum_autocast_precision(torch.float32)
     def _call_attention(self, *args, **kwargs):
         return scaled_dot_product_attention(*args, **kwargs)
 
