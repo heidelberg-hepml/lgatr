@@ -313,6 +313,9 @@ class SelfAttention(nn.Module):
         h_s = h_s.movedim(-2, -3).flatten(-2, -1)
         return h_v, h_s
 
+    def _call_attention(self, *args, **kwargs):
+        return scaled_dot_product_attention(*args, **kwargs)
+
     def forward(self, vectors, scalars, **attn_kwargs):
         """
         Parameters
@@ -332,7 +335,7 @@ class SelfAttention(nn.Module):
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
 
         q, k, v = self._pre_reshape(qkv_v, qkv_s)
-        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
+        out = self._call_attention(q, k, v, **attn_kwargs)
         h_v, h_s = self._post_reshape(out)
 
         out_v, out_s = self.linear_out(h_v, h_s)
