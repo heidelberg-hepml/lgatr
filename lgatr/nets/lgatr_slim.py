@@ -26,6 +26,20 @@ def get_nonlinearity(label):
         raise ValueError(f"Unsupported nonlinearity type: {label}")
 
 
+def _post_attention_reshape(out, hidden_v_channels):
+    h_v = out[..., : hidden_v_channels * 4].reshape(*out.shape[:-1], hidden_v_channels, 4)
+    h_s = out[..., hidden_v_channels * 4 :]
+
+    h_v = h_v.movedim(-3, -4).flatten(-3, -2)
+    h_s = h_s.movedim(-2, -3).flatten(-2, -1)
+    return h_v, h_s
+
+
+@minimum_autocast_precision(torch.float32)
+def _call_attention(*args, **kwargs):
+    return scaled_dot_product_attention(*args, **kwargs)
+
+
 class Dropout(nn.Module):
     """Dropout module for scalar and vector features.
 
@@ -279,7 +293,7 @@ class SelfAttention(nn.Module):
         else:
             self.dropout = None
 
-    def _pre_reshape(self, qkv_v, qkv_s):
+    def _pre_attention_reshape(self, qkv_v, qkv_s):
         qkv_v = (
             qkv_v.unflatten(-2, (3, self.hidden_v_channels, self.num_heads))
             .movedim(-4, 0)
@@ -303,20 +317,6 @@ class SelfAttention(nn.Module):
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
         return q, k, v
 
-    def _post_reshape(self, out):
-        h_v = out[..., : self.hidden_v_channels * 4].reshape(
-            *out.shape[:-1], self.hidden_v_channels, 4
-        )
-        h_s = out[..., self.hidden_v_channels * 4 :]
-
-        h_v = h_v.movedim(-3, -4).flatten(-3, -2)
-        h_s = h_s.movedim(-2, -3).flatten(-2, -1)
-        return h_v, h_s
-
-    @minimum_autocast_precision(torch.float32)
-    def _call_attention(self, *args, **kwargs):
-        return scaled_dot_product_attention(*args, **kwargs)
-
     def forward(self, vectors, scalars, **attn_kwargs):
         """
         Parameters
@@ -335,9 +335,9 @@ class SelfAttention(nn.Module):
         """
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
 
-        q, k, v = self._pre_reshape(qkv_v, qkv_s)
-        out = self._call_attention(q, k, v, **attn_kwargs)
-        h_v, h_s = self._post_reshape(out)
+        q, k, v = self._pre_attention_reshape(qkv_v, qkv_s)
+        out = _call_attention(q, k, v, **attn_kwargs)
+        h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
         out_v, out_s = self.linear_out(h_v, h_s)
 
@@ -577,7 +577,6 @@ class LGATrSlim(nn.Module):
         )
         self._checkpoint_blocks = checkpoint_blocks
 
-        self.compile = compile
         if compile:
             # ugly hack to make torch.compile convenient for users
             # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
