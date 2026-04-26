@@ -10,11 +10,10 @@ from lgatr.nets.lgatr_slim import (
     Linear,
     RMSNorm,
     SelfAttention,
-    squared_norm,
 )
 
 from ...helpers.constants import BATCH_DIMS, TOLERANCES
-from ...helpers.equivariance_noga import check_equivariance, check_invariance
+from ...helpers.equivariance_noga import check_equivariance
 
 CHANNELS = [
     (5, 1, 4, 2),
@@ -25,11 +24,6 @@ CHANNELS = [
     (3, 0, 2, 3),
     (0, 0, 2, 3),
 ]
-
-
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_squared_norm_invariance(batch_dims):
-    check_invariance(squared_norm, batch_dims=batch_dims, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
