@@ -504,6 +504,7 @@ class LGATrSlim(nn.Module):
         checkpoint_blocks: bool = False,
         compile: bool = False,
         compile_mode: str = "default",
+        compile_dynamic: bool = True,
     ):
         """
         Parameters
@@ -540,6 +541,8 @@ class LGATrSlim(nn.Module):
             Whether to compile the model with torch.compile, by default False.
         compile_mode : str
             torch.compile compilation mode, see torch docs for more information.
+        compile_dynamic : bool
+            Whether to use dynamic shapes with torch.compile, by default True.
         """
         super().__init__()
 
@@ -579,7 +582,9 @@ class LGATrSlim(nn.Module):
             # ugly hack to make torch.compile convenient for users
             # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
             # note that we need fullgraph=False because of the torch.compiler.disable for attention
-            self.__class__ = torch.compile(self.__class__, dynamic=True, mode=compile_mode)
+            self.__class__ = torch.compile(
+                self.__class__, dynamic=compile_dynamic, mode=compile_mode
+            )
 
     def forward(self, vectors, scalars, **attn_kwargs):
         """
