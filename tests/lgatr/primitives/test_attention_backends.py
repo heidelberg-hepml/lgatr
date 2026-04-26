@@ -73,6 +73,7 @@ def test_xformers_backend_selection(shape):
 
 @pytest.mark.skipif(not _flex_available, reason="flex requires torch>=2.7")
 @pytest.mark.parametrize("shape", SHAPES)
+@torch.no_grad()
 def test_flex_backend_selection(shape):
     from lgatr.primitives.attention_backends.flex import attention
 
