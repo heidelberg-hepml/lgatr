@@ -5,18 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.4] - 06.02.2026
+## [1.4.4] - 27.04.2026
 
 ### Added
 
-- `compile_mode` argument for `LGATrSlim`
+- `compile_mode` and `compile_dynamic` argument for `LGATrSlim`
 
 ### Fixed
 
 - Simpler indexing method for the gated nonlinearity to improve memory usage and speed
 - Correct attention keywords in `ConditionalLGATrSlim`
 - Import `LGATrSlim` and `ConditionalLGATrSlim` from `lgatr.nets`
-- Improve `LGATrSlim` performance with amp
+- Improve `LGATrSlim`/`ConditionalLGATrSlim` amp handling
 
 ## [1.4.3] - 27.01.2026
 
