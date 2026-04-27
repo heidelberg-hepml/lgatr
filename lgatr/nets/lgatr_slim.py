@@ -11,16 +11,6 @@ from ..primitives.attention import scaled_dot_product_attention
 from ..utils.misc import minimum_autocast_precision
 
 
-def inner_product(x, y):
-    t = x[..., 0] * y[..., 0]
-    s = (x[..., 1:] * y[..., 1:]).sum(dim=-1)
-    return t - s
-
-
-def squared_norm(x):
-    return inner_product(x, x)
-
-
 def get_nonlinearity(label):
     if label == "relu":
         return nn.ReLU()
@@ -34,6 +24,20 @@ def get_nonlinearity(label):
         return nn.SiLU()
     else:
         raise ValueError(f"Unsupported nonlinearity type: {label}")
+
+
+def _post_attention_reshape(out, hidden_v_channels):
+    h_v = out[..., : hidden_v_channels * 4].reshape(*out.shape[:-1], hidden_v_channels, 4)
+    h_s = out[..., hidden_v_channels * 4 :]
+
+    h_v = h_v.movedim(-3, -4).flatten(-3, -2)
+    h_s = h_s.movedim(-2, -3).flatten(-2, -1)
+    return h_v, h_s
+
+
+@minimum_autocast_precision(torch.float32)
+def _call_attention(*args, **kwargs):
+    return scaled_dot_product_attention(*args, **kwargs)
 
 
 class Dropout(nn.Module):
@@ -94,14 +98,14 @@ class RMSNorm(nn.Module):
         torch.Tensor, torch.Tensor
             Tensors of the same shape as input representing the normalized vectors and scalars.
         """
-        v_squared_norm = squared_norm(vectors).abs()
+        v_squared_norm = (vectors[..., 0].square() - vectors[..., 1:].square().sum(dim=-1)).abs()
         s_squared_norm = scalars.square()
-        sum_squared_norms = v_squared_norm.sum(dim=-1) + s_squared_norm.sum(dim=-1)
-        mean_squared_norms = sum_squared_norms / (vectors.shape[-2] + scalars.shape[-1])
-        norm = torch.rsqrt(mean_squared_norms + self.epsilon).unsqueeze(-1)
+        total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
+        mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
+        norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
-        vectors_out = vectors * norm.unsqueeze(-1)
-        scalars_out = scalars * norm
+        vectors_out = vectors * norm[..., None, None]
+        scalars_out = scalars * norm[..., None]
         return vectors_out, scalars_out
 
 
@@ -236,10 +240,18 @@ class GatedLinearUnit(nn.Module):
         v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-2)
         s_pre, s_gates = s_full.chunk(2, dim=-1)
 
-        v_gates = inner_product(v_gates_1, v_gates_2).unsqueeze(-1)
+        v_gates = self._get_inner_product(v_gates_1, v_gates_2)
+
         vectors_out = self.nonlinearity(v_gates) * v_pre
         scalars_out = self.nonlinearity(s_gates) * s_pre
         return vectors_out, scalars_out
+
+    @minimum_autocast_precision(torch.float32)
+    def _get_inner_product(self, v_gates_1, v_gates_2):
+        t = v_gates_1[..., 0] * v_gates_2[..., 0]
+        s = (v_gates_1[..., 1:] * v_gates_2[..., 1:]).sum(dim=-1)
+        v_gates = (t - s).unsqueeze(-1)
+        return v_gates
 
 
 class SelfAttention(nn.Module):
@@ -281,7 +293,7 @@ class SelfAttention(nn.Module):
         else:
             self.dropout = None
 
-    def _pre_reshape(self, qkv_v, qkv_s):
+    def _pre_attention_reshape(self, qkv_v, qkv_s):
         qkv_v = (
             qkv_v.unflatten(-2, (3, self.hidden_v_channels, self.num_heads))
             .movedim(-4, 0)
@@ -299,21 +311,11 @@ class SelfAttention(nn.Module):
         q_v, k_v, v_v = qkv_v.unbind(0)
         q_s, k_s, v_s = qkv_s.unbind(0)
 
-        q_v_mod = q_v * self.metric
+        q_v_mod = q_v * self.metric.to(q_v.dtype)
         q = torch.cat([q_v_mod.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
         return q, k, v
-
-    def _post_reshape(self, out):
-        h_v = out[..., : self.hidden_v_channels * 4].reshape(
-            *out.shape[:-1], self.hidden_v_channels, 4
-        )
-        h_s = out[..., self.hidden_v_channels * 4 :]
-
-        h_v = h_v.movedim(-3, -4).flatten(-3, -2)
-        h_s = h_s.movedim(-2, -3).flatten(-2, -1)
-        return h_v, h_s
 
     def forward(self, vectors, scalars, **attn_kwargs):
         """
@@ -333,9 +335,9 @@ class SelfAttention(nn.Module):
         """
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
 
-        q, k, v = self._pre_reshape(qkv_v, qkv_s)
-        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
-        h_v, h_s = self._post_reshape(out)
+        q, k, v = self._pre_attention_reshape(qkv_v, qkv_s)
+        out = _call_attention(q, k, v, **attn_kwargs)
+        h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
         out_v, out_s = self.linear_out(h_v, h_s)
 
@@ -501,6 +503,8 @@ class LGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
         compile: bool = False,
+        compile_mode: str = "default",
+        compile_dynamic: bool = True,
     ):
         """
         Parameters
@@ -535,6 +539,10 @@ class LGATrSlim(nn.Module):
             Whether to use gradient checkpointing for blocks, by default False.
         compile : bool, optional
             Whether to compile the model with torch.compile, by default False.
+        compile_mode : str
+            torch.compile compilation mode, see torch docs for more information.
+        compile_dynamic : bool
+            Whether to use dynamic shapes with torch.compile, by default True.
         """
         super().__init__()
 
@@ -569,12 +577,13 @@ class LGATrSlim(nn.Module):
         )
         self._checkpoint_blocks = checkpoint_blocks
 
-        self.compile = compile
         if compile:
             # ugly hack to make torch.compile convenient for users
             # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
             # note that we need fullgraph=False because of the torch.compiler.disable for attention
-            self.__class__ = torch.compile(self.__class__, dynamic=True, mode="default")
+            self.__class__ = torch.compile(
+                self.__class__, dynamic=compile_dynamic, mode=compile_mode
+            )
 
     def forward(self, vectors, scalars, **attn_kwargs):
         """

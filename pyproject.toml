@@ -29,6 +29,7 @@ dev = [
     # unit tests
     "pytest",
     "pytest-cov",
+    "pre-commit",
     "clifford>=1.5.0", # for lgatr equivariance tests
     "lloca", # for lgatr_slim equivariance tests
     # docs
