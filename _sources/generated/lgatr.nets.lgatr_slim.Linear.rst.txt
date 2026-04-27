@@ -1,0 +1,8 @@
+﻿lgatr.nets.lgatr_slim.Linear
+============================
+
+.. autoclass:: lgatr.nets.lgatr_slim.Linear
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

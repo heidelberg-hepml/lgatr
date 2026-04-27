@@ -1,0 +1,196 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock &mdash; L-GATr  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="lgatr.layers.linear.EquiLinear" href="lgatr.layers.linear.EquiLinear.html" />
+    <link rel="prev" title="lgatr.layers.lgatr_block.LGATrBlock" href="lgatr.layers.lgatr_block.LGATrBlock.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-networks">L-GATr Networks</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../api.html#l-gatr-layers">L-GATr Layers</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.lgatr_block.LGATrBlock.html">lgatr.layers.lgatr_block.LGATrBlock</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock"><code class="docutils literal notranslate"><span class="pre">ConditionalLGATrBlock</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.linear.EquiLinear.html">lgatr.layers.linear.EquiLinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.attention.self_attention.SelfAttention.html">lgatr.layers.attention.self_attention.SelfAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.attention.cross_attention.CrossAttention.html">lgatr.layers.attention.cross_attention.CrossAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.mlp.mlp.GeoMLP.html">lgatr.layers.mlp.mlp.GeoMLP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.mlp.geometric_bilinears.GeometricBilinear.html">lgatr.layers.mlp.geometric_bilinears.GeometricBilinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity.html">lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.layer_norm.EquiLayerNorm.html">lgatr.layers.layer_norm.EquiLayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.layers.dropout.GradeDropout.html">lgatr.layers.dropout.GradeDropout</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-primitives">L-GATr Primitives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-configuration-classes">L-GATr Configuration Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#interface-to-the-geometric-algebra">Interface to the Geometric Algebra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-slim-layers">L-GATr-slim Layers</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">API Reference</a></li>
+      <li class="breadcrumb-item active">lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/generated/lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="lgatr-layers-conditional-lgatr-block-conditionallgatrblock">
+<h1>lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock<a class="headerlink" href="#lgatr-layers-conditional-lgatr-block-conditionallgatrblock" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lgatr.layers.conditional_lgatr_block.</span></span><span class="sig-name descname"><span class="pre">ConditionalLGATrBlock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mv_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">condition_mv_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">condition_s_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attention</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossattention</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mlp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout_prob</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/layers/conditional_lgatr_block.html#ConditionalLGATrBlock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>L-GATr decoder block.</p>
+<p>Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
+self-attention, and a residual connection. Then the conditions are included with
+cross-attention using the same overhead as in the self-attention part.
+Then the data is processed by a block consisting of another LayerNorm,
+an item-wise two-layer geometric MLP with GeLU activations, and another
+residual connection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mv_channels</strong> (<em>int</em>) – Number of input and output multivector channels</p></li>
+<li><p><strong>s_channels</strong> (<em>int</em>) – Number of input and output scalar channels</p></li>
+<li><p><strong>condition_mv_channels</strong> (<em>int</em>) – Number of condition multivector channels</p></li>
+<li><p><strong>condition_s_channels</strong> (<em>int</em>) – Number of condition scalar channels</p></li>
+<li><p><strong>attention</strong> (<a class="reference internal" href="lgatr.layers.attention.config.SelfAttentionConfig.html#lgatr.layers.attention.config.SelfAttentionConfig" title="lgatr.layers.attention.config.SelfAttentionConfig"><em>SelfAttentionConfig</em></a>) – Attention configuration</p></li>
+<li><p><strong>crossattention</strong> (<a class="reference internal" href="lgatr.layers.attention.config.CrossAttentionConfig.html#lgatr.layers.attention.config.CrossAttentionConfig" title="lgatr.layers.attention.config.CrossAttentionConfig"><em>CrossAttentionConfig</em></a>) – Cross-attention configuration</p></li>
+<li><p><strong>mlp</strong> (<a class="reference internal" href="lgatr.layers.mlp.config.MLPConfig.html#lgatr.layers.mlp.config.MLPConfig" title="lgatr.layers.mlp.config.MLPConfig"><em>MLPConfig</em></a>) – MLP configuration</p></li>
+<li><p><strong>dropout_prob</strong> (<em>float</em><em> or </em><em>None</em>) – Dropout probability</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">multivectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">multivectors_condition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalars_condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossattn_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/layers/conditional_lgatr_block.html#ConditionalLGATrBlock.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass of the transformer decoder block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>multivectors</strong> (<em>torch.Tensor</em>) – Input multivectors  with shape (…, items, mv_channels, 16).</p></li>
+<li><p><strong>scalars</strong> (<em>torch.Tensor</em>) – Input scalars with shape (…, items, s_channels).</p></li>
+<li><p><strong>multivectors_condition</strong> (<em>torch.Tensor</em>) – Input condition multivectors with shape (…, items, mv_channels, 16).</p></li>
+<li><p><strong>scalars_condition</strong> (<em>torch.Tensor</em>) – Input condition scalars with shape (…, items, s_channels).</p></li>
+<li><p><strong>attn_kwargs</strong> (<em>None</em><em> or </em><em>torch.Tensor</em><em> or </em><em>AttentionBias</em>) – Optional attention mask.</p></li>
+<li><p><strong>crossattn_kwargs</strong> (<em>None</em><em> or </em><em>torch.Tensor</em><em> or </em><em>AttentionBias</em>) – Optional attention mask for the condition.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>outputs_mv</strong> (<em>torch.Tensor</em>) – Output multivectors with shape (…, items, mv_channels, 16).</p></li>
+<li><p><strong>output_scalars</strong> (<em>torch.Tensor</em>) – Output scalars with shape (…, items, s_channels).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="lgatr.layers.lgatr_block.LGATrBlock.html" class="btn btn-neutral float-left" title="lgatr.layers.lgatr_block.LGATrBlock" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="lgatr.layers.linear.EquiLinear.html" class="btn btn-neutral float-right" title="lgatr.layers.linear.EquiLinear" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Jonas Spinner.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

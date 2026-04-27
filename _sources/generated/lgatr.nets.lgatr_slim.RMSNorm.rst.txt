@@ -1,0 +1,8 @@
+﻿lgatr.nets.lgatr_slim.RMSNorm
+=============================
+
+.. autoclass:: lgatr.nets.lgatr_slim.RMSNorm
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:
