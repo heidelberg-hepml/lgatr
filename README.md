@@ -59,6 +59,8 @@ Overview of features in L-GATr:
 - https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](arxiv.org/abs/2510.19906))
 - https://github.com/gregorkrz/jetcluster: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
+- https://github.com/gregorkrz/jetclustering: Jet clustering with IRC-safety via a penalty loss term, using a L-GATr backbone.
+- https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
