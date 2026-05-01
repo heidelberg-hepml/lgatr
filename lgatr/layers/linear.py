@@ -52,10 +52,10 @@ class EquiLinear(nn.Module):
         Output multivector channels
     bias : bool
         Whether a bias term is added to the scalar component of the multivector outputs
-    in_s_channels : int or None
-        Input scalar channels. If None, no scalars are expected nor returned.
-    out_s_channels : int or None
-        Output scalar channels. If None, no scalars are expected nor returned.
+    in_s_channels : int
+        Input scalar channels. Use 0 for no scalar inputs.
+    out_s_channels : int
+        Output scalar channels. Use 0 for no scalar outputs.
     initialization : {"default", "small", "unit_scalar", "almost_unit_scalar"}
             Initialization scheme, see ``EquiLinear`` description for more information.
     """
@@ -64,8 +64,8 @@ class EquiLinear(nn.Module):
         self,
         in_mv_channels: int,
         out_mv_channels: int,
-        in_s_channels: int | None = None,
-        out_s_channels: int | None = None,
+        in_s_channels: int = 0,
+        out_s_channels: int = 0,
         bias: bool = True,
         initialization: str = "default",
     ) -> None:
@@ -74,7 +74,7 @@ class EquiLinear(nn.Module):
         # Check inputs
         if initialization in ["unit_scalar", "almost_unit_scalar"]:
             assert bias, "unit_scalar and almost_unit_scalar initialization requires bias"
-            if in_s_channels is None:
+            if in_s_channels == 0:
                 raise NotImplementedError(
                     "unit_scalar and almost_unit_scalar initialization is currently only implemented for scalar inputs"
                 )
@@ -99,9 +99,7 @@ class EquiLinear(nn.Module):
         # We only need a separate bias here if that isn't already covered by the linear map from
         # scalar inputs
         self.bias = (
-            nn.Parameter(torch.zeros((out_mv_channels, 1)))
-            if bias and in_s_channels is None
-            else None
+            nn.Parameter(torch.zeros((out_mv_channels, 1))) if bias and in_s_channels == 0 else None
         )
 
         # Scalars -> MV scalars
@@ -119,7 +117,7 @@ class EquiLinear(nn.Module):
             self.mvs2s = None
 
         # Scalars -> scalars
-        if in_s_channels is not None and out_s_channels is not None:
+        if in_s_channels and out_s_channels:
             self.s2s = nn.Linear(
                 in_s_channels, out_s_channels, bias=False
             )  # Bias would be duplicate

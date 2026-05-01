@@ -80,3 +80,13 @@ def test_dropout_equivariance(p, batch_dims):
     layer.eval()
     s = torch.randn(*batch_dims)
     check_pin_equivariance(layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+
+
+def test_dropout_none_scalars():
+    """Tests that GradeDropout propagates scalars=None."""
+    layer = GradeDropout(p=0.2)
+    layer.train()
+    mv = torch.randn(10, 16)
+    out_mv, out_s = layer(mv, None)
+    assert out_mv.shape == mv.shape
+    assert out_s is None

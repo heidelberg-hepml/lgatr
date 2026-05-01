@@ -33,14 +33,14 @@ class ConditionalLGATr(nn.Module):
         Number of output multivector channels.
     hidden_mv_channels : int
         Number of hidden multivector channels.
-    in_s_channels : None or int
-        If not None, sets the number of scalar input channels.
-    condition_s_channels : None or int
-        If not None, sets the number of scalar condition channels.
-    out_s_channels : None or int
-        If not None, sets the number of scalar output channels.
-    hidden_s_channels : None or int
-        If not None, sets the number of scalar hidden channels.
+    in_s_channels : int
+        Number of scalar input channels. Use 0 for no scalar inputs.
+    condition_s_channels : int
+        Number of scalar condition channels. Use 0 for no scalar condition stream.
+    out_s_channels : int
+        Number of scalar output channels. Use 0 for no scalar outputs.
+    hidden_s_channels : int
+        Number of scalar hidden channels. Use 0 for no scalar stream in the hidden layers.
     attention: Dict
         Data for SelfAttentionConfig.
     crossattention: Dict
@@ -60,10 +60,10 @@ class ConditionalLGATr(nn.Module):
         condition_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
-        in_s_channels: int | None,
-        condition_s_channels: int | None,
-        out_s_channels: int | None,
-        hidden_s_channels: int | None,
+        in_s_channels: int,
+        condition_s_channels: int,
+        out_s_channels: int,
+        hidden_s_channels: int,
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
@@ -137,7 +137,7 @@ class ConditionalLGATr(nn.Module):
         outputs_mv : torch.Tensor
             Output multivectors  with shape (..., items, out_mv_channels, 16).
         outputs_s : None or torch.Tensor
-            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=None.
+            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=0.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}

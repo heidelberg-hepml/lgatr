@@ -7,7 +7,7 @@ from lgatr.nets import LGATr
 from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
-S_CHANNELS = [(None, None, 7), (4, 5, 6)]
+S_CHANNELS = [(0, 0, 7), (0, 0, 0), (4, 5, 6)]
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -40,7 +40,7 @@ def test_lgatr_shape(
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
+    scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
 
     try:
         net = LGATr(
@@ -66,7 +66,7 @@ def test_lgatr_shape(
     outputs, output_scalars = net(inputs, scalars=scalars)
 
     assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
-    if in_s_channels is not None:
+    if out_s_channels:
         assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
 
     # restore defaults
@@ -113,7 +113,7 @@ def test_lgatr_equivariance(
         # Some features require scalar inputs, and failing without them is fine
         return
 
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
+    scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
     data_dims = tuple(list(batch_dims) + [num_items, in_mv_channels])
     check_pin_equivariance(
         net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES

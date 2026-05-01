@@ -9,7 +9,7 @@ from lgatr.layers import (
 )
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
-S_CHANNELS = [(3, 5), (2, 2)]
+S_CHANNELS = [(3, 5), (2, 2), (0, 0)]
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -33,12 +33,12 @@ def test_conditional_gatr_block_shape(
 ):
     """Tests the output shape of ConditionalLGATrBlock."""
     inputs = torch.randn(*batch_dims, num_items, mv_channels, 16)
-    scalars = None if s_channels is None else torch.randn(*batch_dims, num_items, s_channels)
+    scalars = torch.randn(*batch_dims, num_items, s_channels) if s_channels else None
     condition_mv = torch.randn(*batch_dims, num_items_condition, mv_channels_condition, 16)
     condition_s = (
-        None
-        if s_channels is None
-        else torch.randn(*batch_dims, num_items_condition, s_channels_condition)
+        torch.randn(*batch_dims, num_items_condition, s_channels_condition)
+        if s_channels_condition
+        else None
     )
 
     try:
@@ -70,7 +70,7 @@ def test_conditional_gatr_block_shape(
     )
 
     assert outputs.shape == (*batch_dims, num_items, mv_channels, 16)
-    if s_channels is not None:
+    if s_channels:
         assert output_scalars.shape == (*batch_dims, num_items, s_channels)
 
 
@@ -129,3 +129,18 @@ def test_conditional_gatr_block_equivariance(
         fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
         **MILD_TOLERANCES,
     )
+
+
+def test_conditional_lgatr_block_none_scalars_at_runtime():
+    """Tests ConditionalLGATrBlock accepts scalars=None and scalars_condition=None."""
+    net = ConditionalLGATrBlock(
+        mv_channels=4,
+        s_channels=2,
+        condition_mv_channels=4,
+        condition_s_channels=3,
+        attention=SelfAttentionConfig(num_heads=2),
+        crossattention=CrossAttentionConfig(num_heads=2),
+        mlp=MLPConfig(),
+    )
+    mv = torch.randn(3, 5, 4, 16)
+    net(mv, multivectors_condition=mv, scalars=None, scalars_condition=None)

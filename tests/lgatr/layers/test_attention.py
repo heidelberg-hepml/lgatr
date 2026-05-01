@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from lgatr.layers import SelfAttention, SelfAttentionConfig
+from lgatr.primitives.attention import sdp_attention
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
@@ -9,7 +10,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize(
     "num_items,in_channels,out_channels,increase_hidden_channels", [(2, 4, 4, 2)]
 )
-@pytest.mark.parametrize("in_s_channels,out_s_channels", [(17, 13), (11, None)])
+@pytest.mark.parametrize("in_s_channels,out_s_channels", [(17, 13), (11, 0)])
 @pytest.mark.parametrize("num_heads", [4, 1])
 @pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
 def test_attention_equivariance(
@@ -48,3 +49,10 @@ def test_attention_equivariance(
         spin=True,
         **TOLERANCES,
     )
+
+
+def test_sdp_attention_none_scalars():
+    """Tests sdp_attention propagates None when q_s/k_s/v_s are None."""
+    q = k = v = torch.randn(2, 3, 4, 16)
+    _, out_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None)
+    assert out_s is None

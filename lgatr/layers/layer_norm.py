@@ -30,29 +30,32 @@ class EquiLayerNorm(nn.Module):
         self.epsilon = epsilon
 
     def forward(
-        self, multivectors: torch.Tensor, scalars: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass. Computes equivariant LayerNorm for multivectors.
 
         Parameters
         ----------
         multivectors : torch.Tensor
             Multivector inputs with shape (..., 16).
-        scalars : torch.Tensor
-            Scalar inputs with shape (...).
+        scalars : None or torch.Tensor
+            Optional scalar inputs with shape (...). If None, no scalar normalization
+            is performed and outputs_s is None.
 
         Returns
         -------
         outputs_mv : torch.Tensor
             Normalized multivectors with shape (..., 16).
-        output_scalars : torch.Tensor
-            Normalized scalars with shape (...).
+        output_scalars : None or torch.Tensor
+            Normalized scalars with shape (...), or None if scalars is None.
         """
 
         outputs_mv = equi_layer_norm(
             multivectors, channel_dim=self.mv_channel_dim, epsilon=self.epsilon
         )
-        normalized_shape = scalars.shape[-1:]
-        outputs_s = torch.nn.functional.layer_norm(scalars, normalized_shape=normalized_shape)
+        if scalars is None:
+            outputs_s = None
+        else:
+            outputs_s = torch.nn.functional.layer_norm(scalars, normalized_shape=scalars.shape[-1:])
 
         return outputs_mv, outputs_s

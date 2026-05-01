@@ -39,3 +39,9 @@ def test_geometric_bilinears_equivariance(
         batch_dims=data_dims,
         **TOLERANCES,
     )
+
+
+def test_geometric_bilinears_none_scalars_at_runtime():
+    """Tests that GeometricBilinear accepts scalars=None at runtime."""
+    layer = GeometricBilinear(in_mv_channels=8, out_mv_channels=10, in_s_channels=3)
+    layer(torch.randn(4, 8, 16), scalars=None)

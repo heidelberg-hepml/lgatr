@@ -6,7 +6,7 @@ from lgatr.nets import ConditionalLGATr
 from lgatr.primitives.config import gatr_config
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
-S_CHANNELS = [(3, 5), (2, 2)]
+S_CHANNELS = [(3, 5), (2, 2), (0, 0)]
 BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 
 
@@ -44,12 +44,12 @@ def test_conditional_gatr_shape(
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
+    scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
     condition_mv = torch.randn(*batch_dims, num_items_condition, in_mv_channels_condition, 16)
     condition_s = (
-        None
-        if in_s_channels is None
-        else torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+        torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+        if in_s_channels_condition
+        else None
     )
 
     try:
@@ -87,7 +87,7 @@ def test_conditional_gatr_shape(
     )
 
     assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
-    if in_s_channels is not None:
+    if out_s_channels:
         assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
 
     # restore defaults

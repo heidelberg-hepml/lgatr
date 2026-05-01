@@ -45,8 +45,8 @@ class ScalarGatedNonlinearity(nn.Module):
             ) from exc
 
     def forward(
-        self, multivectors: torch.Tensor, scalars: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Computes ``f(x_0) * x`` for multivector x, where f is GELU, ReLU, sigmoid, or SiLU.
 
         f is chosen depending on self.gated_nonlinearity and self.scalar_nonlinearity.
@@ -56,14 +56,14 @@ class ScalarGatedNonlinearity(nn.Module):
         multivectors : torch.Tensor
             Input multivectors with shape (..., 16)
         scalars : None or torch.Tensor
-            Input scalars with shape (...)
+            Optional input scalars with shape (...). If None, outputs_s is None.
 
         Returns
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., 16)
-        output_scalars : torch.Tensor
-            Output scalars with shape (...)
+        output_scalars : None or torch.Tensor
+            Output scalars with shape (...), or None if scalars is None.
         """
 
         gates = multivectors[..., 0:1]

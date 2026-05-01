@@ -25,7 +25,7 @@ class LGATrBlock(nn.Module):
     mv_channels : int
         Number of input and output multivector channels
     s_channels: int
-        Number of input and output scalar channels
+        Number of input and output scalar channels. Use 0 for no scalar stream.
     attention: SelfAttentionConfig
         Attention configuration
     mlp: MLPConfig
@@ -71,19 +71,20 @@ class LGATrBlock(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        scalars: torch.Tensor,
-        additional_qk_features_mv=None,
-        additional_qk_features_s=None,
+        scalars: torch.Tensor | None = None,
+        additional_qk_features_mv: torch.Tensor | None = None,
+        additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass of the transformer encoder block.
 
         Parameters
         ----------
         multivectors : torch.Tensor
             Input multivectors with shape (..., items, mv_channels, 16).
-        scalars : torch.Tensor
-            Input scalars with shape (..., items, s_channels).
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, s_channels). If None, the
+            scalar stream is bypassed and outputs_s is None.
         additional_qk_features_mv : None or torch.Tensor
             Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16).
         additional_qk_features_s : None or torch.Tensor
@@ -95,8 +96,8 @@ class LGATrBlock(nn.Module):
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : torch.Tensor
-            Output scalars  with shape (..., items, s_channels).
+        output_scalars : None or torch.Tensor
+            Output scalars with shape (..., items, s_channels), or None if scalars is None.
         """
 
         # Attention block: pre layer norm

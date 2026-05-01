@@ -34,11 +34,7 @@ class SelfAttention(nn.Module):
         self.out_linear = EquiLinear(
             in_mv_channels=config.hidden_mv_channels * config.num_heads,
             out_mv_channels=config.out_mv_channels,
-            in_s_channels=(
-                None
-                if config.in_s_channels is None
-                else config.hidden_s_channels * config.num_heads
-            ),
+            in_s_channels=config.hidden_s_channels * config.num_heads,
             out_s_channels=config.out_s_channels,
             initialization=config.output_init,
         )
@@ -65,7 +61,7 @@ class SelfAttention(nn.Module):
         scalars: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Computes self-attention.
 
         The result is the following:
@@ -89,11 +85,11 @@ class SelfAttention(nn.Module):
         additional_qk_features_mv : None or torch.Tensor
             Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16)
         scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, num_items, s_channels)
+            Optional input scalars with shape (..., items, s_channels). If None, the
+            scalar stream is bypassed and outputs_s may be None (or a tensor lifted by
+            ``out_linear`` if ``out_s_channels`` is configured).
         additional_qk_features_s : None or torch.Tensor
             Additional scalar Q/K features with shape (..., items, add_qk_mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, s_channels).
         **attn_kwargs
             Optional keyword arguments passed to attention.
 
@@ -101,8 +97,8 @@ class SelfAttention(nn.Module):
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : torch.Tensor
-            Output scalars with shape (..., items, s_channels).
+        output_scalars : None or torch.Tensor
+            Output scalars with shape (..., items, s_channels), or None.
         """
         # Compute Q, K, V
         q_mv, k_mv, v_mv, q_s, k_s, v_s = self.qkv_module(

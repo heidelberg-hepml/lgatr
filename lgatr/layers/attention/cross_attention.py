@@ -58,11 +58,7 @@ class CrossAttention(nn.Module):
         self.out_linear = EquiLinear(
             in_mv_channels=config.hidden_mv_channels * config.num_heads,
             out_mv_channels=config.out_mv_channels,
-            in_s_channels=(
-                None
-                if config.in_kv_s_channels is None
-                else config.hidden_s_channels * config.num_heads
-            ),
+            in_s_channels=config.hidden_s_channels * config.num_heads,
             out_s_channels=config.out_s_channels,
             initialization=config.output_init,
         )
@@ -89,7 +85,7 @@ class CrossAttention(nn.Module):
         scalars_kv: torch.Tensor | None = None,
         scalars_q: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Compute cross attention.
 
         The result is the following:
@@ -123,8 +119,8 @@ class CrossAttention(nn.Module):
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., items_q, mv_channels, 16).
-        output_scalars : torch.Tensor
-            Output scalars with shape (..., items_q, s_channels).
+        output_scalars : None or torch.Tensor
+            Output scalars with shape (..., items_q, s_channels), or None.
         """
         q_mv, q_s = self.q_linear(
             multivectors_q, scalars_q
@@ -133,7 +129,10 @@ class CrossAttention(nn.Module):
             multivectors_kv, scalars_kv
         )  # (..., num_items, 2*hidden_channels, 16)
         k_mv, v_mv = torch.tensor_split(kv_mv, 2, dim=-2)
-        k_s, v_s = torch.tensor_split(kv_s, 2, dim=-1)
+        if kv_s is None:
+            k_s, v_s = None, None
+        else:
+            k_s, v_s = torch.tensor_split(kv_s, 2, dim=-1)
 
         # Rearrange to (..., heads, items, channels, 16) shape
         q_mv = q_mv.unflatten(-2, (self.config.hidden_mv_channels, self.config.num_heads)).movedim(
@@ -182,7 +181,10 @@ class CrossAttention(nn.Module):
             h_mv = h_mv * self.head_scale.view(
                 *[1] * len(h_mv.shape[:-5]), len(self.head_scale), 1, 1, 1
             )
-            h_s = h_s * self.head_scale.view(*[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1)
+            if h_s is not None:
+                h_s = h_s * self.head_scale.view(
+                    *[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1
+                )
 
         h_mv = h_mv.transpose(-4, -3).flatten(-3, -2)
         if h_s is not None:

@@ -59,3 +59,20 @@ def test_crossattention_equivariance(
         fn_kwargs=dict(scalars_kv=scalars_condition, scalars_q=scalars),
         **MILD_TOLERANCES,
     )
+
+
+def test_cross_attention_none_scalars():
+    """Tests CrossAttention accepts scalars_kv=None and scalars_q=None at runtime."""
+    config = CrossAttentionConfig(
+        in_kv_mv_channels=2,
+        in_q_mv_channels=3,
+        out_mv_channels=3,
+        in_kv_s_channels=4,
+        in_q_s_channels=5,
+        out_s_channels=0,
+        num_heads=2,
+    )
+    layer = CrossAttention(config)
+    mv_q = torch.randn(2, 3, 3, 16)
+    mv_kv = torch.randn(2, 4, 2, 16)
+    layer(mv_kv, mv_q, scalars_kv=None, scalars_q=None)

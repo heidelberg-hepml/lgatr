@@ -28,3 +28,12 @@ def test_equi_layer_norm_layer_equivariance(batch_dims, num_scalars):
     check_pin_equivariance(
         layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=scalars), **TOLERANCES
     )
+
+
+def test_equi_layer_norm_none_scalars():
+    """Tests that EquiLayerNorm propagates scalars=None."""
+    layer = EquiLayerNorm()
+    inputs = torch.randn(4, 5, 16)
+    out_mv, out_s = layer(inputs, scalars=None)
+    assert out_mv.shape == inputs.shape
+    assert out_s is None

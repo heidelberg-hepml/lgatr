@@ -36,21 +36,18 @@ class GeoMLP(nn.Module):
         self.config = config
 
         assert config.mv_channels is not None
-        s_channels = None if config.s_channels is None else config.s_channels
+        s_channels = config.s_channels
 
         mv_channels_list = [config.mv_channels]
         mv_channels_list.extend(
             [config.increase_hidden_channels * config.mv_channels] * config.num_hidden_layers
         )
         mv_channels_list.append(config.mv_channels)
-        if s_channels is not None:
-            s_channels_list = [s_channels]
-            s_channels_list.extend(
-                [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
-            )
-            s_channels_list.append(s_channels)
-        else:
-            s_channels_list = [None] * (len(mv_channels_list))
+        s_channels_list = [s_channels]
+        s_channels_list.extend(
+            [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
+        )
+        s_channels_list.append(s_channels)
 
         layers: list[nn.Module] = []
 
@@ -84,7 +81,7 @@ class GeoMLP(nn.Module):
         self.layers = nn.ModuleList(layers)
 
     def forward(
-        self, multivectors: torch.Tensor, scalars: torch.Tensor
+        self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass.
 
@@ -93,14 +90,15 @@ class GeoMLP(nn.Module):
         multivectors : torch.Tensor
             Input multivectors with shape (..., mv_channels, 16).
         scalars : None or torch.Tensor
-            Optional input scalars with shape (..., s_channels).
+            Optional input scalars with shape (..., s_channels). If None, the scalar
+            stream is bypassed and outputs_s is None.
 
         Returns
         -------
         outputs_mv : torch.Tensor
             Output multivectors  with shape (..., mv_channels, 16).
         outputs_s : None or torch.Tensor
-            Output scalars with shape (..., s_channels).
+            Output scalars with shape (..., s_channels), or None if scalars is None.
         """
 
         mv, s = multivectors, scalars

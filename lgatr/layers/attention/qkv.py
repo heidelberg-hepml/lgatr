@@ -22,21 +22,17 @@ class QKVModule(nn.Module):
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
             out_mv_channels=3 * config.hidden_mv_channels * config.num_heads,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
-            out_s_channels=(
-                None
-                if config.in_s_channels is None
-                else 3 * config.hidden_s_channels * config.num_heads
-            ),
+            out_s_channels=3 * config.hidden_s_channels * config.num_heads,
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
 
     def forward(
         self,
-        inputs,
-        scalars,
-        additional_qk_features_mv=None,
-        additional_qk_features_s=None,
+        inputs: torch.Tensor,
+        scalars: torch.Tensor | None = None,
+        additional_qk_features_mv: torch.Tensor | None = None,
+        additional_qk_features_s: torch.Tensor | None = None,
     ):
         """Evaluate head-wise queries, keys, and values. The heads have size
         `head_mv_channels=mv_channels*increase_hidden_channels // num_heads` and
@@ -46,8 +42,9 @@ class QKVModule(nn.Module):
         ----------
         inputs : torch.Tensor
             Multivector inputs with shape (..., items, mv_channels, 16)
-        scalars : torch.Tensor
-            Scalar inputs with shape (..., items, s_channels)
+        scalars : None or torch.Tensor
+            Optional scalar inputs with shape (..., items, s_channels). If None, the
+            scalar Q/K/V outputs are also None.
         additional_qk_features_mv : None or torch.Tensor
             Additional multivector features that for the Q/K computation
         additional_qk_features_s : None or torch.Tensor
@@ -142,10 +139,10 @@ class MultiQueryQKVModule(nn.Module):
 
     def forward(
         self,
-        inputs,
-        scalars,
-        additional_qk_features_mv=None,
-        additional_qk_features_s=None,
+        inputs: torch.Tensor,
+        scalars: torch.Tensor | None = None,
+        additional_qk_features_mv: torch.Tensor | None = None,
+        additional_qk_features_s: torch.Tensor | None = None,
     ):
         """Evaluate head-wise queries, keys, and values. The heads have size
         `head_mv_channels=mv_channels*increase_hidden_channels // num_heads` and
@@ -157,8 +154,9 @@ class MultiQueryQKVModule(nn.Module):
         ----------
         inputs : torch.Tensor
             Multivector inputs with shape (..., items, mv_channels, 16)
-        scalars : torch.Tensor
-            Scalar inputs with shape (..., items, s_channels)
+        scalars : None or torch.Tensor
+            Optional scalar inputs with shape (..., items, s_channels). If None, the
+            scalar Q/K/V outputs are also None.
         additional_qk_features_mv : None or torch.Tensor
             Additional multivector features that should be provided for the Q/K computation (e.g.
             positions of objects)
@@ -174,11 +172,11 @@ class MultiQueryQKVModule(nn.Module):
             Multivector keys with shape (..., 1, items, head_mv_channels, 16)
         v_mv : torch.Tensor
             Multivector values with shape (..., 1, items, head_mv_channels, 16)
-        q_s : torch.Tensor
+        q_s : None or torch.Tensor
             Scalar queries with shape (..., heads, items, head_s_channels)
-        k_s : torch.Tensor
+        k_s : None or torch.Tensor
             Scalar keys with shape (..., 1, items, head_s_channels)
-        v_s : torch.Tensor
+        v_s : None or torch.Tensor
             Scalar values with shape (..., 1, items, head_s_channels)
         """
 

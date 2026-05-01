@@ -32,11 +32,11 @@ class ConditionalLGATrBlock(nn.Module):
     mv_channels : int
         Number of input and output multivector channels
     s_channels: int
-        Number of input and output scalar channels
+        Number of input and output scalar channels. Use 0 for no scalar stream.
     condition_mv_channels: int
         Number of condition multivector channels
     condition_s_channels: int
-        Number of condition scalar channels
+        Number of condition scalar channels. Use 0 for no scalar condition stream.
     attention: SelfAttentionConfig
         Attention configuration
     crossattention: CrossAttentionConfig
@@ -102,23 +102,24 @@ class ConditionalLGATrBlock(nn.Module):
         self,
         multivectors: torch.Tensor,
         multivectors_condition: torch.Tensor,
-        scalars: torch.Tensor = None,
-        scalars_condition: torch.Tensor = None,
+        scalars: torch.Tensor | None = None,
+        scalars_condition: torch.Tensor | None = None,
         attn_kwargs=None,
         crossattn_kwargs=None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass of the transformer decoder block.
 
         Parameters
         ----------
         multivectors : torch.Tensor
             Input multivectors  with shape (..., items, mv_channels, 16).
-        scalars : torch.Tensor
-            Input scalars with shape (..., items, s_channels).
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., items, s_channels). If None, the
+            scalar stream is bypassed and outputs_s is None.
         multivectors_condition : torch.Tensor
             Input condition multivectors with shape (..., items, mv_channels, 16).
-        scalars_condition : torch.Tensor
-            Input condition scalars with shape (..., items, s_channels).
+        scalars_condition : None or torch.Tensor
+            Optional input condition scalars with shape (..., items, s_channels).
         attn_kwargs: None or torch.Tensor or AttentionBias
             Optional attention mask.
         crossattn_kwargs: None or torch.Tensor or AttentionBias
@@ -128,8 +129,8 @@ class ConditionalLGATrBlock(nn.Module):
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : torch.Tensor
-            Output scalars with shape (..., items, s_channels).
+        output_scalars : None or torch.Tensor
+            Output scalars with shape (..., items, s_channels), or None.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}

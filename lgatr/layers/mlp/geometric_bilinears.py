@@ -23,10 +23,10 @@ class GeometricBilinear(nn.Module):
         Output multivector channels
     hidden_mv_channels : int or None
         Hidden multivector channels. If None, uses out_mv_channels.
-    in_s_channels : int or None
-        Input scalar channels. If None, no scalars are expected nor returned.
-    out_s_channels : int or None
-        Output scalar channels. If None, no scalars are expected nor returned.
+    in_s_channels : int
+        Input scalar channels. Use 0 for no scalar inputs.
+    out_s_channels : int
+        Output scalar channels. Use 0 for no scalar outputs.
     """
 
     def __init__(
@@ -34,8 +34,8 @@ class GeometricBilinear(nn.Module):
         in_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int | None = None,
-        in_s_channels: int | None = None,
-        out_s_channels: int | None = None,
+        in_s_channels: int = 0,
+        out_s_channels: int = 0,
     ) -> None:
         super().__init__()
 
@@ -48,13 +48,13 @@ class GeometricBilinear(nn.Module):
             in_mv_channels,
             hidden_mv_channels,
             in_s_channels=in_s_channels,
-            out_s_channels=None,
+            out_s_channels=0,
         )
         self.linear_right = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
             in_s_channels=in_s_channels,
-            out_s_channels=None,
+            out_s_channels=0,
             initialization="almost_unit_scalar",
         )
 
@@ -67,23 +67,24 @@ class GeometricBilinear(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        scalars: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        scalars: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass.
 
         Parameters
         ----------
         multivectors : torch.Tensor
             Input multivectors with shape (..., in_mv_channels, 16)
-        scalars : torch.Tensor with shape (..., in_s_channels)
-            Input scalars
+        scalars : None or torch.Tensor
+            Optional input scalars with shape (..., in_s_channels). If None, the scalar
+            stream is bypassed.
 
         Returns
         -------
         outputs_mv : torch.Tensor
             Output multivectors with shape (..., out_mv_channels, 16)
         output_s : None or torch.Tensor
-            Output scalars with shape (..., out_s_channels).
+            Output scalars with shape (..., out_s_channels), or None if out_s_channels is 0.
         """
 
         # GP

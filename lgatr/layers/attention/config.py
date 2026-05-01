@@ -32,9 +32,9 @@ class SelfAttentionConfig:
     out_mv_channels : int
         Number of output multivector channels.
     in_s_channels : int
-        Input scalar channels. If None, no scalars are expected nor returned.
+        Input scalar channels. Use 0 for no scalar inputs.
     out_s_channels : int
-        Output scalar channels. If None, no scalars are expected nor returned.
+        Output scalar channels. Use 0 for no scalar outputs.
     additional_qk_mv_channels : int
         Whether additional multivector features for the keys and queries will be provided.
     additional_qk_s_channels : int
@@ -47,8 +47,8 @@ class SelfAttentionConfig:
 
     in_mv_channels: int | None = None
     out_mv_channels: int | None = None
-    in_s_channels: int | None = None
-    out_s_channels: int | None = None
+    in_s_channels: int = 0
+    out_s_channels: int = 0
     additional_qk_mv_channels: int = 0
     additional_qk_s_channels: int = 0
     output_init: str = "default"
@@ -65,17 +65,13 @@ class SelfAttentionConfig:
         return max(self.increase_hidden_channels * self.in_mv_channels // self.num_heads, 1)
 
     @property
-    def hidden_s_channels(self) -> int | None:
-        """Returns the number of hidden scalar channels."""
+    def hidden_s_channels(self) -> int:
+        """Returns the number of hidden scalar channels (0 if no scalar stream)."""
 
-        if self.in_s_channels is None:
-            return None
+        if self.in_s_channels == 0:
+            return 0
 
-        hidden_s_channels = max(
-            self.increase_hidden_channels * self.in_s_channels // self.num_heads, 4
-        )
-
-        return hidden_s_channels
+        return max(self.increase_hidden_channels * self.in_s_channels // self.num_heads, 4)
 
     @classmethod
     def cast(cls, config: Any) -> SelfAttentionConfig:
@@ -115,11 +111,11 @@ class CrossAttentionConfig:
     out_mv_channels : int
         Number of output multivector channels.
     in_q_s_channels : int
-        Input query scalar channels. If None, no scalars are expected nor returned.
+        Input query scalar channels. Use 0 for no scalar inputs.
     in_kv_s_channels : int
-        Input key/value scalar channels. If None, no scalars are expected nor returned.
+        Input key/value scalar channels. Use 0 for no scalar inputs.
     out_s_channels : int
-        Output scalar channels. If None, no scalars are expected nor returned.
+        Output scalar channels. Use 0 for no scalar outputs.
     additional_q_mv_channels : int
         Whether additional multivector features for the queries will be provided.
     additional_q_s_channels : int
@@ -137,9 +133,9 @@ class CrossAttentionConfig:
     in_q_mv_channels: int | None = None
     in_kv_mv_channels: int | None = None
     out_mv_channels: int | None = None
-    out_s_channels: int | None = None
-    in_q_s_channels: int | None = None
-    in_kv_s_channels: int | None = None
+    out_s_channels: int = 0
+    in_q_s_channels: int = 0
+    in_kv_s_channels: int = 0
     additional_q_mv_channels: int = 0
     additional_q_s_channels: int = 0
     additional_k_mv_channels: int = 0
@@ -158,12 +154,12 @@ class CrossAttentionConfig:
         return max(self.increase_hidden_channels * self.in_q_mv_channels // self.num_heads, 1)
 
     @property
-    def hidden_s_channels(self) -> int | None:
-        """Returns the number of hidden scalar channels."""
+    def hidden_s_channels(self) -> int:
+        """Returns the number of hidden scalar channels (0 if no scalar stream)."""
 
-        if self.in_q_s_channels is None:
-            assert self.in_kv_s_channels is None
-            return None
+        if self.in_q_s_channels == 0:
+            assert self.in_kv_s_channels == 0
+            return 0
 
         return max(self.increase_hidden_channels * self.in_q_s_channels // self.num_heads, 4)
 

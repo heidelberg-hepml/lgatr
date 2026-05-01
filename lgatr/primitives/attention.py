@@ -11,11 +11,11 @@ def sdp_attention(
     q_mv: Tensor,
     k_mv: Tensor,
     v_mv: Tensor,
-    q_s: Tensor,
-    k_s: Tensor,
-    v_s: Tensor,
+    q_s: Tensor | None = None,
+    k_s: Tensor | None = None,
+    v_s: Tensor | None = None,
     **attn_kwargs,
-) -> tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor | None]:
     """Equivariant geometric attention based on scaled dot products.
 
     Expects both multivector and scalar queries, keys, and values as inputs.
@@ -38,12 +38,13 @@ def sdp_attention(
         Multivector keys with shape (..., items_out, mv_channels, 16)
     v_mv : torch.Tensor
         Multivector values with shape (..., items_out, mv_channels, 16)
-    q_s : torch.Tensor
-        Scalar queries with shape (..., items_out, s_channels)
-    k_s : torch.Tensor
-        Scalar keys with shape (..., items_out, s_channels)
-    v_s : torch.Tensor
-        Scalar values with shape (..., items_out, s_channels)
+    q_s : None or torch.Tensor
+        Optional scalar queries with shape (..., items_out, s_channels). If None, the
+        scalar inner product is omitted and outputs_s is None.
+    k_s : None or torch.Tensor
+        Optional scalar keys with shape (..., items_out, s_channels). Must be None iff q_s is None.
+    v_s : None or torch.Tensor
+        Optional scalar values with shape (..., items_out, s_channels). Must be None iff q_s is None.
     **attn_kwargs
         Optional keyword arguments passed to attention.
 
@@ -51,8 +52,8 @@ def sdp_attention(
     -------
     outputs_mv : torch.Tensor
         Multivector result with shape (..., items_out, mv_channels, 16)
-    outputs_s : torch.Tensor
-        Scalar result with shape (..., items_out, s_channels)
+    outputs_s : None or torch.Tensor
+        Scalar result with shape (..., items_out, s_channels), or None if q_s is None.
     """
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars

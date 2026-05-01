@@ -24,13 +24,13 @@ class MLPConfig:
     mv_channels : int
         Number of input multivector channels.
     s_channels : int
-        Number of input scalar channels.
+        Number of input scalar channels. Use 0 for no scalar stream.
     dropout_prob : float or None
         Dropout probability
     """
 
     mv_channels: int | None = None
-    s_channels: int | None = None
+    s_channels: int = 0
     dropout_prob: float | None = None
     activation: str = "gelu"
     increase_hidden_channels: int = 4

@@ -8,9 +8,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 @pytest.mark.parametrize("batch_dims", [(100,)])
 @pytest.mark.parametrize("in_mv_channels, out_mv_channels", [(200, 5), (16, 16), (5, 200)])
-@pytest.mark.parametrize(
-    "in_s_channels, out_s_channels", [(None, None), (None, 100), (100, None), (32, 32)]
-)
+@pytest.mark.parametrize("in_s_channels, out_s_channels", [(0, 0), (0, 100), (100, 0), (32, 32)])
 @pytest.mark.parametrize(
     "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
 )
@@ -48,7 +46,7 @@ def test_linear_layer_initialization(
 
     # Inputs
     inputs_mv = torch.randn(*batch_dims, in_mv_channels, 16)
-    inputs_s = torch.randn(*batch_dims, in_s_channels) if in_s_channels is not None else None
+    inputs_s = torch.randn(*batch_dims, in_s_channels) if in_s_channels else None
 
     # Compute outputs
     outputs_mv, outputs_s = layer(inputs_mv, scalars=inputs_s)
@@ -89,7 +87,7 @@ def test_linear_layer_initialization(
     assert torch.all(mv_var < target_var * var_tolerance)
 
     # Same for scalar outputs
-    if out_s_channels is not None:
+    if out_s_channels:
         s_mean = outputs_s[...].cpu().detach().to(torch.float64).mean().item()
         s_var = outputs_s[...].cpu().detach().to(torch.float64).var().item()
 
@@ -108,8 +106,8 @@ def test_linear_layer_initialization(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("in_mv_channels", [9, 1])
 @pytest.mark.parametrize("out_mv_channels", [7, 1])
-@pytest.mark.parametrize("in_s_channels", [None, 3])
-@pytest.mark.parametrize("out_s_channels", [None, 4])
+@pytest.mark.parametrize("in_s_channels", [0, 3])
+@pytest.mark.parametrize("out_s_channels", [0, 4])
 def test_linear_layer_linearity(
     batch_dims,
     in_mv_channels,
@@ -151,7 +149,7 @@ def test_linear_layer_linearity(
     # Check equality
     torch.testing.assert_close(o_xy_mv, o_x_mv + rescaling * o_y_mv, **TOLERANCES)
 
-    if out_s_channels is not None:
+    if out_s_channels:
         torch.testing.assert_close(o_xy_s, o_x_s + rescaling * o_y_s, **TOLERANCES)
 
 
@@ -159,8 +157,8 @@ def test_linear_layer_linearity(
 @pytest.mark.parametrize("in_mv_channels", [9, 1])
 @pytest.mark.parametrize("out_mv_channels", [7, 1])
 @pytest.mark.parametrize("bias", [False, True])
-@pytest.mark.parametrize("in_s_channels", [None, 3])
-@pytest.mark.parametrize("out_s_channels", [None, 4])
+@pytest.mark.parametrize("in_s_channels", [0, 3])
+@pytest.mark.parametrize("out_s_channels", [0, 4])
 @pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_linear_layer_equivariance(
     batch_dims,
@@ -182,7 +180,7 @@ def test_linear_layer_equivariance(
         bias=bias,
     )
     data_dims = tuple(list(batch_dims) + [in_mv_channels])
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, in_s_channels)
+    scalars = torch.randn(*batch_dims, in_s_channels) if in_s_channels else None
     check_pin_equivariance(
         layer, 1, fn_kwargs=dict(scalars=scalars), batch_dims=data_dims, **TOLERANCES
     )
