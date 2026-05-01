@@ -10,10 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
-        extra: ['', 'flex'] # other options default to '' on CPU
       fail-fast: false
+      matrix:
+        include:
+          # Python coverage at latest torch version
+          - { python-version: '3.10', torch-version: 'latest', extra: '' }
+          - { python-version: '3.11', torch-version: 'latest', extra: '' }
+          - { python-version: '3.12', torch-version: 'latest', extra: '' }
+          - { python-version: '3.13', torch-version: 'latest', extra: '' }
+
+          # Torch coverage at common python version
+          # torch<=2.4 are probably also supported, but require care with numpy install, torch.compile etc
+          - { python-version: '3.11', torch-version: '2.4', extra: '' }
+          - { python-version: '3.11', torch-version: '2.5', extra: '' }
+          - { python-version: '3.11', torch-version: '2.6', extra: '' }
+          - { python-version: '3.11', torch-version: '2.7', extra: '' }
+          - { python-version: '3.11', torch-version: '2.8', extra: '' }
+          - { python-version: '3.11', torch-version: '2.9', extra: '' }
+          - { python-version: '3.11', torch-version: '2.10', extra: '' }
+
+          # flex extra (requires torch >= 2.7)
+          - { python-version: '3.11', torch-version: '2.7',    extra: 'flex' }
+          - { python-version: '3.11', torch-version: 'latest', extra: 'flex' }
+          - { python-version: '3.13', torch-version: 'latest', extra: 'flex' }
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -23,23 +43,48 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Install torch (CPU)
       run: |
         python -m pip install --upgrade pip setuptools wheel
+        if [[ "${{ matrix.torch-version }}" == "latest" ]]; then
+          SPEC=torch
+        else
+          SPEC="torch==${{ matrix.torch-version }}.*"
+        fi
+        pip install "$SPEC" \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple
 
+    - name: Install package
+      run: |
         if [[ -z "${{ matrix.extra }}" ]]; then
           pip install -e ".[dev]"
         else
           pip install -e ".[dev,${{ matrix.extra }}]"
         fi
 
+    - name: Verify torch version
+      env:
+        EXPECTED: ${{ matrix.torch-version }}
+      run: |
+        python - <<'PY'
+        import os
+        import torch
+        expected = os.environ["EXPECTED"]
+        actual = torch.__version__.split("+")[0]
+        if expected == "latest":
+            print(f"latest torch resolved to {actual}")
+        else:
+            assert actual.startswith(expected + "."), f"expected torch {expected}.*, got {actual}"
+            print(f"ok: torch {actual}")
+        PY
 
     - name: Run unit tests + collect coverage
       run: |
         pytest --cov=lgatr --cov-report=xml
 
     - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11' && matrix.extra == ''  # upload once
+      if: matrix.python-version == '3.11' && matrix.torch-version == 'latest' && matrix.extra == ''  # upload once
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
