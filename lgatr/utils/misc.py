@@ -7,6 +7,20 @@ import torch
 from torch import Tensor
 
 
+def residual_add(a: Tensor | None, b: Tensor | None) -> Tensor | None:
+    """Residual addition that propagates None.
+
+    Returns None if both operands are None, the non-None operand if exactly one is None,
+    and ``a + b`` otherwise. Used by transformer blocks to add residual connections on
+    the optional scalar stream without special-casing each call site.
+    """
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return a + b
+
+
 def minimum_autocast_precision(
     min_dtype: torch.dtype = torch.float32,
     output: Literal["low", "high"] | torch.dtype | None = None,

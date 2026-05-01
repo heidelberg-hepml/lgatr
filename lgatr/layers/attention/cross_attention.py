@@ -1,7 +1,6 @@
 """L-GATr cross-attention."""
 
 import torch
-from einops import rearrange
 from torch import nn
 
 from ..dropout import GradeDropout
@@ -137,53 +136,35 @@ class CrossAttention(nn.Module):
         k_s, v_s = torch.tensor_split(kv_s, 2, dim=-1)
 
         # Rearrange to (..., heads, items, channels, 16) shape
-        q_mv = rearrange(
-            q_mv,
-            "... items (hidden_channels num_heads) x -> ... num_heads items hidden_channels x",
-            num_heads=self.config.num_heads,
-            hidden_channels=self.config.hidden_mv_channels,
+        q_mv = q_mv.unflatten(-2, (self.config.hidden_mv_channels, self.config.num_heads)).movedim(
+            -2, -4
         )
         if self.config.multi_query:
-            k_mv = rearrange(k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
-            v_mv = rearrange(v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
+            k_mv = k_mv.unsqueeze(-4)
+            v_mv = v_mv.unsqueeze(-4)
         else:
-            k_mv = rearrange(
-                k_mv,
-                "... items (hidden_channels num_heads) x -> ... num_heads items hidden_channels x",
-                num_heads=self.config.num_heads,
-                hidden_channels=self.config.hidden_mv_channels,
-            )
-            v_mv = rearrange(
-                v_mv,
-                "... items (hidden_channels num_heads) x -> ... num_heads items hidden_channels x",
-                num_heads=self.config.num_heads,
-                hidden_channels=self.config.hidden_mv_channels,
-            )
+            k_mv = k_mv.unflatten(
+                -2, (self.config.hidden_mv_channels, self.config.num_heads)
+            ).movedim(-2, -4)
+            v_mv = v_mv.unflatten(
+                -2, (self.config.hidden_mv_channels, self.config.num_heads)
+            ).movedim(-2, -4)
 
         # Same for scalars
         if q_s is not None:
-            q_s = rearrange(
-                q_s,
-                "... items (hidden_channels num_heads) -> ... num_heads items hidden_channels",
-                num_heads=self.config.num_heads,
-                hidden_channels=self.config.hidden_s_channels,
+            q_s = q_s.unflatten(-1, (self.config.hidden_s_channels, self.config.num_heads)).movedim(
+                -1, -3
             )
             if self.config.multi_query:
-                k_s = rearrange(k_s, "... items hidden_channels -> ... 1 items hidden_channels")
-                v_s = rearrange(v_s, "... items hidden_channels -> ... 1 items hidden_channels")
+                k_s = k_s.unsqueeze(-3)
+                v_s = v_s.unsqueeze(-3)
             else:
-                k_s = rearrange(
-                    k_s,
-                    "... items (hidden_channels num_heads) -> ... num_heads items hidden_channels",
-                    num_heads=self.config.num_heads,
-                    hidden_channels=self.config.hidden_s_channels,
-                )
-                v_s = rearrange(
-                    v_s,
-                    "... items (hidden_channels num_heads) -> ... num_heads items hidden_channels",
-                    num_heads=self.config.num_heads,
-                    hidden_channels=self.config.hidden_s_channels,
-                )
+                k_s = k_s.unflatten(
+                    -1, (self.config.hidden_s_channels, self.config.num_heads)
+                ).movedim(-1, -3)
+                v_s = v_s.unflatten(
+                    -1, (self.config.hidden_s_channels, self.config.num_heads)
+                ).movedim(-1, -3)
         else:
             q_s, k_s, v_s = None, None, None
 
@@ -203,14 +184,9 @@ class CrossAttention(nn.Module):
             )
             h_s = h_s * self.head_scale.view(*[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1)
 
-        h_mv = rearrange(
-            h_mv,
-            "... n_heads n_items hidden_channels x -> ... n_items (n_heads hidden_channels) x",
-        )
-        h_s = rearrange(
-            h_s,
-            "... n_heads n_items hidden_channels -> ... n_items (n_heads hidden_channels)",
-        )
+        h_mv = h_mv.transpose(-4, -3).flatten(-3, -2)
+        if h_s is not None:
+            h_s = h_s.transpose(-3, -2).flatten(-2, -1)
 
         # Transform linearly one more time
         outputs_mv, outputs_s = self.out_linear(h_mv, scalars=h_s)

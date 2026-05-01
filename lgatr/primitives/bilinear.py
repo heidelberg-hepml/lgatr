@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 
-from ..utils.einsum import cached_einsum
+from ..utils.einsum import custom_einsum
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 
@@ -60,7 +60,8 @@ def geometric_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     # Select kernel on correct device
     gp = _load_geometric_product_tensor(device=x.device, dtype=x.dtype)
 
-    # Compute geometric product
-    outputs = cached_einsum("i j k, ... j, ... k -> ... i", gp, x, y)
+    # Compute geometric product. Path captured via opt_einsum's "optimal" strategy
+    # for shapes (16,16,16), (...,16), (...,16); deterministic across batch sizes.
+    outputs = custom_einsum("i j k, ... j, ... k -> ... i", gp, x, y, path=[1, 2, 0, 1])
 
     return outputs

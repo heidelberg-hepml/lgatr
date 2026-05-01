@@ -1,5 +1,4 @@
 import torch
-from einops import rearrange
 from torch import nn
 
 from ..layer_norm import EquiLayerNorm
@@ -62,42 +61,36 @@ class QKVModule(nn.Module):
             Multivector keys with shape (..., heads, items, head_mv_channels, 16)
         v_mv : torch.Tensor
             Multivector values with shape (..., heads, items, head_mv_channels, 16)
-        q_s : torch.Tensor
+        q_s : None or torch.Tensor
             Scalar queries with shape (..., heads, items, head_s_channels)
-        k_s : torch.Tensor
+        k_s : None or torch.Tensor
             Scalar keys with shape (..., heads, items, head_s_channels)
-        v_s : torch.Tensor
+        v_s : None or torch.Tensor
             Scalar values with shape (..., heads, items, head_s_channels)
         """
 
         # Additional inputs
         if additional_qk_features_mv is not None:
             inputs = torch.cat((inputs, additional_qk_features_mv), dim=-2)
-        if additional_qk_features_s is not None:
+        if scalars is not None and additional_qk_features_s is not None:
             scalars = torch.cat((scalars, additional_qk_features_s), dim=-1)
 
         qkv_mv, qkv_s = self.in_linear(
             inputs, scalars
         )  # (..., num_items, 3 * hidden_channels * num_heads, 16)
-        qkv_mv = rearrange(
-            qkv_mv,
-            "... items (qkv hidden num_heads) x -> qkv ... num_heads items hidden x",
-            num_heads=self.config.num_heads,
-            hidden=self.config.hidden_mv_channels,
-            qkv=3,
-        )
-        q_mv, k_mv, v_mv = qkv_mv  # each: (..., num_heads, num_items, num_channels, 16)
+        # "... items (qkv hidden num_heads) x -> qkv ... num_heads items hidden x"
+        qkv_mv = qkv_mv.unflatten(
+            -2, (3, self.config.hidden_mv_channels, self.config.num_heads)
+        ).movedim((-4, -2), (0, -4))
+        q_mv, k_mv, v_mv = qkv_mv.unbind(0)  # each: (..., num_heads, num_items, num_channels, 16)
 
         # Same, for optional scalar components
         if qkv_s is not None:
-            qkv_s = rearrange(
-                qkv_s,
-                "... items (qkv hidden num_heads) -> qkv ... num_heads items hidden",
-                num_heads=self.config.num_heads,
-                hidden=self.config.hidden_s_channels,
-                qkv=3,
-            )
-            q_s, k_s, v_s = qkv_s  # each: (..., num_heads, num_items, num_channels)
+            # "... items (qkv hidden num_heads) -> qkv ... num_heads items hidden"
+            qkv_s = qkv_s.unflatten(
+                -1, (3, self.config.hidden_s_channels, self.config.num_heads)
+            ).movedim((-3, -1), (0, -3))
+            q_s, k_s, v_s = qkv_s.unbind(0)  # each: (..., num_heads, num_items, num_channels)
         else:
             q_s, k_s, v_s = None, None, None
 
@@ -207,25 +200,19 @@ class MultiQueryQKVModule(nn.Module):
         v_mv, v_s = self.v_linear(inputs, scalars)  # (..., num_items, hidden_channels, 16)
 
         # Rearrange to (..., heads, items, channels, 16) shape
-        q_mv = rearrange(
-            q_mv,
-            "... items (hidden_channels num_heads) x -> ... num_heads items hidden_channels x",
-            num_heads=self.config.num_heads,
-            hidden_channels=self.config.hidden_mv_channels,
+        q_mv = q_mv.unflatten(-2, (self.config.hidden_mv_channels, self.config.num_heads)).movedim(
+            -2, -4
         )
-        k_mv = rearrange(k_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
-        v_mv = rearrange(v_mv, "... items hidden_channels x -> ... 1 items hidden_channels x")
+        k_mv = k_mv.unsqueeze(-4)
+        v_mv = v_mv.unsqueeze(-4)
 
         # Same for scalars
         if q_s is not None:
-            q_s = rearrange(
-                q_s,
-                "... items (hidden_channels num_heads) -> ... num_heads items hidden_channels",
-                num_heads=self.config.num_heads,
-                hidden_channels=self.config.hidden_s_channels,
+            q_s = q_s.unflatten(-1, (self.config.hidden_s_channels, self.config.num_heads)).movedim(
+                -1, -3
             )
-            k_s = rearrange(k_s, "... items hidden_channels -> ... 1 items hidden_channels")
-            v_s = rearrange(v_s, "... items hidden_channels -> ... 1 items hidden_channels")
+            k_s = k_s.unsqueeze(-3)
+            v_s = v_s.unsqueeze(-3)
         else:
             q_s, k_s, v_s = None, None, None
 

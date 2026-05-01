@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 
-from ..utils.einsum import cached_einsum, custom_einsum
+from ..utils.einsum import custom_einsum
 from .config import gatr_config
 
 DEFAULT_DEVICE = torch.device("cpu")
@@ -158,8 +158,9 @@ def grade_project(x: torch.Tensor) -> torch.Tensor:
     # First five basis elements are grade projections
     basis = basis[:5]
 
-    # Project to grades
-    projections = cached_einsum("g i j, ... j -> ... g i", basis, x)
+    # Project to grades. Only 2 operands ⇒ path is trivially [0, 1]; we still go
+    # through custom_einsum to skip torch.einsum's per-call path-resolution overhead.
+    projections = custom_einsum("g i j, ... j -> ... g i", basis, x, path=[0, 1])
 
     return projections
 

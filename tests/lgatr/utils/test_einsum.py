@@ -1,8 +1,7 @@
-import opt_einsum
 import pytest
 import torch
 
-from lgatr.utils.einsum import cached_einsum
+from lgatr.utils.einsum import custom_einsum
 
 _DIM = 5
 
@@ -23,31 +22,15 @@ def example_operands_fixture() -> tuple[torch.Tensor, ...]:
     return (C, C, A, C, C)
 
 
-def test_opt_einsum_shape() -> None:
-    """Verifies contract_path can be called with shapes.
+def test_custom_einsum_matches_torch(
+    einsum_eq: str, example_operands: tuple[torch.Tensor, ...]
+) -> None:
+    """Checks that custom_einsum with a hardcoded contraction path matches torch.einsum."""
+    # Path captured once via opt_einsum.contract_path(eq, *shapes, optimize="optimal", shapes=True)
+    # for the fixture's shapes; flattened from [(0,2),(0,3),(0,2),(0,1)].
+    hardcoded_path = [0, 2, 0, 3, 0, 2, 0, 1]
 
-    Note that we test upstream functionality here, which should not be necessary.
-    However, with the latest release (3.3.0), this failed.
-
-    NB: Test does not fail on every example (e.g., does not fail on `einsum_eq_fixture`).
-    We use an equation from a failing test (test_pin).
-    """
-    einsum_eq = "i j k, ... j, ... k -> ... i"
-    sizes = (_DIM, _DIM, _DIM)
-    operands = tuple(torch.rand(sizes) for _ in sizes)
-    op_shape = tuple(x.size() for x in operands)
-    assert (
-        opt_einsum.contract_path(einsum_eq, *operands, optimize="optimal")[0]
-        == opt_einsum.contract_path(einsum_eq, *op_shape, optimize="optimal", shapes=True)[0]
-    )
-
-
-def test_e2e_cached_path(einsum_eq: str, example_operands: tuple[torch.Tensor]) -> None:
-    """Checks that torch.einsum and cached_einsum deliver the same values on a non-trivial einsum
-    equation."""
     expected_result = torch.einsum(einsum_eq, *example_operands)
-    result_with_uncached_path = cached_einsum(einsum_eq, *example_operands)
-    result_with_cached_path = cached_einsum(einsum_eq, *example_operands)
+    result = custom_einsum(einsum_eq, *example_operands, path=hardcoded_path)
 
-    torch.testing.assert_close(expected_result, result_with_uncached_path)
-    torch.testing.assert_close(expected_result, result_with_cached_path)
+    torch.testing.assert_close(expected_result, result)

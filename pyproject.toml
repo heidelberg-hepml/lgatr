@@ -13,10 +13,7 @@ authors = [
   { name = "Víctor Bresó", email = "breso@thphys.uni-heidelberg.de" },
 ]
 dependencies = [
-    "torch>=2.1",
-    "numpy",
-    "einops",
-    "opt_einsum",
+    "torch>=2.4",
 ]
 
 [project.optional-dependencies]
@@ -30,8 +27,10 @@ dev = [
     "pytest",
     "pytest-cov",
     "pre-commit",
+    "numpy", # used by clifford-based test helpers
     "clifford>=1.5.0", # for lgatr equivariance tests
     "lloca", # for lgatr_slim equivariance tests
+    "einops", # temporarily required for lloca to work
     # docs
     "sphinx<9.0",
     "sphinx-autodoc-typehints",

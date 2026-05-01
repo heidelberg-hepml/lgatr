@@ -5,6 +5,7 @@ from dataclasses import replace
 import torch
 from torch import nn
 
+from ..utils.misc import residual_add
 from .attention import (
     CrossAttention,
     CrossAttentionConfig,
@@ -145,7 +146,7 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Self-attention block: skip connection
         multivectors = multivectors + h_mv
-        scalars = scalars + h_s
+        scalars = residual_add(scalars, h_s)
 
         # Cross-attention block: pre layer norm
         h_mv, h_s = self.norm(multivectors, scalars=scalars)
@@ -162,7 +163,7 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Cross-attention block: skip connection
         outputs_mv = multivectors + h_mv
-        outputs_s = scalars + h_s
+        outputs_s = residual_add(scalars, h_s)
 
         # MLP block: pre layer norm
         h_mv, h_s = self.norm(outputs_mv, scalars=outputs_s)
@@ -172,6 +173,6 @@ class ConditionalLGATrBlock(nn.Module):
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv
-        outputs_s = outputs_s + h_s
+        outputs_s = residual_add(outputs_s, h_s)
 
         return outputs_mv, outputs_s

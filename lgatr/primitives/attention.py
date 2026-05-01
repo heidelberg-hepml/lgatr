@@ -1,7 +1,6 @@
 """Equivariant attention."""
 
 import torch
-from einops import rearrange
 from torch import Tensor
 
 from .attention_backends import get_attention_backend
@@ -57,25 +56,20 @@ def sdp_attention(
     """
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
-    q = torch.cat(
-        [
-            rearrange(
-                q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype),
-                "... c x -> ... (c x)",
-            ),
-            q_s,
-        ],
-        -1,
-    )
-    k = torch.cat([rearrange(k_mv, "... c x -> ... (c x)"), k_s], -1)
-
+    q = (q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype)).flatten(-2, -1)
+    k = k_mv.flatten(-2, -1)
     num_channels_out = v_mv.shape[-2]
-    v = torch.cat([rearrange(v_mv, "... c x -> ... (c x)"), v_s], -1)
+    v = v_mv.flatten(-2, -1)
+
+    if q_s is not None:
+        q = torch.cat([q, q_s], -1)
+        k = torch.cat([k, k_s], -1)
+        v = torch.cat([v, v_s], -1)
 
     v_out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
 
-    v_out_mv = rearrange(v_out[..., : num_channels_out * 16], "... (c x) -> ...  c x", x=16)
-    v_out_s = v_out[..., num_channels_out * 16 :]
+    v_out_mv = v_out[..., : num_channels_out * 16].unflatten(-1, (-1, 16))
+    v_out_s = None if q_s is None else v_out[..., num_channels_out * 16 :]
 
     return v_out_mv, v_out_s
 

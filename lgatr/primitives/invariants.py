@@ -5,7 +5,7 @@ from functools import lru_cache
 
 import torch
 
-from ..utils.einsum import cached_einsum
+from ..utils.einsum import custom_einsum
 from ..utils.misc import minimum_autocast_precision
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
@@ -84,10 +84,7 @@ def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
     x = x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
 
-    outputs = cached_einsum("... i, ... i -> ...", x, y)
-
-    # We want the output to have shape (..., 1)
-    outputs = outputs.unsqueeze(-1)
+    outputs = (x * y).sum(-1, keepdim=True)
 
     return outputs
 
@@ -108,7 +105,11 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
         Geometric algebra norm of x with shape (..., 1).
     """
     m = _load_metric_grades(device=x.device, dtype=x.dtype)
+    # Path captured via opt_einsum's "optimal" strategy for shapes (...,16), (...,16), (5,16);
+    # deterministic across batch sizes.
     abs_squared_norms = (
-        cached_einsum("... i, ... i, g i -> ... g", x, x, m).abs().sum(-1, keepdim=True)
+        custom_einsum("... i, ... i, g i -> ... g", x, x, m, path=[0, 1, 0, 1])
+        .abs()
+        .sum(-1, keepdim=True)
     )
     return abs_squared_norms
