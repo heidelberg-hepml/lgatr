@@ -18,13 +18,7 @@ def embed_pseudoscalar(pseudoscalars: torch.Tensor) -> torch.Tensor:
         ``pseudoscalars``; the other components are zero.
     """
     assert pseudoscalars.shape[-1] == 1
-    non_scalar_shape = list(pseudoscalars.shape[:-1]) + [15]
-    non_scalar_components = torch.zeros(
-        non_scalar_shape, device=pseudoscalars.device, dtype=pseudoscalars.dtype
-    )
-    embedding = torch.cat((non_scalar_components, pseudoscalars), dim=-1)
-
-    return embedding
+    return torch.nn.functional.pad(pseudoscalars, (15, 0))
 
 
 def extract_pseudoscalar(multivectors: torch.Tensor) -> torch.Tensor:

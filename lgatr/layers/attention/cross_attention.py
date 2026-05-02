@@ -179,13 +179,11 @@ class CrossAttention(nn.Module):
             **attn_kwargs,
         )
         if self.use_head_scale:
-            h_mv = h_mv * self.head_scale.view(
-                *[1] * len(h_mv.shape[:-5]), len(self.head_scale), 1, 1, 1
-            )
+            # The (num_heads, 1, 1, 1) factor right-aligns with the last four dims of h_mv,
+            # broadcasting across the leading batch dims (analogous for h_s and three dims).
+            h_mv = h_mv * self.head_scale[:, None, None, None]
             if h_s is not None:
-                h_s = h_s * self.head_scale.view(
-                    *[1] * len(h_s.shape[:-4]), len(self.head_scale), 1, 1
-                )
+                h_s = h_s * self.head_scale[:, None, None]
 
         h_mv = h_mv.transpose(-4, -3).flatten(-3, -2)
         if h_s is not None:

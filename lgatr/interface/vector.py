@@ -17,14 +17,9 @@ def embed_vector(vector: torch.Tensor) -> torch.Tensor:
         Multivector embedding of shape ``(..., 16)``.
     """
 
-    # Create multivector tensor with same batch shape, same device, same dtype as input
-    batch_shape = vector.shape[:-1]
-    multivector = torch.zeros(*batch_shape, 16, dtype=vector.dtype, device=vector.device)
-
-    # Embedding into Lorentz vectors
-    multivector[..., 1:5] = vector
-
-    return multivector
+    # F.pad(x, (1, 11)) zero-pads 1 entry on the left and 11 on the right of the last dim,
+    # placing the input at indices 1..5 (the Lorentz-vector slots) with zeros elsewhere.
+    return torch.nn.functional.pad(vector, (1, 11))
 
 
 def extract_vector(multivector: torch.Tensor) -> torch.Tensor:

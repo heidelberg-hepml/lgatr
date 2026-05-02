@@ -51,8 +51,7 @@ class CrossAttention(nn.Module):
         self.hidden_s_channels = max(attn_ratio * q_s_channels // num_heads, 4)
         self.num_heads = num_heads
 
-        metric = torch.tensor([1.0, -1.0, -1.0, -1.0])
-        self.register_buffer("metric", metric)
+        self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
         self.linear_in_q = Linear(
             in_v_channels=q_v_channels,
