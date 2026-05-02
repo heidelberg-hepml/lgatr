@@ -83,9 +83,7 @@ def minimum_autocast_precision(
         @wraps(func)
         def decorated_func(*args: Any, **kwargs: Any):
             # Only change dtypes in autocast-enabled regions
-            if not (torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled()):
-                # NB: torch.is_autocast_enabled() only checks for GPU autocast
-                # See https://github.com/pytorch/pytorch/issues/110966
+            if not (torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")):
                 return func(*args, **kwargs)
             # Cast inputs to at least 32 bit
             mod_args = [

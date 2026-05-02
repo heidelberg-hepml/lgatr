@@ -3,7 +3,8 @@
 from collections.abc import Callable
 
 import torch
-from lloca.utils.rand_transforms import rand_lorentz
+
+from .rand_lorentz import rand_lorentz
 
 
 def check_invariance(
