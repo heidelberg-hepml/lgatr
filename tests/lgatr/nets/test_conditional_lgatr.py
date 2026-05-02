@@ -161,3 +161,59 @@ def test_conditional_gatr_equivariance(
         fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
         **MILD_TOLERANCES,
     )
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+@pytest.mark.parametrize("num_items,num_items_condition", [(2, 9)])
+@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(7, 11)])
+@pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
+@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", [(3, 5)])
+@pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
+@pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
+def test_conditional_gatr_equivariance_compiled(
+    batch_dims: list[int],
+    num_items: int,
+    num_items_condition: int,
+    in_mv_channels: int,
+    in_mv_channels_condition: int,
+    hidden_mv_channels: int,
+    out_mv_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    in_s_channels: int,
+    in_s_channels_condition: int,
+    hidden_s_channels: int,
+    out_s_channels: int,
+    compile: bool = True,
+) -> None:
+    # torch.compile-wrapped ConditionalLGATr still preserves shapes and Pin-equivariance.
+    net = ConditionalLGATr(
+        in_mv_channels=in_mv_channels,
+        out_mv_channels=out_mv_channels,
+        hidden_mv_channels=hidden_mv_channels,
+        condition_mv_channels=in_mv_channels_condition,
+        in_s_channels=in_s_channels,
+        out_s_channels=out_s_channels,
+        hidden_s_channels=hidden_s_channels,
+        condition_s_channels=in_s_channels_condition,
+        attention=SelfAttentionConfig(num_heads=num_heads),
+        crossattention=CrossAttentionConfig(num_heads=num_heads),
+        mlp=MLPConfig(),
+        num_blocks=num_blocks,
+        compile=compile,
+    )
+
+    scalars = torch.randn(*batch_dims, num_items, in_s_channels)
+    scalars_condition = torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+
+    data_dims = [
+        tuple(list(batch_dims) + [num_items, in_mv_channels]),
+        tuple(list(batch_dims) + [num_items_condition, in_mv_channels_condition]),
+    ]
+    check_pin_equivariance(
+        net,
+        2,
+        batch_dims=data_dims,
+        fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
+        **MILD_TOLERANCES,
+    )

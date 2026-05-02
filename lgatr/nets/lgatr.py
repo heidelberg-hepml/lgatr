@@ -51,6 +51,16 @@ class LGATr(nn.Module):
         Dropout probability.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
+    compile
+        Whether to wrap the model with :func:`torch.compile`.
+    compile_mode
+        Mode passed to :func:`torch.compile`.
+    compile_dynamic
+        Whether to use dynamic shapes with :func:`torch.compile`.
+    compile_fullgraph
+        Whether to require a full graph (no graph breaks). The model contains
+        :func:`torch.compiler.disable`-wrapped attention backends, so ``True`` will fail unless
+        those backends are not used.
     """
 
     def __init__(
@@ -68,6 +78,10 @@ class LGATr(nn.Module):
         reinsert_s_channels: tuple[int] | None = None,
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
+        compile: bool = False,
+        compile_mode: str = "default",
+        compile_dynamic: bool = True,
+        compile_fullgraph: bool = False,
     ) -> None:
         super().__init__()
         self.linear_in = EquiLinear(
@@ -105,6 +119,18 @@ class LGATr(nn.Module):
         self._reinsert_s_channels = reinsert_s_channels
         self._reinsert_mv_channels = reinsert_mv_channels
         self._checkpoint_blocks = checkpoint_blocks
+
+        if compile:
+            # ugly hack to make torch.compile convenient for users; the clean solution is
+            # ``model = torch.compile(model, **kwargs)`` outside of the constructor.
+            # The model contains ``@torch.compiler.disable``-wrapped attention backends, so
+            # ``compile_fullgraph=True`` will fail unless those backends are not used.
+            self.__class__ = torch.compile(
+                self.__class__,
+                mode=compile_mode,
+                dynamic=compile_dynamic,
+                fullgraph=compile_fullgraph,
+            )
 
     def forward(
         self,

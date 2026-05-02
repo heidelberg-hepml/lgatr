@@ -348,6 +348,10 @@ class ConditionalLGATrSlim(nn.Module):
         Mode passed to :func:`torch.compile`.
     compile_dynamic
         Whether to use dynamic shapes with :func:`torch.compile`.
+    compile_fullgraph
+        Whether to require a full graph (no graph breaks). The model contains
+        :func:`torch.compiler.disable`-wrapped attention backends, so ``True`` will fail unless
+        those backends are not used.
     """
 
     def __init__(
@@ -371,6 +375,7 @@ class ConditionalLGATrSlim(nn.Module):
         compile: bool = False,
         compile_mode: str = "default",
         compile_dynamic: bool = True,
+        compile_fullgraph: bool = False,
     ) -> None:
         super().__init__()
 
@@ -408,11 +413,15 @@ class ConditionalLGATrSlim(nn.Module):
         self._checkpoint_blocks = checkpoint_blocks
 
         if compile:
-            # ugly hack to make torch.compile convenient for users
-            # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
-            # note that we need fullgraph=False because of the torch.compiler.disable for attention
+            # ugly hack to make torch.compile convenient for users; the clean solution is
+            # ``model = torch.compile(model, **kwargs)`` outside of the constructor.
+            # The model contains ``@torch.compiler.disable``-wrapped attention backends, so
+            # ``compile_fullgraph=True`` will fail unless those backends are not used.
             self.__class__ = torch.compile(
-                self.__class__, dynamic=compile_dynamic, mode=compile_mode
+                self.__class__,
+                mode=compile_mode,
+                dynamic=compile_dynamic,
+                fullgraph=compile_fullgraph,
             )
 
     def forward(

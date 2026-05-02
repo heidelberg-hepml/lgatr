@@ -118,3 +118,43 @@ def test_lgatr_equivariance(
     check_pin_equivariance(
         net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES
     )
+
+
+@pytest.mark.parametrize("batch_dims", [(64,)])
+@pytest.mark.parametrize(
+    "num_items,in_mv_channels,out_mv_channels,hidden_mv_channels", [(8, 3, 4, 6)]
+)
+@pytest.mark.parametrize("num_heads,num_blocks", [(4, 1)])
+@pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", [(4, 5, 6)])
+def test_lgatr_equivariance_compiled(
+    batch_dims: tuple[int, ...],
+    num_items: int,
+    in_mv_channels: int,
+    out_mv_channels: int,
+    hidden_mv_channels: int,
+    num_blocks: int,
+    num_heads: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    hidden_s_channels: int,
+    compile: bool = True,
+) -> None:
+    # torch.compile-wrapped LGATr still preserves shapes and Pin-equivariance.
+    net = LGATr(
+        in_mv_channels=in_mv_channels,
+        out_mv_channels=out_mv_channels,
+        hidden_mv_channels=hidden_mv_channels,
+        in_s_channels=in_s_channels,
+        out_s_channels=out_s_channels,
+        hidden_s_channels=hidden_s_channels,
+        attention=SelfAttentionConfig(num_heads=num_heads),
+        num_blocks=num_blocks,
+        mlp=MLPConfig(),
+        compile=compile,
+    )
+
+    scalars = torch.randn(*batch_dims, num_items, in_s_channels)
+    data_dims = tuple(list(batch_dims) + [num_items, in_mv_channels])
+    check_pin_equivariance(
+        net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES
+    )
