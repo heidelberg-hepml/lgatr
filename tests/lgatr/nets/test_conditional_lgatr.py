@@ -22,25 +22,25 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
 @pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_conditional_gatr_shape(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    in_mv_channels,
-    in_mv_channels_condition,
-    hidden_mv_channels,
-    out_mv_channels,
-    num_heads,
-    num_blocks,
-    in_s_channels,
-    in_s_channels_condition,
-    hidden_s_channels,
-    out_s_channels,
-    multi_query_attention,
-    dropout_prob,
-    checkpoint_blocks,
-    use_fully_connected_subgroup,
-):
-    """Tests the output shape of ConditionalLGATr."""
+    batch_dims: list[int],
+    num_items: int,
+    num_items_condition: int,
+    in_mv_channels: int,
+    in_mv_channels_condition: int,
+    hidden_mv_channels: int,
+    out_mv_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    in_s_channels: int,
+    in_s_channels_condition: int,
+    hidden_s_channels: int,
+    out_s_channels: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+    checkpoint_blocks: bool,
+    use_fully_connected_subgroup: bool,
+) -> None:
+    # ConditionalLGATr's outputs match the expected shapes across all combinations.
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -104,24 +104,23 @@ def test_conditional_gatr_shape(
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_conditional_gatr_equivariance(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    in_mv_channels,
-    in_mv_channels_condition,
-    hidden_mv_channels,
-    out_mv_channels,
-    num_heads,
-    num_blocks,
-    in_s_channels,
-    in_s_channels_condition,
-    hidden_s_channels,
-    out_s_channels,
-    multi_query_attention,
-    dropout_prob,
-):
-    """Tests ConditionalLGATr for equivariance."""
-
+    batch_dims: list[int],
+    num_items: int,
+    num_items_condition: int,
+    in_mv_channels: int,
+    in_mv_channels_condition: int,
+    hidden_mv_channels: int,
+    out_mv_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    in_s_channels: int,
+    in_s_channels_condition: int,
+    hidden_s_channels: int,
+    out_s_channels: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+) -> None:
+    # ConditionalLGATr (full network) is Pin-equivariant in both inputs and condition.
     try:
         net = ConditionalLGATr(
             in_mv_channels=in_mv_channels,

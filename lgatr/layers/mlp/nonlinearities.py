@@ -14,14 +14,14 @@ from ...primitives.nonlinearities import (
 class ScalarGatedNonlinearity(nn.Module):
     """Gated nonlinearity on multivectors.
 
-    Given multivector input x, computes ``f(x_0) * x``, where f can either be ReLU, sigmoid, or GeLU.
-
-    Auxiliary scalar inputs are simply processed with ReLU, sigmoid, GeLU, or SiLU, without gating.
+    Given multivector input ``x``, computes ``f(x_0) * x``, where ``f`` is one of ReLU, sigmoid,
+    GeLU, or SiLU. Auxiliary scalar inputs are processed with the same ``f`` directly (without
+    gating).
 
     Parameters
     ----------
-    nonlinearity : {"relu", "sigmoid", "gelu", "silu"}
-        Non-linearity type
+    nonlinearity
+        Non-linearity type. One of ``"relu"``, ``"sigmoid"``, ``"gelu"``, ``"silu"``.
     """
 
     def __init__(self, nonlinearity: str = "relu") -> None:
@@ -47,23 +47,21 @@ class ScalarGatedNonlinearity(nn.Module):
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Computes ``f(x_0) * x`` for multivector x, where f is GELU, ReLU, sigmoid, or SiLU.
-
-        f is chosen depending on self.gated_nonlinearity and self.scalar_nonlinearity.
+        """Apply the gated nonlinearity.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., 16)
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (...). If None, outputs_s is None.
+        multivectors
+            Input multivectors of shape ``(..., 16)``.
+        scalars
+            Optional input scalars of shape ``(...)``. If None, ``outputs_s`` is None.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., 16)
-        output_scalars : None or torch.Tensor
-            Output scalars with shape (...), or None if scalars is None.
+        outputs_mv
+            Output multivectors of shape ``(..., 16)``.
+        outputs_s
+            Output scalars of shape ``(...)``, or None if ``scalars`` is None.
         """
 
         gates = multivectors[..., 0:1]

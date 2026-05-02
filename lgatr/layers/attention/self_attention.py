@@ -13,11 +13,12 @@ from .qkv import MultiQueryQKVModule, QKVModule
 class SelfAttention(nn.Module):
     """L-GATr self-attention.
 
-    Constructs queries, keys, and values, computes attention, and projects linearly to outputs.
+    Constructs queries, keys, and values, computes geometric attention, and projects linearly to
+    outputs.
 
     Parameters
     ----------
-    config : SelfAttentionConfig
+    config
         Attention configuration.
     """
 
@@ -62,7 +63,7 @@ class SelfAttention(nn.Module):
         additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Computes self-attention.
+        """Compute self-attention.
 
         The result is the following:
 
@@ -80,25 +81,25 @@ class SelfAttention(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., items, mv_channels, 16).
-        additional_qk_features_mv : None or torch.Tensor
-            Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, s_channels). If None, the
-            scalar stream is bypassed and outputs_s may be None (or a tensor lifted by
-            ``out_linear`` if ``out_s_channels`` is configured).
-        additional_qk_features_s : None or torch.Tensor
-            Additional scalar Q/K features with shape (..., items, add_qk_mv_channels, 16)
+        multivectors
+            Input multivectors of shape ``(..., items, mv_channels, 16)``.
+        additional_qk_features_mv
+            Additional multivector Q/K features of shape ``(..., items, add_qk_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
+            stream is bypassed and ``outputs_s`` may be None (or a tensor lifted by ``out_linear``
+            if ``out_s_channels`` is configured).
+        additional_qk_features_s
+            Additional scalar Q/K features of shape ``(..., items, add_qk_s_channels)``.
         **attn_kwargs
-            Optional keyword arguments passed to attention.
+            Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : None or torch.Tensor
-            Output scalars with shape (..., items, s_channels), or None.
+        outputs_mv
+            Output multivectors of shape ``(..., items, mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, s_channels)``, or None.
         """
         # Compute Q, K, V
         q_mv, k_mv, v_mv, q_s, k_s, v_s = self.qkv_module(

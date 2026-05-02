@@ -1,5 +1,6 @@
 """Dynamic attention backend selection."""
 
+from collections.abc import Callable
 from functools import lru_cache
 from importlib import metadata
 
@@ -13,7 +14,8 @@ FLASH_KWARGS = ["cu_seqlens_q", "cu_seqlens_k", "max_seqlen_q", "max_seqlen_k"]
 
 
 @lru_cache
-def get_device():
+def get_device() -> torch.device:
+    """Return CUDA if available, otherwise CPU."""
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     return device
 
@@ -32,16 +34,20 @@ for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
     _REGISTRY[ep.name] = module
 
 
-def get_attention_backend(**kwargs):
-    """
-    Dynamically determine the attention backend based on the extra keyword arguments.
+def get_attention_backend(**kwargs) -> Callable:
+    """Resolve the attention backend based on the extra keyword arguments.
 
     Implemented backends:
-    - PyTorch's native attention: torch.nn.functional.scaled_dot_product_attention
-    - PyTorch's varlen attention: torch.nn.attention.varlen.varlen_attn
-    - Xformers attention: xformers.ops.memory_efficient_attention
-    - PyTorch's flex_attention: torch.nn.attention.flex_attention.flex_attention
-    - Original flash attention (supports variable sequence length): flash_attn.flash_attn_varlen_func
+
+    - PyTorch native attention: ``torch.nn.functional.scaled_dot_product_attention``
+    - PyTorch varlen attention: ``torch.nn.attention.varlen.varlen_attn``
+    - xformers attention: ``xformers.ops.memory_efficient_attention``
+    - PyTorch flex_attention: ``torch.nn.attention.flex_attention.flex_attention``
+    - Flash attention (variable sequence length): ``flash_attn.flash_attn_varlen_func``
+
+    The backend is selected explicitly via ``backend=...`` if provided, otherwise inferred from
+    backend-specific kwargs (e.g. ``cu_seqlens_*`` triggers flash). Falls back to the native
+    backend.
     """
     # check if backend is explicitly specified
     backend = kwargs.get("backend", None)

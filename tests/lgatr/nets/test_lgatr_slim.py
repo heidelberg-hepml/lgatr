@@ -28,7 +28,8 @@ CHANNELS = [
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("dropout_prob", [0.0, 0.1, 0.5])
-def test_Dropout_equivariance(batch_dims, dropout_prob):
+def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> None:
+    # Slim Dropout preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = Dropout(dropout_prob)
     layer.eval()
 
@@ -44,7 +45,8 @@ def test_Dropout_equivariance(batch_dims, dropout_prob):
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_RMSNorm_equivariance(batch_dims):
+def test_RMSNorm_equivariance(batch_dims: list[int]) -> None:
+    # RMSNorm preserves shapes and is SO(1, 3)-equivariant.
     layer = RMSNorm()
 
     # shape
@@ -62,8 +64,14 @@ def test_RMSNorm_equivariance(batch_dims):
 @pytest.mark.parametrize("nonlinearity", ["relu", "sigmoid", "tanh", "gelu", "silu"])
 @pytest.mark.parametrize("in_v_channels,out_v_channels,in_s_channels,out_s_channels", CHANNELS)
 def test_GatedLinearUnit_equivariance(
-    batch_dims, nonlinearity, in_v_channels, out_v_channels, in_s_channels, out_s_channels
-):
+    batch_dims: list[int],
+    nonlinearity: str,
+    in_v_channels: int,
+    out_v_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+) -> None:
+    # GatedLinearUnit produces the right output shapes and is SO(1, 3)-equivariant.
     layer = GatedLinearUnit(
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,
@@ -86,13 +94,14 @@ def test_GatedLinearUnit_equivariance(
 @pytest.mark.parametrize("in_v_channels,out_v_channels,in_s_channels,out_s_channels", CHANNELS)
 @pytest.mark.parametrize("initialization", ["default", "small"])
 def test_Linear_equivariance(
-    batch_dims,
-    in_v_channels,
-    out_v_channels,
-    in_s_channels,
-    out_s_channels,
-    initialization,
-):
+    batch_dims: list[int],
+    in_v_channels: int,
+    out_v_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    initialization: str,
+) -> None:
+    # Slim Linear produces the right output shapes and is SO(1, 3)-equivariant.
     layer = Linear(
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,
@@ -114,14 +123,14 @@ def test_Linear_equivariance(
 @pytest.mark.parametrize("batch_dims", [(100,)])
 @pytest.mark.parametrize("in_v_channels,out_v_channels,in_s_channels,out_s_channels", CHANNELS[:4])
 def test_Linear_initialization(
-    batch_dims,
-    in_v_channels,
-    out_v_channels,
-    in_s_channels,
-    out_s_channels,
-    var_tolerance=10.0,
-):
-    # Test that inputs with variance 1 are roughly mapped to outputs with variance 1
+    batch_dims: tuple[int, ...],
+    in_v_channels: int,
+    out_v_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    var_tolerance: float = 10.0,
+) -> None:
+    # Slim Linear maps unit-variance inputs to roughly unit-variance outputs.
     layer = Linear(
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,
@@ -154,12 +163,13 @@ def test_Linear_initialization(
 @pytest.mark.parametrize("v_channels,s_channels", [(24, 14)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
 def test_SelfAttention_equivariance(
-    batch_dims,
-    v_channels,
-    s_channels,
-    num_heads,
-    attn_ratio,
-):
+    batch_dims: list[int],
+    v_channels: int,
+    s_channels: int,
+    num_heads: int,
+    attn_ratio: int,
+) -> None:
+    # Slim SelfAttention preserves shapes and is SO(1, 3)-equivariant.
     layer = SelfAttention(
         v_channels=v_channels,
         s_channels=s_channels,
@@ -180,7 +190,14 @@ def test_SelfAttention_equivariance(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("v_channels,s_channels", [(32, 4), (16, 8)])
 @pytest.mark.parametrize("mlp_ratio,num_layers", [(1, 2), (2, 2), (1, 3)])
-def test_MLP_equivariance(batch_dims, v_channels, s_channels, mlp_ratio, num_layers):
+def test_MLP_equivariance(
+    batch_dims: list[int],
+    v_channels: int,
+    s_channels: int,
+    mlp_ratio: int,
+    num_layers: int,
+) -> None:
+    # Slim MLP is SO(1, 3)-equivariant.
     layer = MLP(
         v_channels=v_channels,
         s_channels=s_channels,
@@ -198,12 +215,13 @@ def test_MLP_equivariance(batch_dims, v_channels, s_channels, mlp_ratio, num_lay
 @pytest.mark.parametrize("v_channels,s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 def test_LGATrSlimBlock_equivariance(
-    batch_dims,
-    v_channels,
-    s_channels,
-    num_heads,
-    dropout_prob,
-):
+    batch_dims: list[int],
+    v_channels: int,
+    s_channels: int,
+    num_heads: int,
+    dropout_prob: float | None,
+) -> None:
+    # LGATrSlimBlock is SO(1, 3)-equivariant at eval time.
     layer = LGATrSlimBlock(
         v_channels=v_channels,
         s_channels=s_channels,
@@ -233,18 +251,19 @@ def test_LGATrSlimBlock_equivariance(
 @pytest.mark.parametrize("num_blocks", [1, 2])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
 def test_LGATrSlim_equivariance(
-    batch_dims,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    dropout_prob,
-    checkpoint_blocks,
-):
+    batch_dims: list[int],
+    in_v_channels: int,
+    in_s_channels: int,
+    out_v_channels: int,
+    out_s_channels: int,
+    hidden_v_channels: int,
+    hidden_s_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    dropout_prob: float | None,
+    checkpoint_blocks: bool,
+) -> None:
+    # LGATrSlim (full network) preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = LGATrSlim(
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,
@@ -277,17 +296,18 @@ def test_LGATrSlim_equivariance(
     "hidden_v_channels,hidden_s_channels,num_heads,num_blocks", [(16, 8, 4, 1)]
 )
 def test_LGATrSlim_equivariance_compiled(
-    batch_dims,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    compile=True,
-):
+    batch_dims: list[int],
+    in_v_channels: int,
+    in_s_channels: int,
+    out_v_channels: int,
+    out_s_channels: int,
+    hidden_v_channels: int,
+    hidden_s_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    compile: bool = True,
+) -> None:
+    # torch.compile-wrapped LGATrSlim still preserves shapes and SO(1, 3)-equivariance.
     layer = LGATrSlim(
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,

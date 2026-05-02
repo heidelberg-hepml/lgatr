@@ -4,17 +4,17 @@ import torch
 
 
 def embed_axialvector(axialvector: torch.Tensor) -> torch.Tensor:
-    """Embeds axial vectors in multivectors.
+    """Embed an axial vector into a multivector.
 
     Parameters
     ----------
-    axialvector : torch.Tensor
-        Axial vector with shape (..., 4)
+    axialvector
+        Axial vector of shape ``(..., 4)``.
 
     Returns
     -------
-    multivector : torch.Tensor
-        Embedding into multivector with shape (..., 16).
+    multivector
+        Multivector embedding of shape ``(..., 16)``.
     """
 
     # Create multivector tensor with same batch shape, same device, same dtype as input
@@ -28,17 +28,17 @@ def embed_axialvector(axialvector: torch.Tensor) -> torch.Tensor:
 
 
 def extract_axialvector(multivector: torch.Tensor) -> torch.Tensor:
-    """Given a multivector, extract a axial vector.
+    """Extract an axial vector from a multivector.
 
     Parameters
     ----------
-    multivector : torch.Tensor
-        Multivector with shape (..., 16).
+    multivector
+        Multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    axialvector : torch.Tensor
-        Axial vector with shape (..., 4)
+    axialvector
+        Axial vector of shape ``(..., 4)``.
     """
 
     axialvector = multivector[..., 11:15].flip(-1)

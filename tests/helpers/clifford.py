@@ -1,4 +1,4 @@
-"""Geometric algebra operations based on the clifford library."""
+"""Geometric-algebra operations based on the clifford library."""
 
 import clifford
 import numpy as np
@@ -7,28 +7,29 @@ import torch
 LAYOUT, BLADES = clifford.Cl(1, 3)
 
 
-def np_to_mv(array):
-    """Shorthand to transform a numpy array to a Pin(1,3) multivector."""
+def np_to_mv(array: np.ndarray) -> clifford.MultiVector:
+    """Convert a numpy array to a Pin(1, 3) multivector."""
     return clifford.MultiVector(LAYOUT, value=array)
 
 
-def tensor_to_mv(tensor):
-    """Shorthand to transform a numpy array to a Pin(1,3) multivector."""
+def tensor_to_mv(tensor: torch.Tensor) -> clifford.MultiVector:
+    """Convert a torch tensor to a Pin(1, 3) multivector."""
     return np_to_mv(tensor.detach().cpu().numpy())
 
 
-def tensor_to_mv_list(tensor):
-    """Transforms a torch.Tensor to a list of multivector objects."""
-
+def tensor_to_mv_list(tensor: torch.Tensor) -> list[clifford.MultiVector]:
+    """Flatten a torch tensor of shape ``(..., 16)`` to a list of multivectors."""
     tensor = tensor.reshape((-1, 16))
     mv_list = [tensor_to_mv(x) for x in tensor]
 
     return mv_list
 
 
-def mv_list_to_tensor(multivectors, batch_shape=None):
-    """Transforms a list of multivector objects to a torch.Tensor."""
-
+def mv_list_to_tensor(
+    multivectors: list[clifford.MultiVector],
+    batch_shape: tuple[int, ...] | list[int] | None = None,
+) -> torch.Tensor:
+    """Stack a list of multivectors into a torch tensor."""
     tensor = torch.from_numpy(np.array([mv.value for mv in multivectors])).to(torch.float32)
     if batch_shape is not None:
         tensor = tensor.reshape(*batch_shape, 16)
@@ -36,8 +37,10 @@ def mv_list_to_tensor(multivectors, batch_shape=None):
     return tensor
 
 
-def sample_pin_multivector(spin: bool = False, rng: np.random.Generator | None = None):
-    """Samples from the Pin(1,3) group as a product of reflections."""
+def sample_pin_multivector(
+    spin: bool = False, rng: np.random.Generator | None = None
+) -> clifford.MultiVector:
+    """Sample from the Pin(1, 3) group as a product of reflections."""
 
     if rng is None:
         rng = np.random.default_rng()
@@ -69,11 +72,13 @@ def sample_pin_multivector(spin: bool = False, rng: np.random.Generator | None =
     return multivector
 
 
-def get_parity(mv):
-    """Gets parity of a clifford multivector.
+def get_parity(mv: clifford.MultiVector) -> bool:
+    """Return True if ``mv`` is pure-odd-grade, False if pure-even-grade.
 
-    Given a clifford multivector, returns True if it is pure-odd-grade, False if it is pure-even
-    grade, and raises a RuntimeError if it is mixed.
+    Raises
+    ------
+    RuntimeError
+        If ``mv`` is mixed-grade.
     """
     if mv == mv.even:
         return False
@@ -82,17 +87,11 @@ def get_parity(mv):
     raise RuntimeError(f"Mixed-grade multivector: {mv}")
 
 
-def sandwich(u, x):
-    """Given clifford multivectors, computes their sandwich product.
+def sandwich(u: clifford.MultiVector, x: clifford.MultiVector) -> clifford.MultiVector:
+    """Compute the sandwich product ``(-1)^(grade(u) * grade(x)) u x u^{-1}``.
 
-    Specifically, given a Pin element u and a PGA element x, both given as clifford multivectors,
-    computes the sandwich product
-    ```
-    sandwich(x, u) = (-1)^(grade(u) * grade(x)) u x u^{-1} .
-    ```
-
-    If `u` is of odd grades, then this is equal to `u * grade_involute(x) * u^{-1}`.
-    If `u` is of even grades, then this is equal to `u * x * u^{-1}`.
+    If ``u`` has odd grades, this equals ``u * grade_involute(x) * u^{-1}``; if ``u`` has even
+    grades, this equals ``u * x * u^{-1}``.
     """
 
     if get_parity(u):
@@ -102,18 +101,18 @@ def sandwich(u, x):
 
 
 class SlowRandomPinTransform:
-    """Random Pin transform on a multivector torch.Tensor.
+    """Random Pin transform on a multivector torch tensor.
 
-    Slow, only used for testing purposes. Breaks computational graph.
+    Slow; only used for testing. Breaks the computational graph.
     """
 
-    def __init__(self, spin=False, rng=None):
+    def __init__(self, spin: bool = False, rng: np.random.Generator | None = None) -> None:
         super().__init__()
         self._u = sample_pin_multivector(spin, rng)
         self._u_inverse = self._u.shirokov_inverse()
 
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
-        """Apply Pin transformation to multivector inputs."""
+        """Apply the Pin transformation to multivector inputs of shape ``(..., 16)``."""
         # Input shape
         assert inputs.shape[-1] == 16
         batch_dims = inputs.shape[:-1]

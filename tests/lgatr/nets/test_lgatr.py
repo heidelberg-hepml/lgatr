@@ -21,22 +21,22 @@ S_CHANNELS = [(0, 0, 7), (0, 0, 0), (4, 5, 6)]
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
 @pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_lgatr_shape(
-    batch_dims,
-    num_items,
-    in_mv_channels,
-    out_mv_channels,
-    hidden_mv_channels,
-    num_blocks,
-    num_heads,
-    in_s_channels,
-    out_s_channels,
-    hidden_s_channels,
-    multi_query_attention,
-    dropout_prob,
-    checkpoint_blocks,
-    use_fully_connected_subgroup,
-):
-    """Tests the output shape of LGATr."""
+    batch_dims: list[int],
+    num_items: int,
+    in_mv_channels: int,
+    out_mv_channels: int,
+    hidden_mv_channels: int,
+    num_blocks: int,
+    num_heads: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    hidden_s_channels: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+    checkpoint_blocks: bool,
+    use_fully_connected_subgroup: bool,
+) -> None:
+    # LGATr's outputs match the expected shapes for all combinations of channels and config.
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -81,19 +81,19 @@ def test_lgatr_shape(
 @pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", S_CHANNELS)
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_lgatr_equivariance(
-    batch_dims,
-    num_items,
-    in_mv_channels,
-    out_mv_channels,
-    hidden_mv_channels,
-    num_blocks,
-    num_heads,
-    in_s_channels,
-    out_s_channels,
-    hidden_s_channels,
-    multi_query_attention,
-):
-    """Tests LGATr for equivariance."""
+    batch_dims: tuple[int, ...],
+    num_items: int,
+    in_mv_channels: int,
+    out_mv_channels: int,
+    hidden_mv_channels: int,
+    num_blocks: int,
+    num_heads: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    hidden_s_channels: int,
+    multi_query_attention: bool,
+) -> None:
+    # LGATr (full network) is Pin-equivariant.
     try:
         net = LGATr(
             in_mv_channels=in_mv_channels,

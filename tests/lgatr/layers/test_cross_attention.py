@@ -15,21 +15,20 @@ from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("num_heads,increase_hidden_channels", [(3, 2)])
 @pytest.mark.parametrize("dropout_prob", [None])
 def test_crossattention_equivariance(
-    batch_dims,
-    items,
-    items_condition,
-    in_kv_mv_channels,
-    in_q_mv_channels,
-    in_kv_s_channels,
-    in_q_s_channels,
-    multi_query,
-    head_scale,
-    num_heads,
-    increase_hidden_channels,
-    dropout_prob,
-):
-    """Test cross attention equivariance."""
-
+    batch_dims: list[int],
+    items: int,
+    items_condition: int,
+    in_kv_mv_channels: int,
+    in_q_mv_channels: int,
+    in_kv_s_channels: int,
+    in_q_s_channels: int,
+    multi_query: bool,
+    head_scale: bool,
+    num_heads: int,
+    increase_hidden_channels: int,
+    dropout_prob: float | None,
+) -> None:
+    # CrossAttention is Pin-equivariant in both query and key/value multivector inputs.
     config = CrossAttentionConfig(
         in_kv_mv_channels=in_kv_mv_channels,
         in_q_mv_channels=in_q_mv_channels,
@@ -61,8 +60,8 @@ def test_crossattention_equivariance(
     )
 
 
-def test_cross_attention_none_scalars():
-    """Tests CrossAttention accepts scalars_kv=None and scalars_q=None at runtime."""
+def test_cross_attention_none_scalars() -> None:
+    # CrossAttention accepts scalars_kv=None and scalars_q=None at runtime.
     config = CrossAttentionConfig(
         in_kv_mv_channels=2,
         in_q_mv_channels=3,

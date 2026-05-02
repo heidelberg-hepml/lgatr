@@ -1,18 +1,19 @@
+"""Misc utilities: residual addition and an autocast-precision decorator."""
+
 from collections.abc import Callable
 from functools import wraps
 from itertools import chain
 from typing import Any, Literal
 
 import torch
-from torch import Tensor
 
 
-def residual_add(a: Tensor | None, b: Tensor | None) -> Tensor | None:
+def residual_add(a: torch.Tensor | None, b: torch.Tensor | None) -> torch.Tensor | None:
     """Residual addition that propagates None.
 
-    Returns None if both operands are None, the non-None operand if exactly one is None,
-    and ``a + b`` otherwise. Used by transformer blocks to add residual connections on
-    the optional scalar stream without special-casing each call site.
+    Returns None if both operands are None, the non-None operand if exactly one is None, and
+    ``a + b`` otherwise. Used by transformer blocks to add residual connections on the optional
+    scalar stream without special-casing each call site.
     """
     if a is None:
         return b
@@ -26,64 +27,61 @@ def minimum_autocast_precision(
     output: Literal["low", "high"] | torch.dtype | None = None,
     which_args: list[int] | None = None,
     which_kwargs: list[str] | None = None,
-):
+) -> Callable:
     """Decorator that ensures input tensors are autocast to a minimum precision.
-    Only has an effect in autocast-enabled regions. Otherwise, does not change the function.
-    Only floating-point inputs are modified. Non-tensors, integer tensors, and boolean tensors are
-    untouched.
-    Note: AMP is turned on and off separately for CPU and CUDA. This decorator may fail in
-    the case where both devices are used, with only one of them on AMP.
+
+    Only has an effect inside autocast-enabled regions; otherwise the decorated function is
+    unchanged. Only floating-point inputs are modified — non-tensors, integer tensors, and boolean
+    tensors are left alone.
+
+    Note: AMP is enabled separately for CPU and CUDA. This decorator may behave unexpectedly when
+    both devices are used and only one of them has AMP enabled.
 
     Parameters
     ----------
-    min_dtype : dtype
-        Minimum dtype. Default: float32.
-    output: None or "low" or "high" or dtype
-        Specifies which dtypes the outputs should be cast to. Only floating-point Tensor outputs
-        are affected. If None, the outputs are not modified. If "low", the lowest-precision input
-        dtype is used. If "high", `min_dtype` or the highest-precision input dtype is used
-        (whichever is higher).
-    which_args : None or list of int
-        If not None, specifies which positional arguments are to be modified. If None (the default),
-        all positional arguments are modified (if they are Tensors and of a floating-point dtype).
-    which_kwargs : bool
-        If not None, specifies which keyword arguments are to be modified. If None (the default),
-        all keyword arguments are modified (if they are Tensors and of a floating-point dtype).
+    min_dtype
+        Minimum dtype.
+    output
+        Specifies which dtype the outputs should be cast to. Only floating-point tensor outputs
+        are affected. If None, outputs are not modified. If ``"low"``, the lowest-precision input
+        dtype is used. If ``"high"``, ``min_dtype`` or the highest-precision input dtype is used
+        (whichever is higher). If a ``torch.dtype``, that dtype is used.
+    which_args
+        Positional argument indices to modify. If None, all positional arguments are modified
+        (subject to the type / dtype filter above).
+    which_kwargs
+        Keyword argument names to modify. If None, all keyword arguments are modified (subject to
+        the type / dtype filter above).
 
     Returns
     -------
-    decorator : Callable
-        Decorator.
+    decorator
+        Decorator that casts tensor inputs to the given minimum precision.
     """
 
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         """Decorator that casts input tensors to minimum precision."""
 
-        def _cast_in(var: Any):
-            """Casts a single input to at least 32-bit precision."""
-            if not isinstance(var, Tensor):
-                # We don't want to modify non-Tensors
+        def _cast_in(var: Any) -> Any:
+            """Cast a single input to at least ``min_dtype`` precision."""
+            if not isinstance(var, torch.Tensor):
                 return var
             if not var.dtype.is_floating_point:
-                # Integer / boolean tensors are also not touched
                 return var
             if torch.finfo(var.dtype).bits >= torch.finfo(min_dtype).bits:
                 return var
             return var.to(min_dtype)
 
-        def _cast_out(var: Any, dtype: torch.dtype):
-            """Casts a single output to desired precision."""
-            if not isinstance(var, Tensor):
-                # We don't want to modify non-Tensors
+        def _cast_out(var: Any, dtype: torch.dtype) -> Any:
+            """Cast a single output to the requested dtype."""
+            if not isinstance(var, torch.Tensor):
                 return var
             if not var.dtype.is_floating_point:
-                # Integer / boolean tensors are also not touched
                 return var
             return var.to(dtype)
 
         @wraps(func)
         def decorated_func(*args: Any, **kwargs: Any):
-            """Decorated func."""
             # Only change dtypes in autocast-enabled regions
             if not (torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled()):
                 # NB: torch.is_autocast_enabled() only checks for GPU autocast
@@ -111,7 +109,7 @@ def minimum_autocast_precision(
                 in_dtypes = [
                     arg.dtype
                     for arg in chain(args, kwargs.values())
-                    if isinstance(arg, Tensor) and arg.dtype.is_floating_point
+                    if isinstance(arg, torch.Tensor) and arg.dtype.is_floating_point
                 ]
                 assert len(in_dtypes)
                 if output == "low":

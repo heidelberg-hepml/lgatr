@@ -14,19 +14,18 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("num_heads", [4, 1])
 @pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
 def test_attention_equivariance(
-    batch_dims,
-    num_items,
-    in_channels,
-    out_channels,
-    num_heads,
-    head_scale,
-    in_s_channels,
-    out_s_channels,
-    multi_query,
-    increase_hidden_channels,
-):
-    """Tests the SelfAttention layer for Pin equivariance, with scalar inputs."""
-
+    batch_dims: list[int],
+    num_items: int,
+    in_channels: int,
+    out_channels: int,
+    num_heads: int,
+    head_scale: bool,
+    in_s_channels: int,
+    out_s_channels: int,
+    multi_query: bool,
+    increase_hidden_channels: int,
+) -> None:
+    # SelfAttention is Pin-equivariant when scalar inputs are provided.
     config = SelfAttentionConfig(
         in_mv_channels=in_channels,
         out_mv_channels=out_channels,
@@ -51,8 +50,8 @@ def test_attention_equivariance(
     )
 
 
-def test_sdp_attention_none_scalars():
-    """Tests sdp_attention propagates None when q_s/k_s/v_s are None."""
+def test_sdp_attention_none_scalars() -> None:
+    # sdp_attention propagates None when q_s/k_s/v_s are all None.
     q = k = v = torch.randn(2, 3, 4, 16)
     _, out_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None)
     assert out_s is None

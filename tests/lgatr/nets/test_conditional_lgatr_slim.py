@@ -18,16 +18,17 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("v_channels,cond_v_channels,s_channels,cond_s_channels", [(24, 6, 14, 20)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
 def test_CrossAttention_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    v_channels,
-    cond_v_channels,
-    s_channels,
-    cond_s_channels,
-    num_heads,
-    attn_ratio,
-):
+    batch_dims: list[int],
+    N: int,
+    Ncond: int,
+    v_channels: int,
+    cond_v_channels: int,
+    s_channels: int,
+    cond_s_channels: int,
+    num_heads: int,
+    attn_ratio: int,
+) -> None:
+    # Slim CrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
     layer = CrossAttention(
         q_v_channels=v_channels,
         kv_v_channels=cond_v_channels,
@@ -62,16 +63,17 @@ def test_CrossAttention_equivariance(
 )
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 def test_ConditionalLGATrSlimBlock_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    v_channels,
-    cond_v_channels,
-    s_channels,
-    cond_s_channels,
-    num_heads,
-    dropout_prob,
-):
+    batch_dims: list[int],
+    N: int,
+    Ncond: int,
+    v_channels: int,
+    cond_v_channels: int,
+    s_channels: int,
+    cond_s_channels: int,
+    num_heads: int,
+    dropout_prob: float | None,
+) -> None:
+    # ConditionalLGATrSlimBlock is SO(1, 3)-equivariant at eval time.
     layer = ConditionalLGATrSlimBlock(
         v_channels=v_channels,
         condition_v_channels=cond_v_channels,
@@ -112,22 +114,23 @@ def test_ConditionalLGATrSlimBlock_equivariance(
 @pytest.mark.parametrize("num_blocks", [1, 2])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
 def test_ConditionalLGATrSlim_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    cond_v_channels,
-    cond_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    dropout_prob,
-    checkpoint_blocks,
-):
+    batch_dims: list[int],
+    N: int,
+    Ncond: int,
+    in_v_channels: int,
+    in_s_channels: int,
+    out_v_channels: int,
+    out_s_channels: int,
+    cond_v_channels: int,
+    cond_s_channels: int,
+    hidden_v_channels: int,
+    hidden_s_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    dropout_prob: float | None,
+    checkpoint_blocks: bool,
+) -> None:
+    # ConditionalLGATrSlim (full network) preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = ConditionalLGATrSlim(
         in_v_channels=in_v_channels,
         condition_v_channels=cond_v_channels,
@@ -179,21 +182,22 @@ def test_ConditionalLGATrSlim_equivariance(
     "hidden_v_channels,hidden_s_channels,num_heads,num_blocks", [(16, 8, 4, 1)]
 )
 def test_ConditionalLGATrSlim_equivariance_compiled(
-    batch_dims,
-    N,
-    Ncond,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    cond_v_channels,
-    cond_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    compile=True,
-):
+    batch_dims: list[int],
+    N: int,
+    Ncond: int,
+    in_v_channels: int,
+    in_s_channels: int,
+    out_v_channels: int,
+    out_s_channels: int,
+    cond_v_channels: int,
+    cond_s_channels: int,
+    hidden_v_channels: int,
+    hidden_s_channels: int,
+    num_heads: int,
+    num_blocks: int,
+    compile: bool = True,
+) -> None:
+    # torch.compile-wrapped ConditionalLGATrSlim still preserves shapes and SO(1, 3)-equivariance.
     layer = ConditionalLGATrSlim(
         in_v_channels=in_v_channels,
         condition_v_channels=cond_v_channels,

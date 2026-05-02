@@ -6,21 +6,21 @@ from .linear import grade_project
 
 
 def grade_dropout(x: torch.Tensor, p: float, training: bool = True) -> torch.Tensor:
-    """Multivector dropout, dropping out grades independently.
+    """Multivector dropout that drops grades independently.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input data with shape (..., 16).
-    p : float
-        Dropout probability (assumed the same for each grade).
-    training : bool
-        Switches between train-time and test-time behaviour.
+    x
+        Input data of shape ``(..., 16)``.
+    p
+        Dropout probability (the same for each grade).
+    training
+        Switches between train-time and test-time behavior.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Inputs with dropout applied, shape (..., 16).
+    outputs
+        Inputs with dropout applied, shape ``(..., 16)``.
     """
 
     # Project to grades

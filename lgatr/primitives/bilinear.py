@@ -24,8 +24,8 @@ def _load_geometric_product_tensor(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -
 
     Returns
     -------
-    basis : torch.Tensor
-        Geometric product tensor with shape (16, 16, 16)
+    basis
+        Geometric-product tensor of shape ``(16, 16, 16)``.
     """
 
     # To avoid duplicate loading, base everything on float32 CPU version
@@ -39,22 +39,21 @@ def _load_geometric_product_tensor(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -
 
 
 def geometric_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Computes the geometric product ``f(x,y) = x*y``.
+    """Compute the geometric product ``f(x, y) = x * y``.
 
     Parameters
     ----------
-    x : torch.Tensor
-        First input multivector with shape (..., 16).
-        Batch dimensions must be broadcastable between x and y.
-    y : torch.Tensor
-        Second input multivector with shape (..., 16).
-        Batch dimensions must be broadcastable between x and y.
+    x
+        First input multivector of shape ``(..., 16)``.
+        Batch dimensions must be broadcastable between ``x`` and ``y``.
+    y
+        Second input multivector of shape ``(..., 16)``.
+        Batch dimensions must be broadcastable between ``x`` and ``y``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Result with shape (..., 16).
-        Batch dimensions are result of broadcasting between x, y, and coeffs.
+    outputs
+        Result of shape ``(..., 16)``. Batch dimensions are the broadcast of ``x`` and ``y``.
     """
 
     # Select kernel on correct device

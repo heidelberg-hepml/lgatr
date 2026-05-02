@@ -1,3 +1,5 @@
+"""Query/key/value projections for self-attention (multi-head and multi-query variants)."""
+
 import torch
 from torch import nn
 
@@ -7,16 +9,17 @@ from .config import SelfAttentionConfig
 
 
 class QKVModule(nn.Module):
-    """Compute (multivector and scalar) queries, keys, and values via multi-head attention.
-    This class is only used in self-attention. We do it manually for cross-attention.
+    """Compute multivector and scalar queries, keys, and values for multi-head self-attention.
+
+    Used by self-attention only; cross-attention does the equivalent computation manually.
 
     Parameters
     ----------
-    config: SelfAttentionConfig
-        Attention configuration
+    config
+        Attention configuration.
     """
 
-    def __init__(self, config: SelfAttentionConfig):
+    def __init__(self, config: SelfAttentionConfig) -> None:
         super().__init__()
         self.in_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
@@ -33,37 +36,45 @@ class QKVModule(nn.Module):
         scalars: torch.Tensor | None = None,
         additional_qk_features_mv: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
-    ):
-        """Evaluate head-wise queries, keys, and values. The heads have size
-        `head_mv_channels=mv_channels*increase_hidden_channels // num_heads` and
-        `head_s_channels=s_channels*increase_hidden_channels // num_heads`.
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor | None,
+        torch.Tensor | None,
+        torch.Tensor | None,
+    ]:
+        """Compute head-wise queries, keys, and values.
+
+        The heads have size ``head_mv_channels = mv_channels * increase_hidden_channels // num_heads``
+        and ``head_s_channels = s_channels * increase_hidden_channels // num_heads``.
 
         Parameters
         ----------
-        inputs : torch.Tensor
-            Multivector inputs with shape (..., items, mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional scalar inputs with shape (..., items, s_channels). If None, the
-            scalar Q/K/V outputs are also None.
-        additional_qk_features_mv : None or torch.Tensor
-            Additional multivector features that for the Q/K computation
-        additional_qk_features_s : None or torch.Tensor
-            Additional scalar features for the Q/K computation
+        inputs
+            Multivector inputs of shape ``(..., items, mv_channels, 16)``.
+        scalars
+            Optional scalar inputs of shape ``(..., items, s_channels)``. If None, the scalar
+            Q/K/V outputs are also None.
+        additional_qk_features_mv
+            Additional multivector features for the Q/K computation.
+        additional_qk_features_s
+            Additional scalar features for the Q/K computation.
 
         Returns
         -------
-        q_mv : torch.Tensor
-            Multivector queries with shape (..., heads, items, head_mv_channels, 16)
-        k_mv : torch.Tensor
-            Multivector keys with shape (..., heads, items, head_mv_channels, 16)
-        v_mv : torch.Tensor
-            Multivector values with shape (..., heads, items, head_mv_channels, 16)
-        q_s : None or torch.Tensor
-            Scalar queries with shape (..., heads, items, head_s_channels)
-        k_s : None or torch.Tensor
-            Scalar keys with shape (..., heads, items, head_s_channels)
-        v_s : None or torch.Tensor
-            Scalar values with shape (..., heads, items, head_s_channels)
+        q_mv
+            Multivector queries of shape ``(..., heads, items, head_mv_channels, 16)``.
+        k_mv
+            Multivector keys of shape ``(..., heads, items, head_mv_channels, 16)``.
+        v_mv
+            Multivector values of shape ``(..., heads, items, head_mv_channels, 16)``.
+        q_s
+            Scalar queries of shape ``(..., heads, items, head_s_channels)``, or None.
+        k_s
+            Scalar keys of shape ``(..., heads, items, head_s_channels)``, or None.
+        v_s
+            Scalar values of shape ``(..., heads, items, head_s_channels)``, or None.
         """
 
         # Additional inputs
@@ -99,18 +110,17 @@ class QKVModule(nn.Module):
 
 
 class MultiQueryQKVModule(nn.Module):
-    """Compute (multivector and scalar) queries, keys, and values via multi-query attention.
-    Compared to the QKVModule defined above, MultiQueryQKVModule shares keys and values
-    across attention heads, which saves parameters.
-    This class is only used in self-attention. We do it manually for cross-attention.
+    """Compute Q/K/V for multi-query self-attention (keys and values shared across heads).
+
+    Used by self-attention only; cross-attention does the equivalent computation manually.
 
     Parameters
     ----------
-    config: SelfAttentionConfig
-        Attention configuration
+    config
+        Attention configuration.
     """
 
-    def __init__(self, config: SelfAttentionConfig):
+    def __init__(self, config: SelfAttentionConfig) -> None:
         super().__init__()
 
         # Q projection
@@ -143,41 +153,45 @@ class MultiQueryQKVModule(nn.Module):
         scalars: torch.Tensor | None = None,
         additional_qk_features_mv: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
-    ):
-        """Evaluate head-wise queries, keys, and values. The heads have size
-        `head_mv_channels=mv_channels*increase_hidden_channels // num_heads` and
-        `head_s_channels=s_channels*increase_hidden_channels // num_heads`.
-        The keys and values are shared across heads, i.e. we set `num_heads=1`
-        and later broadcast over heads.
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor | None,
+        torch.Tensor | None,
+        torch.Tensor | None,
+    ]:
+        """Compute head-wise queries, keys, and values (multi-query).
+
+        Keys and values are shared across heads, i.e. the head dimension is set to 1 and
+        broadcast later.
 
         Parameters
         ----------
-        inputs : torch.Tensor
-            Multivector inputs with shape (..., items, mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional scalar inputs with shape (..., items, s_channels). If None, the
-            scalar Q/K/V outputs are also None.
-        additional_qk_features_mv : None or torch.Tensor
-            Additional multivector features that should be provided for the Q/K computation (e.g.
-            positions of objects)
-        additional_qk_features_s : None or torch.Tensor
-            Additional scalar features that should be provided for the Q/K computation (e.g.
-            object types)
+        inputs
+            Multivector inputs of shape ``(..., items, mv_channels, 16)``.
+        scalars
+            Optional scalar inputs of shape ``(..., items, s_channels)``. If None, the scalar
+            Q/K/V outputs are also None.
+        additional_qk_features_mv
+            Additional multivector features for the Q/K computation (e.g. positions of objects).
+        additional_qk_features_s
+            Additional scalar features for the Q/K computation (e.g. object types).
 
         Returns
         -------
-        q_mv : torch.Tensor
-            Multivector queries with shape (..., heads, items, head_mv_channels, 16)
-        k_mv : torch.Tensor
-            Multivector keys with shape (..., 1, items, head_mv_channels, 16)
-        v_mv : torch.Tensor
-            Multivector values with shape (..., 1, items, head_mv_channels, 16)
-        q_s : None or torch.Tensor
-            Scalar queries with shape (..., heads, items, head_s_channels)
-        k_s : None or torch.Tensor
-            Scalar keys with shape (..., 1, items, head_s_channels)
-        v_s : None or torch.Tensor
-            Scalar values with shape (..., 1, items, head_s_channels)
+        q_mv
+            Multivector queries of shape ``(..., heads, items, head_mv_channels, 16)``.
+        k_mv
+            Multivector keys of shape ``(..., 1, items, head_mv_channels, 16)``.
+        v_mv
+            Multivector values of shape ``(..., 1, items, head_mv_channels, 16)``.
+        q_s
+            Scalar queries of shape ``(..., heads, items, head_s_channels)``, or None.
+        k_s
+            Scalar keys of shape ``(..., 1, items, head_s_channels)``, or None.
+        v_s
+            Scalar values of shape ``(..., 1, items, head_s_channels)``, or None.
         """
 
         # Additional inputs

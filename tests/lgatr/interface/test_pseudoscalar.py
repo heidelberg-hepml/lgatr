@@ -6,9 +6,8 @@ from tests.helpers import BATCH_DIMS, TOLERANCES
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_embed_pseudoscalar(batch_dims):
-    """Tests that embed_pseudoscalar() embeds pseudoscalars into multivectors correctly."""
-
+def test_embed_pseudoscalar(batch_dims: list[int]) -> None:
+    # embed_pseudoscalar puts the input in slot 15 and zeros out the rest; extract inverts it.
     pseudoscalar = torch.randn(*batch_dims, 1)
     mv = embed_pseudoscalar(pseudoscalar)
 

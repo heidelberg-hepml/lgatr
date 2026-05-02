@@ -1,3 +1,5 @@
+"""L-GATr: a Lorentz-equivariant geometric-algebra transformer for high-energy physics."""
+
 from importlib.metadata import version as _pkg_version
 
 from .interface.axialvector import embed_axialvector, extract_axialvector

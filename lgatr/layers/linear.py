@@ -1,4 +1,4 @@
-"""Pin-equivariant linear layers between multivector tensors (torch.nn.Modules)."""
+"""Pin-equivariant linear layers between multivector tensors (:class:`torch.nn.Module`)."""
 
 import math
 
@@ -13,51 +13,52 @@ from ..primitives.linear import equi_linear
 class EquiLinear(nn.Module):
     """Linear layer.
 
-    The forward pass maps multivector inputs with shape (..., in_channels, 16) to multivector
-    outputs with shape (..., out_channels, 16) as
+    The forward pass maps multivector inputs of shape ``(..., in_channels, 16)`` to multivector
+    outputs of shape ``(..., out_channels, 16)`` as
 
+    .. code-block::
 
-        .. code-block::
+        outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
+        = sum_i linear(inputs[..., i, :], weights[j, i, :])
 
-            outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]
-            = sum_i linear(inputs[..., i, :], weights[j, i, :])
+    plus an optional bias term for ``outputs[..., :, 0]`` (biases on other multivector components
+    would break equivariance). Here ``basis_map`` are precomputed (see
+    :mod:`lgatr.primitives.linear`) and ``weights`` are the learnable weights of this layer.
+    The ``basis_map`` includes 5 elements if the full Lorentz group is considered, and 10 elements
+    if only the fully-connected subgroup is considered. See
+    :class:`lgatr.primitives.config.LGATrConfig` for the ``use_fully_connected_subgroup`` option.
 
-    plus an optional bias term for ``outputs[..., :, 0]`` (biases in other multivector components would
-    break equivariance). Here ``basis_map`` are precomputed (see ``gatr.primitives.linear``) and weights are the
-    learnable weights of this layer. The ``basis_map`` includes 5 elements if the full Lorentz group is
-    considered, and 10 elements if only the fully-connected subgroup is considered.
-    See the ``use_fully_connected_subgroup`` parameter in ``lgatr.primitives.config.LGATrConfig`` for details.
-
-    If there are auxiliary input scalars, they transform under a linear layer, and mix with the
-    scalar components the multivector data. Note that in this layer (and only here) the auxiliary
-    scalars are optional.
+    If there are auxiliary input scalars, they transform under a linear layer and mix with the
+    scalar components of the multivector data. In this layer (and only here) the auxiliary scalars
+    are optional.
 
     This layer supports four initialization schemes:
 
-    - "default": preserves (or actually slightly reducing) the variance of the data in the forward pass
-    - "small": variance of outputs is approximately one order of magnitude smaller than for "default"
-    - "unit_scalar": outputs will be close to (1, 0, 0, ..., 0)
-    - "almost_unit_scalar": similar to "unit_scalar", but with more stochasticity
+    - ``"default"``: preserves (or slightly reduces) the variance of the data in the forward pass.
+    - ``"small"``: variance of outputs is approximately one order of magnitude smaller than for
+      ``"default"``.
+    - ``"unit_scalar"``: outputs will be close to ``(1, 0, 0, ..., 0)``.
+    - ``"almost_unit_scalar"``: similar to ``"unit_scalar"``, but with more stochasticity.
 
-    We use the "almost_unit_scalar" initialization to preprocess the second
-    argument in the ``GeometricBilinears`` layer,
-    and the "small" initialization to combine the different attention heads.
-    All other linear layers in L-GATr use the "default" initialization.
+    The ``"almost_unit_scalar"`` initialization is used for the second argument of
+    :class:`GeometricBilinear`; ``"small"`` is used to combine attention heads. Everything else
+    uses ``"default"``.
 
     Parameters
     ----------
-    in_mv_channels : int
-        Input multivector channels
-    out_mv_channels : int
-        Output multivector channels
-    bias : bool
-        Whether a bias term is added to the scalar component of the multivector outputs
-    in_s_channels : int
+    in_mv_channels
+        Input multivector channels.
+    out_mv_channels
+        Output multivector channels.
+    in_s_channels
         Input scalar channels. Use 0 for no scalar inputs.
-    out_s_channels : int
+    out_s_channels
         Output scalar channels. Use 0 for no scalar outputs.
-    initialization : {"default", "small", "unit_scalar", "almost_unit_scalar"}
-            Initialization scheme, see ``EquiLinear`` description for more information.
+    bias
+        Whether a bias term is added to the scalar component of the multivector outputs.
+    initialization
+        Initialization scheme; one of ``"default"``, ``"small"``, ``"unit_scalar"``,
+        ``"almost_unit_scalar"``.
     """
 
     def __init__(
@@ -130,21 +131,21 @@ class EquiLinear(nn.Module):
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Maps input multivectors and scalars using the most general equivariant linear map.
+        """Apply the most general equivariant linear map to the inputs.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., in_mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., in_s_channels)
+        multivectors
+            Input multivectors of shape ``(..., in_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., in_s_channels)``.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., out_mv_channels, 16)
-        outputs_s : None or torch.Tensor
-            Output scalars with shape (..., out_s_channels)
+        outputs_mv
+            Output multivectors of shape ``(..., out_mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., out_s_channels)``, or None if ``out_s_channels == 0``.
         """
 
         outputs_mv = equi_linear(multivectors, self.weight)  # (..., out_channels, 16)
@@ -177,32 +178,33 @@ class EquiLinear(nn.Module):
         self,
         initialization: str,
         gain: float = 1.0,
-        additional_factor=None,
+        additional_factor: float | None = None,
     ) -> None:
-        """Initializes the weights of the linear layer.
+        """Initialize the weights of the linear layer.
 
-        We following the initialization philosophy of `Kaiming <https://arxiv.org/pdf/1502.01852>`_,
-        ensuring that the variance of the activations during the forward pass is preserved.
-        Our implementation deviates from the `torch.nn.Linear default initialization <https://github.com/pytorch/pytorch/blob/v2.7.0/torch/nn/modules/linear.py#L114>`_
-        to take the communication between scalar and multivector channels in our linear layer into account.
-        For more information, see inline comments in the code.
+        We follow the initialization philosophy of `Kaiming et al.
+        <https://arxiv.org/pdf/1502.01852>`_, which preserves the variance of the activations
+        during the forward pass. This implementation deviates from the
+        `torch.nn.Linear default <https://github.com/pytorch/pytorch/blob/v2.7.0/torch/nn/modules/linear.py#L114>`_
+        to take the communication between scalar and multivector channels in our linear layer
+        into account. See inline comments for details.
 
         Parameters
         ----------
-        initialization : {"default", "small", "unit_scalar", "almost_unit_scalar"}
-            Initialization scheme, see ``EquiLinear`` description for more information.
-        gain : float
-            Gain factor for the activations. Should be 1.0 if previous layer has no activation,
-            sqrt(2) if it has a ReLU activation, and so on. Can be computed with
-            `torch.nn.init.calculate_gain()`.
-        additional_factor : float
-            Empirically, it has been found that slightly *decreasing* the data variance at each
-            layer gives a better performance. In particular, the PyTorch default initialization uses
-            an additional factor of 1/sqrt(3) (cancelling the factor of sqrt(3) that naturally
-            arises when computing the bounds of a uniform initialization). A discussion of this was
-            (to the best of our knowledge) never published, but see
-            https://github.com/pytorch/pytorch/issues/57109 and
-            https://soumith.ch/files/20141213_gplus_nninit_discussion.htm.
+        initialization
+            Initialization scheme; one of ``"default"``, ``"small"``, ``"unit_scalar"``,
+            ``"almost_unit_scalar"``. See :class:`EquiLinear` for details.
+        gain
+            Gain factor for the activations. Should be 1.0 if the previous layer has no
+            activation, ``sqrt(2)`` if it has a ReLU activation, and so on. Can be computed with
+            :func:`torch.nn.init.calculate_gain`.
+        additional_factor
+            Empirically, slightly *decreasing* the data variance at each layer gives better
+            performance. The PyTorch default initialization uses an additional factor of
+            ``1/sqrt(3)`` (cancelling the ``sqrt(3)`` that naturally arises in uniform
+            initialization). See https://github.com/pytorch/pytorch/issues/57109 and
+            https://soumith.ch/files/20141213_gplus_nninit_discussion.htm for discussion. Defaults
+            to ``1/sqrt(3)``.
         """
         additional_factor = 1 / math.sqrt(3.0) if additional_factor is None else additional_factor
 
@@ -234,14 +236,11 @@ class EquiLinear(nn.Module):
 
     @staticmethod
     def _compute_init_factors(
-        initialization,
-        gain,
-        additional_factor,
-    ):
-        """Computes prefactors for the initialization.
-
-        See self.reset_parameters().
-        """
+        initialization: str,
+        gain: float,
+        additional_factor: float,
+    ) -> tuple[torch.Tensor, float, float, float]:
+        """Compute prefactors for the initialization (see :meth:`reset_parameters`)."""
 
         assert initialization in [
             "default",
@@ -273,8 +272,13 @@ class EquiLinear(nn.Module):
         mv_component_factors = torch.ones(gatr_config.num_pin_linear_basis_elements)
         return mv_component_factors, mv_factor, mvs_bias_shift, s_factor
 
-    def _init_multivectors(self, mv_component_factors, mv_factor, mvs_bias_shift):
-        """Weight initialization for maps to multivector outputs."""
+    def _init_multivectors(
+        self,
+        mv_component_factors: torch.Tensor,
+        mv_factor: float,
+        mvs_bias_shift: float,
+    ) -> None:
+        """Initialize weights for maps to multivector outputs."""
 
         # We have
         # `outputs[..., j, y] = sum_{i, b, x} weights[j, i, b] basis_map[b, x, y] inputs[..., i, x]`
@@ -327,8 +331,8 @@ class EquiLinear(nn.Module):
                 bound = mv_component_factors[0] / math.sqrt(fan_in) if fan_in > 0 else 0
                 nn.init.uniform_(self.s2mvs.bias, mvs_bias_shift - bound, mvs_bias_shift + bound)
 
-    def _init_scalars(self, s_factor):
-        """Weight initialization for maps to multivector outputs."""
+    def _init_scalars(self, s_factor: float) -> None:
+        """Initialize weights for maps to scalar outputs."""
 
         # If both exist, we need to account for overcounting again, and assign each a target a
         # variance of 0.5.

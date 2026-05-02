@@ -12,18 +12,17 @@ from .nonlinearities import ScalarGatedNonlinearity
 
 
 class GeoMLP(nn.Module):
-    """MLP with geometric product.
+    """MLP with a geometric product as the first nonlinear mixing step.
 
-    This is a core component of L-GATr's transformer blocks. It is similar to a regular MLP, except
-    that it uses geometric bilinears (the geometric product) in place of the first linear layer.
-
-    Assumes input has shape (..., channels, 16), output has shape (..., channels, 16),
-    will create hidden layers with shape (..., increase_hidden_channels*channels, 16).
+    Similar to a regular MLP, except the first linear layer is replaced by a geometric bilinear
+    (the geometric product). Inputs of shape ``(..., channels, 16)`` map to outputs of shape
+    ``(..., channels, 16)``; hidden layers have shape
+    ``(..., increase_hidden_channels * channels, 16)``.
 
     Parameters
     ----------
-    config: MLPConfig
-        Configuration object
+    config
+        MLP configuration.
     """
 
     def __init__(
@@ -87,18 +86,18 @@ class GeoMLP(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., s_channels). If None, the scalar
-            stream is bypassed and outputs_s is None.
+        multivectors
+            Input multivectors of shape ``(..., mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., s_channels)``. If None, the scalar stream is
+            bypassed and ``outputs_s`` is None.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors  with shape (..., mv_channels, 16).
-        outputs_s : None or torch.Tensor
-            Output scalars with shape (..., s_channels), or None if scalars is None.
+        outputs_mv
+            Output multivectors of shape ``(..., mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
         mv, s = multivectors, scalars

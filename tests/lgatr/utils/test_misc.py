@@ -1,20 +1,18 @@
 import pytest
 import torch
-from torch import Tensor
 
 from lgatr.utils.misc import minimum_autocast_precision
 
 
 # Choose dtypes to work on most devices -- torch.bfloat16 is not available on some GPUs
 @pytest.mark.parametrize("device,amp_dtype", [("cpu", torch.bfloat16)])
-def test_minimum_autocast_precision_inputs(device, amp_dtype):
-    """Tests that minimum_autocast_precision() casts inputs correctly"""
-
-    # We wrap a function that just returns the dtypes of the inputs
+def test_minimum_autocast_precision_inputs(device: str, amp_dtype: torch.dtype) -> None:
+    # minimum_autocast_precision casts low-precision floating-point inputs up to the minimum dtype,
+    # leaves higher-precision floats and non-float tensors unchanged, and is a no-op outside autocast.
     @minimum_autocast_precision(torch.float32)
     def return_input_dtypes(*args, **kwargs):
-        dtypes = [arg.dtype if isinstance(arg, Tensor) else None for arg in args]
-        dtypes += [arg.dtype if isinstance(arg, Tensor) else None for arg in kwargs.values()]
+        dtypes = [arg.dtype if isinstance(arg, torch.Tensor) else None for arg in args]
+        dtypes += [arg.dtype if isinstance(arg, torch.Tensor) else None for arg in kwargs.values()]
         return dtypes
 
     # Inputs
@@ -65,11 +63,12 @@ def test_minimum_autocast_precision_inputs(device, amp_dtype):
     ],
 )
 def test_minimum_autocast_precision_outputs(
-    output_mode, expected_dtype, device="cpu", amp_dtype=torch.bfloat16
-):
-    """Tests that minimum_autocast_precision() casts outputs correctly"""
-
-    # We wrap a function that just returns the dtypes of the inputs
+    output_mode,
+    expected_dtype: torch.dtype,
+    device: str = "cpu",
+    amp_dtype: torch.dtype = torch.bfloat16,
+) -> None:
+    # minimum_autocast_precision honors the ``output`` mode: None / dtype / "low" / "high".
     @minimum_autocast_precision(torch.float32, output=output_mode)
     def sum_(*args):
         outputs = 0.0

@@ -12,11 +12,12 @@ from .config import CrossAttentionConfig
 class CrossAttention(nn.Module):
     """L-GATr cross-attention.
 
-    Constructs queries, keys, and values, computes attention, and projects linearly to outputs.
+    Constructs queries, keys, and values, computes geometric attention, and projects linearly to
+    outputs.
 
     Parameters
     ----------
-    config : CrossAttentionConfig
+    config
         Attention configuration.
     """
 
@@ -86,7 +87,7 @@ class CrossAttention(nn.Module):
         scalars_q: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Compute cross attention.
+        """Compute cross-attention.
 
         The result is the following:
 
@@ -104,23 +105,23 @@ class CrossAttention(nn.Module):
 
         Parameters
         ----------
-        multivectors_kv : torch.Tensor
-            Input multivectors for key and value with shape (..., items_kv, mv_channels, 16).
-        multivectors_q : torch.Tensor
-            Input multivectors for query with shape (..., items_q, mv_channels, 16).
-        scalars_kv : None or torch.Tensor
-            Optional input scalars for key and value with shape (..., items_kv, s_channels)
-        scalars_q : None or torch.Tensor
-            Optional input scalars for query with shape (..., items_q, s_channels)
+        multivectors_kv
+            Input multivectors for keys and values, shape ``(..., items_kv, mv_channels, 16)``.
+        multivectors_q
+            Input multivectors for queries, shape ``(..., items_q, mv_channels, 16)``.
+        scalars_kv
+            Optional input scalars for keys and values, shape ``(..., items_kv, s_channels)``.
+        scalars_q
+            Optional input scalars for queries, shape ``(..., items_q, s_channels)``.
         **attn_kwargs
-            Optional keyword arguments passed to attention.
+            Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items_q, mv_channels, 16).
-        output_scalars : None or torch.Tensor
-            Output scalars with shape (..., items_q, s_channels), or None.
+        outputs_mv
+            Output multivectors of shape ``(..., items_q, mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items_q, s_channels)``, or None.
         """
         q_mv, q_s = self.q_linear(
             multivectors_q, scalars_q

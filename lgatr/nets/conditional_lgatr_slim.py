@@ -16,7 +16,25 @@ from .lgatr_slim import (
 
 
 class CrossAttention(nn.Module):
-    """Cross-attention module for Lorentz vectors and scalar features."""
+    """Cross-attention for Lorentz vectors and scalar features.
+
+    Parameters
+    ----------
+    q_v_channels
+        Number of query vector channels.
+    kv_v_channels
+        Number of key/value vector channels.
+    q_s_channels
+        Number of query scalar channels.
+    kv_s_channels
+        Number of key/value scalar channels.
+    num_heads
+        Number of attention heads.
+    attn_ratio
+        Expansion ratio for the attention hidden channels.
+    dropout_prob
+        Dropout probability.
+    """
 
     def __init__(
         self,
@@ -27,7 +45,7 @@ class CrossAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * q_v_channels // num_heads, 1)
         self.hidden_s_channels = max(attn_ratio * q_s_channels // num_heads, 4)
@@ -64,7 +82,13 @@ class CrossAttention(nn.Module):
         else:
             self.dropout = None
 
-    def _pre_attention_reshape(self, q_v, kv_v, q_s, kv_s):
+    def _pre_attention_reshape(
+        self,
+        q_v: torch.Tensor,
+        kv_v: torch.Tensor,
+        q_s: torch.Tensor,
+        kv_s: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         kv_v = (
             kv_v.unflatten(-2, (2, self.hidden_v_channels, self.num_heads))
             .movedim(-4, 0)
@@ -95,25 +119,35 @@ class CrossAttention(nn.Module):
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
         return q, k, v
 
-    def forward(self, vectors, vectors_condition, scalars, scalars_condition, **attn_kwargs):
-        """
+    def forward(
+        self,
+        vectors: torch.Tensor,
+        vectors_condition: torch.Tensor,
+        scalars: torch.Tensor,
+        scalars_condition: torch.Tensor,
+        **attn_kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Apply cross-attention.
+
         Parameters
         ----------
-        vectors : torch.Tensor
-            A tensor of shape (..., v_channels, 4) representing Lorentz vectors.
-        vectors_condition : torch.Tensor
-            A tensor of shape (..., condition_v_channels, 4) representing a Lorentz vector condition included in cross-attention.
-        scalars : torch.Tensor
-            A tensor of shape (..., s_channels) representing scalar features.
-        scalars_condition : torch.Tensor
-            A tensor of shape (..., condition_s_channels) representing scalar features for the condition.
-        **attn_kwargs : dict
-            Additional keyword arguments for the attention function.
+        vectors
+            Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
+        vectors_condition
+            Condition Lorentz vectors of shape ``(..., items_kv, kv_v_channels, 4)``.
+        scalars
+            Scalar features of shape ``(..., items_q, q_s_channels)``.
+        scalars_condition
+            Condition scalar features of shape ``(..., items_kv, kv_s_channels)``.
+        **attn_kwargs
+            Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        torch.Tensor, torch.Tensor
-            Tensors of the same shape as input representing the normalized vectors and scalars.
+        vectors_out
+            Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
+        scalars_out
+            Scalar features of shape ``(..., items_q, q_s_channels)``.
         """
         q_v, q_s = self.linear_in_q(vectors, scalars)
         kv_v, kv_s = self.linear_in_kv(vectors_condition, scalars_condition)
@@ -130,8 +164,34 @@ class CrossAttention(nn.Module):
 
 
 class ConditionalLGATrSlimBlock(nn.Module):
-    """A single block of the conditional L-GATr-slim,
-    consisting of self-attention, cross-attention and MLP layers, pre-norm and residual connections."""
+    """A single block of the conditional L-GATr-slim network.
+
+    Pre-norm + self-attention + residual, then pre-norm + cross-attention + residual, then
+    pre-norm + MLP + residual.
+
+    Parameters
+    ----------
+    v_channels
+        Number of vector channels.
+    condition_v_channels
+        Number of condition vector channels.
+    s_channels
+        Number of scalar channels.
+    condition_s_channels
+        Number of condition scalar channels.
+    num_heads
+        Number of attention heads.
+    nonlinearity
+        Nonlinearity for the MLP layers.
+    mlp_ratio
+        Expansion ratio for MLP hidden channels.
+    attn_ratio
+        Expansion ratio for attention hidden channels.
+    num_layers_mlp
+        Number of layers in the MLP.
+    dropout_prob
+        Dropout probability.
+    """
 
     def __init__(
         self,
@@ -145,7 +205,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
-    ):
+    ) -> None:
         super().__init__()
 
         self.norm = RMSNorm()
@@ -178,33 +238,36 @@ class ConditionalLGATrSlimBlock(nn.Module):
 
     def forward(
         self,
-        vectors,
-        vectors_condition,
-        scalars,
-        scalars_condition,
-        attn_kwargs=None,
-        crossattn_kwargs=None,
-    ):
-        """
+        vectors: torch.Tensor,
+        vectors_condition: torch.Tensor,
+        scalars: torch.Tensor,
+        scalars_condition: torch.Tensor,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass.
+
         Parameters
         ----------
-        vectors : torch.Tensor
-            A tensor of shape (..., v_channels, 4) representing Lorentz vectors.
-        vectors_condition : torch.Tensor
-            A tensor of shape (..., condition_v_channels, 4) representing a Lorentz vector condition included in cross-attention.
-        scalars : torch.Tensor
-            A tensor of shape (..., s_channels) representing scalar features.
-        scalars_condition : torch.Tensor
-            A tensor of shape (..., condition_s_channels) representing a scalar condition included in cross-attention.
-        attn_kwargs : dict
-            Additional keyword arguments for the attention function.
-        crossattn_kwargs : dict
-            Additional keyword arguments for the cross-attention function.
+        vectors
+            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+        vectors_condition
+            Condition Lorentz vectors of shape ``(..., items_condition, condition_v_channels, 4)``.
+        scalars
+            Scalar features of shape ``(..., items, s_channels)``.
+        scalars_condition
+            Condition scalar features of shape ``(..., items_condition, condition_s_channels)``.
+        attn_kwargs
+            Optional keyword arguments forwarded to self-attention.
+        crossattn_kwargs
+            Optional keyword arguments forwarded to cross-attention.
 
         Returns
         -------
-        torch.Tensor, torch.Tensor
-            Tensors of the same shape as input representing the normalized vectors and scalars.
+        vectors_out
+            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+        scalars_out
+            Scalar features of shape ``(..., items, s_channels)``.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
@@ -241,7 +304,52 @@ class ConditionalLGATrSlimBlock(nn.Module):
 
 
 class ConditionalLGATrSlim(nn.Module):
-    """Conditional L-GATr-slim network."""
+    """Conditional L-GATr-slim network.
+
+    Stacks ``num_blocks`` :class:`ConditionalLGATrSlimBlock` modules between initial and final
+    :class:`Linear` layers.
+
+    Parameters
+    ----------
+    in_v_channels
+        Number of input vector channels.
+    condition_v_channels
+        Number of conditional vector channels.
+    out_v_channels
+        Number of output vector channels.
+    hidden_v_channels
+        Number of hidden vector channels.
+    in_s_channels
+        Number of input scalar channels.
+    condition_s_channels
+        Number of conditional scalar channels.
+    out_s_channels
+        Number of output scalar channels.
+    hidden_s_channels
+        Number of hidden scalar channels.
+    num_blocks
+        Number of Lorentz-transformer blocks.
+    num_heads
+        Number of attention heads.
+    nonlinearity
+        Nonlinearity for the MLP layers.
+    mlp_ratio
+        Expansion ratio for MLP hidden channels.
+    attn_ratio
+        Expansion ratio for attention hidden channels.
+    num_layers_mlp
+        Number of layers in each MLP.
+    dropout_prob
+        Dropout probability.
+    checkpoint_blocks
+        Whether to use gradient checkpointing for the blocks.
+    compile
+        Whether to wrap the model with :func:`torch.compile`.
+    compile_mode
+        Mode passed to :func:`torch.compile`.
+    compile_dynamic
+        Whether to use dynamic shapes with :func:`torch.compile`.
+    """
 
     def __init__(
         self,
@@ -264,49 +372,7 @@ class ConditionalLGATrSlim(nn.Module):
         compile: bool = False,
         compile_mode: str = "default",
         compile_dynamic: bool = True,
-    ):
-        """
-        Parameters
-        ----------
-        in_v_channels : int
-            Number of input vector channels.
-        condition_v_channels : int
-            Number of conditional vector channels.
-        out_v_channels : int
-            Number of output vector channels.
-        hidden_v_channels : int
-            Number of hidden vector channels.
-        in_s_channels : int
-            Number of input scalar channels.
-        condition_s_channels : int
-            Number of conditional scalar channels.
-        out_s_channels : int
-            Number of output scalar channels.
-        hidden_s_channels : int
-            Number of hidden scalar channels.
-        num_blocks : int
-            Number of Lorentz Transformer blocks.
-        num_heads : int
-            Number of attention heads.
-        nonlinearity : str, optional
-            Nonlinearity type for MLP layers, by default "gelu".
-        mlp_ratio : int, optional
-            Expansion ratio for MLP hidden layers, by default 2.
-        attn_ratio : int, optional
-            Expansion ratio for attention hidden layers, by default 1.
-        num_layers_mlp : int, optional
-            Number of layers in MLP, by default 2.
-        dropout_prob : float | None, optional
-            Dropout probability, by default None.
-        checkpoint_blocks : bool, optional
-            Whether to use gradient checkpointing for blocks, by default False.
-        compile : bool, optional
-            Whether to compile the model with torch.compile, by default False.
-        compile_mode : str, optional
-            Mode for torch.compile, by default "default".
-        compile_dynamic : bool, optional
-            Whether to use dynamic shapes with torch.compile, by default True.
-        """
+    ) -> None:
         super().__init__()
 
         self.linear_in = Linear(
@@ -352,33 +418,36 @@ class ConditionalLGATrSlim(nn.Module):
 
     def forward(
         self,
-        vectors,
-        vectors_condition,
-        scalars,
-        scalars_condition,
-        attn_kwargs=None,
-        crossattn_kwargs=None,
-    ):
-        """
+        vectors: torch.Tensor,
+        vectors_condition: torch.Tensor,
+        scalars: torch.Tensor,
+        scalars_condition: torch.Tensor,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass.
+
         Parameters
         ----------
-        vectors : torch.Tensor
-            A tensor of shape (..., v_channels, 4) representing Lorentz vectors.
-        vectors_condition : torch.Tensor
-            A tensor of shape (..., v_channels_condition, 4) representing a Lorentz vector condition included in cross-attention.
-        scalars : torch.Tensor
-            A tensor of shape (..., s_channels) representing scalar features.
-        scalars_condition : torch.Tensor
-            A tensor of shape (..., s_channels_condition) representing a scalar condition included in cross-attention.
-        attn_kwargs : dict
-            Additional keyword arguments for the self-attention function.
-        crossattn_kwargs : dict
-            Additional keyword arguments for the cross-attention function.
+        vectors
+            Lorentz vectors of shape ``(..., items, in_v_channels, 4)``.
+        vectors_condition
+            Condition Lorentz vectors of shape ``(..., items_condition, condition_v_channels, 4)``.
+        scalars
+            Scalar features of shape ``(..., items, in_s_channels)``.
+        scalars_condition
+            Condition scalar features of shape ``(..., items_condition, condition_s_channels)``.
+        attn_kwargs
+            Optional keyword arguments forwarded to self-attention.
+        crossattn_kwargs
+            Optional keyword arguments forwarded to cross-attention.
 
         Returns
         -------
-        torch.Tensor, torch.Tensor
-            Tensors of the same shape as input representing the normalized vectors and scalars.
+        vectors_out
+            Lorentz vectors of shape ``(..., items, out_v_channels, 4)``.
+        scalars_out
+            Scalar features of shape ``(..., items, out_s_channels)``.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}

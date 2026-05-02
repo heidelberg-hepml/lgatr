@@ -15,42 +15,42 @@ from ..layers.mlp.config import MLPConfig
 
 class ConditionalLGATr(nn.Module):
     """Conditional L-GATr network.
-    Assumes that the condition is already preprocessed, e.g. with a non-conditional `LGATr` network.
 
-    It combines num_blocks conditional L-GATr transformer blocks, each consisting of geometric self-attention
-    layers, geometric cross-attention layers, a geometric MLP, residual connections, and normalization layers.
-    In addition, there are initial and final equivariant linear layers.
+    Combines ``num_blocks`` :class:`~lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock`
+    modules (geometric self-attention, cross-attention, geometric MLP, residual connections,
+    normalization) with initial and final equivariant linear layers. The condition is expected to
+    be already preprocessed (e.g. by a non-conditional :class:`LGATr` network).
 
     Parameters
     ----------
-    num_blocks : int
+    num_blocks
         Number of transformer blocks.
-    in_mv_channels : int
+    in_mv_channels
         Number of input multivector channels.
-    condition_mv_channels : int
+    condition_mv_channels
         Number of condition multivector channels.
-    out_mv_channels : int
+    out_mv_channels
         Number of output multivector channels.
-    hidden_mv_channels : int
+    hidden_mv_channels
         Number of hidden multivector channels.
-    in_s_channels : int
+    in_s_channels
         Number of scalar input channels. Use 0 for no scalar inputs.
-    condition_s_channels : int
+    condition_s_channels
         Number of scalar condition channels. Use 0 for no scalar condition stream.
-    out_s_channels : int
+    out_s_channels
         Number of scalar output channels. Use 0 for no scalar outputs.
-    hidden_s_channels : int
+    hidden_s_channels
         Number of scalar hidden channels. Use 0 for no scalar stream in the hidden layers.
-    attention: Dict
-        Data for SelfAttentionConfig.
-    crossattention: Dict
-        Data for CrossAttentionConfig.
-    mlp: Dict
-        Data for MLPConfig.
-    dropout_prob : float or None
+    attention
+        Self-attention configuration.
+    crossattention
+        Cross-attention configuration.
+    mlp
+        MLP configuration.
+    dropout_prob
         Dropout probability.
-    checkpoint_blocks : bool
-        Whether to use checkpointing for the transformer blocks to save memory.
+    checkpoint_blocks
+        Whether to use gradient checkpointing for the transformer blocks.
     """
 
     def __init__(
@@ -112,32 +112,33 @@ class ConditionalLGATr(nn.Module):
         multivectors_condition: torch.Tensor,
         scalars: torch.Tensor | None = None,
         scalars_condition: torch.Tensor | None = None,
-        attn_kwargs=None,
-        crossattn_kwargs=None,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass of the network.
+        """Forward pass.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., items, in_mv_channels, 16).
-        multivectors_condition : torch.Tensor
-            Input condition multivectors with shape (..., items, in_mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, in_s_channels).
-        scalars_condition : None or torch.Tensor
-            Optional input scalars  with shape (..., items, in_s_channels).
-        attn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention arguments.
-        crossattn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention arguments for the condition.
+        multivectors
+            Input multivectors of shape ``(..., items, in_mv_channels, 16)``.
+        multivectors_condition
+            Condition multivectors of shape ``(..., items_condition, condition_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, in_s_channels)``.
+        scalars_condition
+            Optional condition scalars of shape ``(..., items_condition, condition_s_channels)``.
+        attn_kwargs
+            Optional keyword arguments forwarded to self-attention.
+        crossattn_kwargs
+            Optional keyword arguments forwarded to cross-attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors  with shape (..., items, out_mv_channels, 16).
-        outputs_s : None or torch.Tensor
-            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=0.
+        outputs_mv
+            Output multivectors of shape ``(..., items, out_mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, out_s_channels)``, or None if
+            ``out_s_channels == 0``.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}

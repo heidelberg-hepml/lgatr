@@ -8,8 +8,8 @@ from tests.helpers import TOLERANCES, check_pin_equivariance
 
 @pytest.mark.parametrize("batch_dims", [(7, 9)])
 @pytest.mark.parametrize("num_scalars", [9])
-def test_equi_layer_norm_layer_correctness(batch_dims, num_scalars):
-    """Tests whether the output of EquiLayerNorm has the correct variance."""
+def test_equi_layer_norm_layer_correctness(batch_dims: tuple[int, ...], num_scalars: int) -> None:
+    # EquiLayerNorm rescales the multivector input to unit mean GA squared norm.
     inputs = torch.randn(*batch_dims, 16)
     scalars = torch.randn(*batch_dims, num_scalars)
     layer = EquiLayerNorm(epsilon=1e-9)
@@ -21,8 +21,8 @@ def test_equi_layer_norm_layer_correctness(batch_dims, num_scalars):
 
 @pytest.mark.parametrize("batch_dims", [(7, 9)])
 @pytest.mark.parametrize("num_scalars", [9])
-def test_equi_layer_norm_layer_equivariance(batch_dims, num_scalars):
-    """Tests EquiLayerNorm() for equivariance."""
+def test_equi_layer_norm_layer_equivariance(batch_dims: tuple[int, ...], num_scalars: int) -> None:
+    # EquiLayerNorm is Pin-equivariant.
     layer = EquiLayerNorm()
     scalars = torch.randn(*batch_dims, num_scalars)
     check_pin_equivariance(
@@ -30,8 +30,8 @@ def test_equi_layer_norm_layer_equivariance(batch_dims, num_scalars):
     )
 
 
-def test_equi_layer_norm_none_scalars():
-    """Tests that EquiLayerNorm propagates scalars=None."""
+def test_equi_layer_norm_none_scalars() -> None:
+    # EquiLayerNorm propagates scalars=None.
     layer = EquiLayerNorm()
     inputs = torch.randn(4, 5, 16)
     out_mv, out_s = layer(inputs, scalars=None)

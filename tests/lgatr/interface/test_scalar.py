@@ -6,9 +6,8 @@ from tests.helpers import BATCH_DIMS, TOLERANCES
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_embed_scalar(batch_dims):
-    """Tests that embed_scalar() embeds scalars into multivectors correctly."""
-
+def test_embed_scalar(batch_dims: list[int]) -> None:
+    # embed_scalar puts the input in slot 0 and zeros out the rest; extract_scalar inverts it.
     scalar = torch.randn(*batch_dims, 1)
     mv = embed_scalar(scalar)
 

@@ -7,37 +7,37 @@ from ..primitives import grade_dropout
 
 
 class GradeDropout(nn.Module):
-    """Dropout on multivectors.
+    """Grade-wise dropout on multivectors (and an optional scalar stream).
 
     Parameters
     ----------
-    p : float
+    p
         Dropout probability.
     """
 
-    def __init__(self, p: float = 0.0):
+    def __init__(self, p: float = 0.0) -> None:
         super().__init__()
         self._dropout_prob = p
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass. Applies dropout.
+        """Apply dropout to multivectors and (optionally) scalars.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Multivector inputs  with shape (..., 16).
-        scalars : None or torch.Tensor
-            Optional scalar inputs with shape (...). If None, scalar dropout is
-            skipped and outputs_s is None.
+        multivectors
+            Multivector inputs of shape ``(..., 16)``.
+        scalars
+            Optional scalar inputs of shape ``(...)``. If None, scalar dropout is skipped and
+            ``outputs_s`` is None.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Multivector inputs with dropout applied, shape (..., 16).
-        output_scalars : None or torch.Tensor
-            Scalar inputs with dropout applied, shape (...), or None if scalars is None.
+        outputs_mv
+            Multivectors after dropout, shape ``(..., 16)``.
+        outputs_s
+            Scalars after dropout, shape ``(...)``, or None if ``scalars`` is None.
         """
 
         out_mv = grade_dropout(multivectors, p=self._dropout_prob, training=self.training)

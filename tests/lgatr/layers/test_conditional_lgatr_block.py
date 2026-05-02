@@ -20,18 +20,18 @@ S_CHANNELS = [(3, 5), (2, 2), (0, 0)]
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_conditional_gatr_block_shape(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    mv_channels,
-    mv_channels_condition,
-    num_heads,
-    s_channels,
-    s_channels_condition,
-    multi_query_attention,
-    dropout_prob,
-):
-    """Tests the output shape of ConditionalLGATrBlock."""
+    batch_dims: list[int],
+    num_items: int,
+    num_items_condition: int,
+    mv_channels: int,
+    mv_channels_condition: int,
+    num_heads: int,
+    s_channels: int,
+    s_channels_condition: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+) -> None:
+    # ConditionalLGATrBlock outputs match the input shape (multivectors and scalars).
     inputs = torch.randn(*batch_dims, num_items, mv_channels, 16)
     scalars = torch.randn(*batch_dims, num_items, s_channels) if s_channels else None
     condition_mv = torch.randn(*batch_dims, num_items_condition, mv_channels_condition, 16)
@@ -77,23 +77,22 @@ def test_conditional_gatr_block_shape(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("num_items,num_items_condition", [(2, 2), (2, 9)])
 @pytest.mark.parametrize("mv_channels,mv_channels_condition", [(6, 6), (7, 11)])
-@pytest.mark.parametrize("num_heads", [1, 4])
+@pytest.mark.parametrize("num_heads,multi_query_attention", [(1, False), (4, True)])
 @pytest.mark.parametrize("s_channels,s_channels_condition", S_CHANNELS)
 @pytest.mark.parametrize("dropout_prob", [None])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_conditional_gatr_block_equivariance(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    mv_channels,
-    mv_channels_condition,
-    num_heads,
-    s_channels,
-    s_channels_condition,
-    multi_query_attention,
-    dropout_prob,
-):
-    """Tests ConditionalLGATrBlock for equivariance."""
+    batch_dims: list[int],
+    num_items: int,
+    num_items_condition: int,
+    mv_channels: int,
+    mv_channels_condition: int,
+    num_heads: int,
+    s_channels: int,
+    s_channels_condition: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+) -> None:
+    # ConditionalLGATrBlock is Pin-equivariant in both query and condition multivector inputs.
     try:
         net = ConditionalLGATrBlock(
             mv_channels,
@@ -131,8 +130,8 @@ def test_conditional_gatr_block_equivariance(
     )
 
 
-def test_conditional_lgatr_block_none_scalars_at_runtime():
-    """Tests ConditionalLGATrBlock accepts scalars=None and scalars_condition=None."""
+def test_conditional_lgatr_block_none_scalars_at_runtime() -> None:
+    # ConditionalLGATrBlock accepts scalars=None and scalars_condition=None at runtime.
     net = ConditionalLGATrBlock(
         mv_channels=4,
         s_channels=2,

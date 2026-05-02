@@ -1,4 +1,4 @@
-"""Unit tests of bilinear primitives."""
+"""Unit tests of linear primitives."""
 
 import pytest
 import torch
@@ -15,26 +15,26 @@ from tests.helpers import (
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_reverse_correctness(batch_dims):
-    """Tests the multivector reverse for equivariance."""
+def test_reverse_correctness(batch_dims: list[int]) -> None:
+    # reverse matches the clifford-library reference for multivector reversal.
     check_consistence_with_reversal(reverse, batch_dims=batch_dims, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_grade_involution_correctness(batch_dims):
-    """Tests the multivector reverse for equivariance."""
+def test_grade_involution_correctness(batch_dims: list[int]) -> None:
+    # grade_involute matches the clifford-library reference for grade involution.
     check_consistence_with_grade_involution(grade_involute, batch_dims=batch_dims, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_identity_equivariance(batch_dims):
-    """Tests an identity map for equivariance (testing the test)."""
+def test_identity_equivariance(batch_dims: list[int]) -> None:
+    # The identity is trivially equivariant (smoke-tests the equivariance harness itself).
     check_pin_equivariance(lambda x: x, 1, batch_dims=batch_dims, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_grade_project_equivariance(batch_dims):
-    """Tests the grade_project() primitive for equivariance."""
+def test_grade_project_equivariance(batch_dims: list[int]) -> None:
+    # grade_project is Pin-equivariant.
     check_pin_equivariance(grade_project, 1, batch_dims=batch_dims, **TOLERANCES)
 
 
@@ -46,8 +46,10 @@ def test_grade_project_equivariance(batch_dims):
         ((2, 3, 7), (5, 7)),
     ],
 )
-def test_linear_equivariance(input_batch_dims, coeff_batch_dims):
-    """Tests the equi_linear() primitive for equivariance."""
+def test_linear_equivariance(
+    input_batch_dims: tuple[int, ...], coeff_batch_dims: tuple[int, ...]
+) -> None:
+    # equi_linear is Pin-equivariant for several input/coeff broadcasting shapes.
     fn_kwargs = dict(
         coeffs=torch.randn(*coeff_batch_dims, gatr_config.num_pin_linear_basis_elements),
     )

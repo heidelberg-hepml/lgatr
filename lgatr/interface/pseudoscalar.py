@@ -4,18 +4,18 @@ import torch
 
 
 def embed_pseudoscalar(pseudoscalars: torch.Tensor) -> torch.Tensor:
-    """Embeds a pseudoscalar tensor into multivectors.
+    """Embed a pseudoscalar tensor into a multivector.
 
     Parameters
     ----------
-    pseudoscalars: torch.Tensor
-        Scalar inputs with shape (..., 1).
+    pseudoscalars
+        Pseudoscalar inputs of shape ``(..., 1)``.
 
     Returns
     -------
-    multivectors: torch.Tensor
-        Multivector outputs with shape (..., 16).
-        ``multivectors[..., [15]]`` is the same as ``pseudoscalars``. The other components are zero.
+    multivectors
+        Multivector outputs of shape ``(..., 16)``. ``multivectors[..., [15]]`` is the same as
+        ``pseudoscalars``; the other components are zero.
     """
     assert pseudoscalars.shape[-1] == 1
     non_scalar_shape = list(pseudoscalars.shape[:-1]) + [15]
@@ -28,17 +28,17 @@ def embed_pseudoscalar(pseudoscalars: torch.Tensor) -> torch.Tensor:
 
 
 def extract_pseudoscalar(multivectors: torch.Tensor) -> torch.Tensor:
-    """Extracts pseudoscalar components from multivectors.
+    """Extract the pseudoscalar component from a multivector.
 
     Parameters
     ----------
-    multivectors: torch.Tensor
-        Multivector inputs with shape (..., 16).
+    multivectors
+        Multivector inputs of shape ``(..., 16)``.
 
     Returns
     -------
-    pseudoscalars: torch.Tensor
-        Pseudoscalar component of multivectors with shape (..., 1).
+    pseudoscalars
+        Pseudoscalar component of shape ``(..., 1)``.
     """
 
     return multivectors[..., [15]]

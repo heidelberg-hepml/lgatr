@@ -8,9 +8,8 @@ from tests.helpers import MILD_TOLERANCES, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("batch_dims", [(10,)])
 @pytest.mark.parametrize("p", [0.0, 0.2])
 @pytest.mark.parametrize("training", [True, False])
-def test_dropout_shape(training, p, batch_dims):
-    """Tests GradeDropout for shape correctness."""
-
+def test_dropout_shape(training: bool, p: float, batch_dims: tuple[int, ...]) -> None:
+    # GradeDropout preserves the input shape of multivectors and scalars.
     layer = GradeDropout(p=p)
     if training:
         layer.train()
@@ -27,9 +26,8 @@ def test_dropout_shape(training, p, batch_dims):
 
 @pytest.mark.parametrize("batch_dims", [(10,)])
 @pytest.mark.parametrize("training", [True, False])
-def test_dropout_trivial_limit(training, batch_dims):
-    """Tests that GradeDropout does nothing when p = 0."""
-
+def test_dropout_trivial_limit(training: bool, batch_dims: tuple[int, ...]) -> None:
+    # GradeDropout is the identity when p == 0.
     layer = GradeDropout(p=0.0)
     if training:
         layer.train()
@@ -47,9 +45,10 @@ def test_dropout_trivial_limit(training, batch_dims):
 @pytest.mark.parametrize("batch_dims", [(10,)])
 @pytest.mark.parametrize("p", [0.0, 0.2])
 @pytest.mark.parametrize("training", [True, False])
-def test_dropout_expectation(training, p, batch_dims, num_trials=10000):
-    """Tests GradeDropout for correct expectation."""
-
+def test_dropout_expectation(
+    training: bool, p: float, batch_dims: tuple[int, ...], num_trials: int = 10000
+) -> None:
+    # GradeDropout has the expected mean (over many trials) for both train and eval.
     layer = GradeDropout(p=p)
     if training:
         layer.train()
@@ -73,17 +72,16 @@ def test_dropout_expectation(training, p, batch_dims, num_trials=10000):
 
 @pytest.mark.parametrize("batch_dims", [(10,)])
 @pytest.mark.parametrize("p", [0.0, 0.2])
-def test_dropout_equivariance(p, batch_dims):
-    """Tests GradeDropout for equivariance."""
-
+def test_dropout_equivariance(p: float, batch_dims: tuple[int, ...]) -> None:
+    # GradeDropout is Pin-equivariant at eval time.
     layer = GradeDropout(p=p)
     layer.eval()
     s = torch.randn(*batch_dims)
     check_pin_equivariance(layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
 
 
-def test_dropout_none_scalars():
-    """Tests that GradeDropout propagates scalars=None."""
+def test_dropout_none_scalars() -> None:
+    # GradeDropout propagates scalars=None.
     layer = GradeDropout(p=0.2)
     layer.train()
     mv = torch.randn(10, 16)

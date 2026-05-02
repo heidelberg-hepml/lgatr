@@ -1,17 +1,20 @@
-"""Utility functions to test callables for equivariance with respect to SO(1,3)."""
+"""Utility functions to test callables for equivariance with respect to SO(1, 3) (no GA)."""
+
+from collections.abc import Callable
 
 import torch
 from lloca.utils.rand_transforms import rand_lorentz
 
 
 def check_invariance(
-    function,
-    fn_kwargs=None,
-    batch_dims=(1,),
-    num_args=1,
-    num_checks=3,
+    function: Callable,
+    fn_kwargs: dict | None = None,
+    batch_dims: tuple | list = (1,),
+    num_args: int = 1,
+    num_checks: int = 2,
     **kwargs,
-):
+) -> None:
+    """Check whether a callable is SO(1, 3)-invariant on Lorentz-vector inputs of shape ``(..., 4)``."""
     if fn_kwargs is None:
         fn_kwargs = {}
     if num_args == 1:
@@ -30,13 +33,14 @@ def check_invariance(
 
 
 def check_equivariance(
-    function,
-    fn_kwargs=None,
-    batch_dims=(1,),
-    num_args=1,
-    num_checks=3,
+    function: Callable,
+    fn_kwargs: dict | None = None,
+    batch_dims: tuple | list = (1,),
+    num_args: int = 1,
+    num_checks: int = 2,
     **kwargs,
-):
+) -> None:
+    """Check whether a callable is SO(1, 3)-equivariant on Lorentz-vector inputs of shape ``(..., 4)``."""
     if fn_kwargs is None:
         fn_kwargs = {}
     if num_args == 1:

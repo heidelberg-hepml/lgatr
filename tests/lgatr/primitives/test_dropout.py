@@ -13,8 +13,8 @@ from tests.helpers import (
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("p", [0.0, 0.2])
 @pytest.mark.parametrize("training", [True, False])
-def test_dropout_shape(training, p, batch_dims):
-    """Tests grade_dropout() map for shape correctness."""
+def test_dropout_shape(training: bool, p: float, batch_dims: list[int]) -> None:
+    # grade_dropout preserves the input shape.
     x = torch.randn(*batch_dims, 16)
     y = grade_dropout(x, p=p, training=training)
     assert y.shape == x.shape
@@ -22,8 +22,8 @@ def test_dropout_shape(training, p, batch_dims):
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("training", [False, True])
-def test_dropout_trivial_limit(training, batch_dims):
-    """Tests that grade_dropout() does nothing when p = 0."""
+def test_dropout_trivial_limit(training: bool, batch_dims: list[int]) -> None:
+    # grade_dropout is the identity when p == 0.
     x = torch.randn(*batch_dims, 16)
     y = grade_dropout(x, p=0.0, training=training)
 
@@ -32,9 +32,8 @@ def test_dropout_trivial_limit(training, batch_dims):
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("p", [0.0, 0.2])
-def test_dropout_expectation(p, batch_dims, num_trials=10000):
-    """Tests that grade_dropout() has train-time and test-time behaviour that is identical in
-    expectation."""
+def test_dropout_expectation(p: float, batch_dims: list[int], num_trials: int = 10000) -> None:
+    # grade_dropout's train-time and test-time outputs agree in expectation.
     x = torch.randn(*batch_dims, 16)
     y_train = grade_dropout(x.unsqueeze(0).expand(num_trials, *x.shape), p=p, training=True).mean(
         dim=0
@@ -49,8 +48,8 @@ def test_dropout_expectation(p, batch_dims, num_trials=10000):
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("p", [0.0, 0.2])
-def test_dropout_equivariance(p, batch_dims):
-    """Tests the grade_dropout() primitive for equivariance (at test time)."""
+def test_dropout_equivariance(p: float, batch_dims: list[int]) -> None:
+    # grade_dropout is Pin-equivariant at test time.
     check_pin_equivariance(
         grade_dropout, 1, batch_dims=batch_dims, fn_kwargs=dict(training=False, p=p), **TOLERANCES
     )

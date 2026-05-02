@@ -14,20 +14,16 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 )
 @pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_linear_layer_initialization(
-    initialization,
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    use_fully_connected_subgroup,
-    var_tolerance=10.0,
-):
-    """Tests the initialization of `EquiLinear`.
-
-    The goal is that independent of the channel size, inputs with variance 1 are mapped to outputs
-    with, very roughly, variance 1.
-    """
+    initialization: str,
+    batch_dims: tuple[int, ...],
+    in_mv_channels: int,
+    out_mv_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    use_fully_connected_subgroup: bool,
+    var_tolerance: float = 10.0,
+) -> None:
+    # EquiLinear maps unit-variance inputs to roughly unit-variance outputs across channel sizes.
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     # Create layer
@@ -109,18 +105,14 @@ def test_linear_layer_initialization(
 @pytest.mark.parametrize("in_s_channels", [0, 3])
 @pytest.mark.parametrize("out_s_channels", [0, 4])
 def test_linear_layer_linearity(
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    rescaling,
-):
-    """Tests that the EquiLinear layer indeed describes a linear map (when the bias is deactivated).
-
-    Checks that `f(x + rescaling * y) = f(x) + rescaling * f(y)` for random inputs `x`, `y` and
-    linear layer `f(x)`.
-    """
+    batch_dims: list[int],
+    in_mv_channels: int,
+    out_mv_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    rescaling: float,
+) -> None:
+    # EquiLinear (no bias) is linear: f(x + c*y) == f(x) + c*f(y).
     layer = EquiLinear(
         in_mv_channels,
         out_mv_channels,
@@ -161,15 +153,15 @@ def test_linear_layer_linearity(
 @pytest.mark.parametrize("out_s_channels", [0, 4])
 @pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
 def test_linear_layer_equivariance(
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    bias,
-    use_fully_connected_subgroup,
-):
-    """Tests the equi_linear() primitive for equivariance."""
+    batch_dims: list[int],
+    in_mv_channels: int,
+    out_mv_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    bias: bool,
+    use_fully_connected_subgroup: bool,
+) -> None:
+    # EquiLinear is Pin-equivariant for the full Lorentz group and the proper-orthochronous subgroup.
     gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
 
     layer = EquiLinear(

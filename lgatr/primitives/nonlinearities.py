@@ -6,21 +6,19 @@ import torch
 def gated_relu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     """Pin-equivariant gated ReLU nonlinearity.
 
-    Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    ``ReLU(gates) * x``.
+    Computes ``ReLU(gates) * x`` (broadcasting ``gates`` across the multivector components).
 
     Parameters
     ----------
-    x : torch.Tensor
-        Multivector input with shape (..., 16)
-    gates : torch.Tensor
-        Pin-invariant gates with shape (..., 1).
+    x
+        Multivector input of shape ``(..., 16)``.
+    gates
+        Pin-invariant gates of shape ``(..., 1)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Computes ReLU(gates) * x, with broadcasting along the last dimension.
-        Result has shape (..., 16)
+    outputs
+        Result of shape ``(..., 16)``.
     """
 
     weights = torch.nn.functional.relu(gates)
@@ -28,24 +26,22 @@ def gated_relu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     return outputs
 
 
-def gated_sigmoid(x: torch.Tensor, gates: torch.Tensor):
+def gated_sigmoid(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
     """Pin-equivariant gated sigmoid nonlinearity.
 
-    Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    ``sigmoid(gates) * x``.
+    Computes ``sigmoid(gates) * x`` (broadcasting ``gates`` across the multivector components).
 
     Parameters
     ----------
-    x : torch.Tensor
-        Multivector input with shape (..., 16)
-    gates : torch.Tensor
-        Pin-invariant gates with shape (..., 1).
+    x
+        Multivector input of shape ``(..., 16)``.
+    gates
+        Pin-invariant gates of shape ``(..., 1)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Computes Sigmoid(gates) * x, with broadcasting along the last dimension.
-        Result has shape (..., 16)
+    outputs
+        Result of shape ``(..., 16)``.
     """
 
     weights = torch.nn.functional.sigmoid(gates)
@@ -54,10 +50,9 @@ def gated_sigmoid(x: torch.Tensor, gates: torch.Tensor):
 
 
 def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
-    """Pin-equivariant gated GeLU nonlinearity without division.
+    """Pin-equivariant gated GeLU nonlinearity (without division).
 
-    Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    ``GeLU(gates) * x``.
+    Computes ``GeLU(gates) * x`` (broadcasting ``gates`` across the multivector components).
 
     References
     ----------
@@ -65,16 +60,15 @@ def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor
-        Multivector input with shape (..., 16)
-    gates : torch.Tensor
-        Pin-invariant gates with shape (..., 1).
+    x
+        Multivector input of shape ``(..., 16)``.
+    gates
+        Pin-invariant gates of shape ``(..., 1)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Computes GeLU(gates) * x, with broadcasting along the last dimension.
-        Result has shape (..., 16)
+    outputs
+        Result of shape ``(..., 16)``.
     """
 
     weights = torch.nn.functional.gelu(gates, approximate="tanh")
@@ -83,10 +77,9 @@ def gated_gelu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
 
 
 def gated_silu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
-    """Pin-equivariant gated SiLU or Swish nonlinearity without division.
+    """Pin-equivariant gated SiLU (Swish) nonlinearity (without division).
 
-    Given multivector input x and scalar input gates (with matching batch dimensions), computes
-    ``Swish(gates) * x``.
+    Computes ``Swish(gates) * x`` (broadcasting ``gates`` across the multivector components).
 
     References
     ----------
@@ -95,16 +88,15 @@ def gated_silu(x: torch.Tensor, gates: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    x : torch.Tensor
-        Multivector input with shape (..., 16)
-    gates : torch.Tensor
-        Pin-invariant gates with shape (..., 1).
+    x
+        Multivector input of shape ``(..., 16)``.
+    gates
+        Pin-invariant gates of shape ``(..., 1)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Computes Swish(gates) * x, with broadcasting along the last dimension.
-        Result has shape (..., 16)
+    outputs
+        Result of shape ``(..., 16)``.
     """
 
     weights = torch.nn.functional.silu(gates)

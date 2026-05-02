@@ -13,14 +13,14 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("out_s_channels", [5])
 @pytest.mark.parametrize("use_bivector", [True, False])
 def test_geometric_bilinears_equivariance(
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    use_bivector,
-):
-    """Tests GeometricBilinear() for equivariance."""
+    batch_dims: list[int],
+    in_mv_channels: int,
+    out_mv_channels: int,
+    in_s_channels: int,
+    out_s_channels: int,
+    use_bivector: bool,
+) -> None:
+    # GeometricBilinear is Pin-equivariant, with and without bivector outputs.
     gatr_config.use_bivector = use_bivector
 
     layer = GeometricBilinear(
@@ -41,7 +41,7 @@ def test_geometric_bilinears_equivariance(
     )
 
 
-def test_geometric_bilinears_none_scalars_at_runtime():
-    """Tests that GeometricBilinear accepts scalars=None at runtime."""
+def test_geometric_bilinears_none_scalars_at_runtime() -> None:
+    # GeometricBilinear accepts scalars=None at runtime.
     layer = GeometricBilinear(in_mv_channels=8, out_mv_channels=10, in_s_channels=3)
     layer(torch.randn(4, 8, 16), scalars=None)

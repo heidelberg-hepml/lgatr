@@ -15,23 +15,22 @@ from .mlp.mlp import GeoMLP
 class LGATrBlock(nn.Module):
     """L-GATr encoder block.
 
-    Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
-    self-attention, and a residual connection. Then the data is processed by a block consisting of
-    another LayerNorm, an item-wise two-layer geometric MLP with GeLU activations, and another
-    residual connection.
+    Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual
+    connection. Then the data is processed by another LayerNorm, an item-wise two-layer geometric
+    MLP with GeLU activations, and another residual connection.
 
     Parameters
     ----------
-    mv_channels : int
-        Number of input and output multivector channels
-    s_channels: int
+    mv_channels
+        Number of input and output multivector channels.
+    s_channels
         Number of input and output scalar channels. Use 0 for no scalar stream.
-    attention: SelfAttentionConfig
-        Attention configuration
-    mlp: MLPConfig
-        MLP configuration
-    dropout_prob : float or None
-        Dropout probability
+    attention
+        Self-attention configuration.
+    mlp
+        MLP configuration.
+    dropout_prob
+        Dropout probability.
     """
 
     def __init__(
@@ -76,28 +75,28 @@ class LGATrBlock(nn.Module):
         additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass of the transformer encoder block.
+        """Forward pass of the encoder block.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., items, mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, s_channels). If None, the
-            scalar stream is bypassed and outputs_s is None.
-        additional_qk_features_mv : None or torch.Tensor
-            Additional multivector Q/K features with shape (..., items, add_qk_mv_channels, 16).
-        additional_qk_features_s : None or torch.Tensor
-            Additional scalar Q/K features with shape (..., items, add_qk_s_channels, 16).
+        multivectors
+            Input multivectors of shape ``(..., items, mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
+            stream is bypassed and ``outputs_s`` is None.
+        additional_qk_features_mv
+            Additional multivector Q/K features of shape ``(..., items, add_qk_mv_channels, 16)``.
+        additional_qk_features_s
+            Additional scalar Q/K features of shape ``(..., items, add_qk_s_channels)``.
         **attn_kwargs
-            Optional keyword arguments passed to attention.
+            Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : None or torch.Tensor
-            Output scalars with shape (..., items, s_channels), or None if scalars is None.
+        outputs_mv
+            Output multivectors of shape ``(..., items, mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, s_channels)``, or None if ``scalars`` is None.
         """
 
         # Attention block: pre layer norm

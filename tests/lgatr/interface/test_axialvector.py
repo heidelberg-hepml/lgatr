@@ -6,8 +6,8 @@ from tests.helpers import BATCH_DIMS, TOLERANCES
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_axialvector_embedding_consistency(batch_dims):
-    """Tests whether Lorentz vector embeddings into multivectors are cycle consistent."""
+def test_axialvector_embedding_consistency(batch_dims: list[int]) -> None:
+    # embed_axialvector and extract_axialvector are inverses of each other.
     axialvectors = torch.randn(*batch_dims, 4)
     multivectors = embed_axialvector(axialvectors)
     axialvectors_reencoded = extract_axialvector(multivectors)

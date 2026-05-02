@@ -1,3 +1,5 @@
+"""Equivariant primitives (linear, bilinear, attention, invariants, normalization, dropout)."""
+
 from .attention import sdp_attention
 from .bilinear import geometric_product
 from .config import gatr_config

@@ -10,22 +10,19 @@ from ..linear import EquiLinear
 
 
 class GeometricBilinear(nn.Module):
-    """Geometric product on multivectors.
-
-    Pin-equivariant map between multivector tensors that constructs new geometric features via
-    geometric products.
+    """Pin-equivariant bilinear map that constructs new geometric features via geometric products.
 
     Parameters
     ----------
-    in_mv_channels : int
-        Input multivector channels
-    out_mv_channels : int
-        Output multivector channels
-    hidden_mv_channels : int or None
-        Hidden multivector channels. If None, uses out_mv_channels.
-    in_s_channels : int
+    in_mv_channels
+        Input multivector channels.
+    out_mv_channels
+        Output multivector channels.
+    hidden_mv_channels
+        Hidden multivector channels. If None, uses ``out_mv_channels``.
+    in_s_channels
         Input scalar channels. Use 0 for no scalar inputs.
-    out_s_channels : int
+    out_s_channels
         Output scalar channels. Use 0 for no scalar outputs.
     """
 
@@ -73,18 +70,18 @@ class GeometricBilinear(nn.Module):
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., in_mv_channels, 16)
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., in_s_channels). If None, the scalar
-            stream is bypassed.
+        multivectors
+            Input multivectors of shape ``(..., in_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., in_s_channels)``. If None, the scalar stream
+            is bypassed.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., out_mv_channels, 16)
-        output_s : None or torch.Tensor
-            Output scalars with shape (..., out_s_channels), or None if out_s_channels is 0.
+        outputs_mv
+            Output multivectors of shape ``(..., out_mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., out_s_channels)``, or None if ``out_s_channels == 0``.
         """
 
         # GP

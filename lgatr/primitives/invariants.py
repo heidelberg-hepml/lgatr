@@ -1,4 +1,4 @@
-"""Invariants, e.g. inner product, absolute squared norm, pin invariants."""
+"""Invariants: inner product, absolute squared norm, and Pin-invariant utilities."""
 
 import math
 from functools import lru_cache
@@ -24,8 +24,8 @@ def _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> t
 
     Returns
     -------
-    ip_factors : torch.Tensor
-        Inner product factors with shape (16,)
+    ip_factors
+        Inner-product factors of shape ``(16,)`` (entries are +1 or -1).
     """
 
     _INNER_PRODUCT_FACTORS = [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1]
@@ -36,20 +36,17 @@ def _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> t
 
 
 @lru_cache
-def _load_metric_grades(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
-    """Generate tensor of the diagonal of the GA metric, combined with a grade projection.
-
-    Parameters
-    ----------
-    device : torch.device
-        Device
-    dtype : torch.dtype
-        Dtype
+def _load_metric_grades(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    """Construct the GA metric diagonal combined with a grade projection.
 
     Returns
     -------
-    torch.Tensor
-        Metric grades with shape (5, 16)
+    metric_grades
+        Tensor of shape ``(5, 16)``; row ``g`` holds the metric entries of grade ``g`` and zeros
+        elsewhere.
     """
     m = _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
     m_grades = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
@@ -62,24 +59,23 @@ def _load_metric_grades(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Ten
 
 
 def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Computes the inner product of multivectors ``f(x,y) = <x, y> = <~x y>_0``.
+    """Compute the inner product of multivectors ``f(x, y) = <x, y> = <~x y>_0``.
 
-    Equal to ``geometric_product(reverse(x), y)[..., [0]]`` (but faster).
+    Equal to ``geometric_product(reverse(x), y)[..., [0]]``, but faster.
 
     Parameters
     ----------
-    x : torch.Tensor
-        First input multivector with shape (..., 16) or (..., channels, 16).
-        Batch dimensions must be broadcastable between x and y.
-    y : torch.Tensor
-        Second input multivector with shape (..., 16) or (..., channels, 16).
-        Batch dimensions must be broadcastable between x and y.
+    x
+        First input multivector of shape ``(..., 16)`` or ``(..., channels, 16)``.
+        Batch dimensions must be broadcastable between ``x`` and ``y``.
+    y
+        Second input multivector of shape ``(..., 16)`` or ``(..., channels, 16)``.
+        Batch dimensions must be broadcastable between ``x`` and ``y``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Result with shape (..., 1).
-        Batch dimensions are result of broadcasting between x and y.
+    outputs
+        Result of shape ``(..., 1)``. Batch dimensions are the broadcast of ``x`` and ``y``.
     """
 
     x = x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
@@ -91,18 +87,19 @@ def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 @minimum_autocast_precision(torch.float32)
 def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
-    """Computes a modified version of the squared norm that is positive semidefinite and can
-    therefore be used in layer normalization.
+    """Compute a positive-semidefinite modification of the squared norm.
+
+    Suitable for layer normalization (the standard GA squared norm is not positive semidefinite).
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
+    x
+        Input multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Geometric algebra norm of x with shape (..., 1).
+    outputs
+        Geometric-algebra norm of ``x``, shape ``(..., 1)``.
     """
     m = _load_metric_grades(device=x.device, dtype=x.dtype)
     # Path captured via opt_einsum's "optimal" strategy for shapes (...,16), (...,16), (5,16);

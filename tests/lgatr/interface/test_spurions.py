@@ -34,8 +34,13 @@ from lgatr.interface.spurions import get_num_spurions, get_spurions
         (None, False, False, 0),
     ],
 )
-def test_get_num_spurions(beam_spurion, add_time_spurion, beam_mirror, expected_num):
-    """Check that get_num_spurions returns the correct integer for each config."""
+def test_get_num_spurions(
+    beam_spurion: str | None,
+    add_time_spurion: bool,
+    beam_mirror: bool,
+    expected_num: int,
+) -> None:
+    # get_num_spurions returns the expected count for each combination.
     result = get_num_spurions(
         beam_spurion=beam_spurion,
         add_time_spurion=add_time_spurion,
@@ -59,11 +64,12 @@ def test_get_num_spurions(beam_spurion, add_time_spurion, beam_mirror, expected_
         (None, False, False),
     ],
 )
-def test_get_spurions(beam_spurion, add_time_spurion, beam_mirror):
-    """
-    Verify that get_spurions returns a tensor of shape (n_spurions, 16),
-    where n_spurions = get_num_spurions(...).
-    """
+def test_get_spurions(
+    beam_spurion: str | None,
+    add_time_spurion: bool,
+    beam_mirror: bool,
+) -> None:
+    # get_spurions returns a tensor of shape (n_spurions, 16) where n_spurions matches get_num_spurions.
     expected_num = get_num_spurions(
         beam_spurion=beam_spurion,
         add_time_spurion=add_time_spurion,

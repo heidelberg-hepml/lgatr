@@ -20,31 +20,29 @@ from .mlp.mlp import GeoMLP
 class ConditionalLGATrBlock(nn.Module):
     """L-GATr decoder block.
 
-    Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
-    self-attention, and a residual connection. Then the conditions are included with
-    cross-attention using the same overhead as in the self-attention part.
-    Then the data is processed by a block consisting of another LayerNorm,
-    an item-wise two-layer geometric MLP with GeLU activations, and another
-    residual connection.
+    Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual
+    connection. Then the conditions are mixed in via cross-attention with the same overhead as
+    self-attention. Finally the data goes through another LayerNorm, a two-layer geometric MLP
+    with GeLU activations, and another residual connection.
 
     Parameters
     ----------
-    mv_channels : int
-        Number of input and output multivector channels
-    s_channels: int
+    mv_channels
+        Number of input and output multivector channels.
+    s_channels
         Number of input and output scalar channels. Use 0 for no scalar stream.
-    condition_mv_channels: int
-        Number of condition multivector channels
-    condition_s_channels: int
+    condition_mv_channels
+        Number of condition multivector channels.
+    condition_s_channels
         Number of condition scalar channels. Use 0 for no scalar condition stream.
-    attention: SelfAttentionConfig
-        Attention configuration
-    crossattention: CrossAttentionConfig
-        Cross-attention configuration
-    mlp: MLPConfig
-        MLP configuration
-    dropout_prob : float or None
-        Dropout probability
+    attention
+        Self-attention configuration.
+    crossattention
+        Cross-attention configuration.
+    mlp
+        MLP configuration.
+    dropout_prob
+        Dropout probability.
     """
 
     def __init__(
@@ -104,33 +102,33 @@ class ConditionalLGATrBlock(nn.Module):
         multivectors_condition: torch.Tensor,
         scalars: torch.Tensor | None = None,
         scalars_condition: torch.Tensor | None = None,
-        attn_kwargs=None,
-        crossattn_kwargs=None,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass of the transformer decoder block.
+        """Forward pass of the decoder block.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors  with shape (..., items, mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, s_channels). If None, the
-            scalar stream is bypassed and outputs_s is None.
-        multivectors_condition : torch.Tensor
-            Input condition multivectors with shape (..., items, mv_channels, 16).
-        scalars_condition : None or torch.Tensor
-            Optional input condition scalars with shape (..., items, s_channels).
-        attn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask.
-        crossattn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask for the condition.
+        multivectors
+            Input multivectors of shape ``(..., items, mv_channels, 16)``.
+        multivectors_condition
+            Condition multivectors of shape ``(..., items_condition, condition_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
+            stream is bypassed and ``outputs_s`` is None.
+        scalars_condition
+            Optional condition scalars of shape ``(..., items_condition, condition_s_channels)``.
+        attn_kwargs
+            Optional keyword arguments forwarded to self-attention (e.g. attention masks).
+        crossattn_kwargs
+            Optional keyword arguments forwarded to cross-attention (e.g. attention masks).
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : None or torch.Tensor
-            Output scalars with shape (..., items, s_channels), or None.
+        outputs_mv
+            Output multivectors of shape ``(..., items, mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, s_channels)``, or None.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}

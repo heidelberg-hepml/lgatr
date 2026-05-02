@@ -20,7 +20,12 @@ _flex_available = tuple(int(x) for x in _torch_version.split(".")[:2]) >= (2, 7)
 _varlen_available = tuple(int(x) for x in _torch_version.split(".")[:2]) >= (2, 10)
 
 
-def _random_qkv(shape, dtype=torch.float32, device=None):
+def _random_qkv(
+    shape: tuple[int, ...],
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | None = None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Sample random ``(query, key, value)`` tensors with the given shape."""
     if device is None:
         device = torch.device("cpu")
 
@@ -30,7 +35,11 @@ def _random_qkv(shape, dtype=torch.float32, device=None):
     return q, k, v
 
 
-def _sparsify_shape(shape_dense, device=None):
+def _sparsify_shape(
+    shape_dense: tuple[int, ...],
+    device: torch.device | None = None,
+) -> tuple[tuple[int, int, int, int], torch.Tensor, int]:
+    """Convert a dense ``(B, H, T, D)`` shape into ``(1, H, B*T, D)`` plus cu-seqlens for varlen."""
     if device is None:
         device = torch.device("cpu")
 
@@ -42,7 +51,8 @@ def _sparsify_shape(shape_dense, device=None):
 
 
 @pytest.mark.parametrize("shape", SHAPES)
-def test_default_backend_selection(shape):
+def test_default_backend_selection(shape: tuple[int, ...]) -> None:
+    # The default attention backend is torch's native scaled_dot_product_attention.
     backend_fn = get_attention_backend()
     assert backend_fn is torch_sdpa
 
@@ -53,7 +63,8 @@ def test_default_backend_selection(shape):
 
 @pytest.mark.skipif(not _xformers_available, reason="xformers not installed")
 @pytest.mark.parametrize("shape", SHAPES)
-def test_xformers_backend_selection(shape):
+def test_xformers_backend_selection(shape: tuple[int, ...]) -> None:
+    # Selecting backend="xformers" routes to the xformers wrapper and matches the default backend.
     from lgatr.primitives.attention_backends.xformers import attention
 
     # check that backend exists
@@ -74,7 +85,8 @@ def test_xformers_backend_selection(shape):
 @pytest.mark.skipif(not _flex_available, reason="flex requires torch>=2.7")
 @pytest.mark.parametrize("shape", SHAPES)
 @torch.no_grad()
-def test_flex_backend_selection(shape):
+def test_flex_backend_selection(shape: tuple[int, ...]) -> None:
+    # Selecting backend="flex" routes to flex_attention and matches the default backend.
     from lgatr.primitives.attention_backends.flex import attention
 
     # check that backend exists
@@ -97,7 +109,8 @@ def test_flex_backend_selection(shape):
     reason="flash requires flash-attn package and CUDA",
 )
 @pytest.mark.parametrize("shape", [SHAPES[0]])
-def test_flash_backend_selection(shape):
+def test_flash_backend_selection(shape: tuple[int, ...]) -> None:
+    # Selecting backend="flash" routes to the flash-attention wrapper and produces the right shape.
     from lgatr.primitives.attention_backends.flash import attention
 
     # check that backend exists
@@ -123,7 +136,8 @@ def test_flash_backend_selection(shape):
     reason="varlen requires torch>=2.10 and CUDA",
 )
 @pytest.mark.parametrize("shape", [SHAPES[0]])
-def test_varlen_backend_selection(shape):
+def test_varlen_backend_selection(shape: tuple[int, ...]) -> None:
+    # Selecting backend="varlen" routes to the varlen wrapper and produces the right shape.
     from lgatr.primitives.attention_backends.varlen import attention
 
     # check that backend exists

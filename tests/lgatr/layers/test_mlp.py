@@ -13,8 +13,14 @@ _CHANNELS = [(5, 12), (4, 10), (4, 0)]
 @pytest.mark.parametrize("activation", ["gelu"])
 @pytest.mark.parametrize("mv_channels,s_channels", _CHANNELS)
 @pytest.mark.parametrize("use_geometric_product", [True, False])
-def test_geo_mlp_shape(batch_dims, mv_channels, s_channels, activation, use_geometric_product):
-    """Tests the output shape of GeoMLP()."""
+def test_geo_mlp_shape(
+    batch_dims: list[int],
+    mv_channels: int,
+    s_channels: int,
+    activation: str,
+    use_geometric_product: bool,
+) -> None:
+    # GeoMLP outputs match the input multivector and scalar shapes.
     gatr_config.use_geometric_product = use_geometric_product
 
     inputs = torch.randn(*batch_dims, mv_channels, 16)
@@ -36,8 +42,13 @@ def test_geo_mlp_shape(batch_dims, mv_channels, s_channels, activation, use_geom
 @pytest.mark.parametrize("batch_dims", [[100]])
 @pytest.mark.parametrize("activation", ["gelu"])
 @pytest.mark.parametrize("mv_channels,s_channels", _CHANNELS)
-def test_geo_mlp_equivariance(batch_dims, mv_channels, s_channels, activation):
-    """Tests GeoMLP() for Pin equivariance."""
+def test_geo_mlp_equivariance(
+    batch_dims: list[int],
+    mv_channels: int,
+    s_channels: int,
+    activation: str,
+) -> None:
+    # GeoMLP is Spin-equivariant (Pin tested via the lower-level primitives).
     net = GeoMLP(MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation))
     data_dims = tuple(list(batch_dims) + [mv_channels])
     scalars = torch.randn(*batch_dims, s_channels) if s_channels else None

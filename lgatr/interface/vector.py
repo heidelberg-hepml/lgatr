@@ -4,17 +4,17 @@ import torch
 
 
 def embed_vector(vector: torch.Tensor) -> torch.Tensor:
-    """Embeds Lorentz vectors in multivectors.
+    """Embed a Lorentz vector into a multivector.
 
     Parameters
     ----------
-    vector : torch.Tensor
-        Lorentz vector with shape (..., 4)
+    vector
+        Lorentz vector of shape ``(..., 4)``.
 
     Returns
     -------
-    multivector : torch.Tensor
-        Embedding into multivector with shape (..., 16).
+    multivector
+        Multivector embedding of shape ``(..., 16)``.
     """
 
     # Create multivector tensor with same batch shape, same device, same dtype as input
@@ -28,17 +28,17 @@ def embed_vector(vector: torch.Tensor) -> torch.Tensor:
 
 
 def extract_vector(multivector: torch.Tensor) -> torch.Tensor:
-    """Given a multivector, extract a Lorentz vector.
+    """Extract a Lorentz vector from a multivector.
 
     Parameters
     ----------
-    multivector : torch.Tensor
-        Multivector with shape (..., 16).
+    multivector
+        Multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    vector : torch.Tensor
-        Lorentz vector with shape (..., 4)
+    vector
+        Lorentz vector of shape ``(..., 4)``.
     """
 
     vector = multivector[..., 1:5]

@@ -14,15 +14,15 @@ from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_lgatr_block_shape(
-    batch_dims,
-    num_items,
-    mv_channels,
-    num_heads,
-    s_channels,
-    multi_query_attention,
-    dropout_prob,
-):
-    """Tests the output shape of LGATrBlock."""
+    batch_dims: list[int],
+    num_items: int,
+    mv_channels: int,
+    num_heads: int,
+    s_channels: int,
+    multi_query_attention: bool,
+    dropout_prob: float | None,
+) -> None:
+    # LGATrBlock outputs match the input shape for both multivector and scalar streams.
     inputs = torch.randn(*batch_dims, num_items, mv_channels, 16)
     scalars = torch.randn(*batch_dims, num_items, s_channels) if s_channels else None
 
@@ -54,14 +54,14 @@ def test_lgatr_block_shape(
 @pytest.mark.parametrize("s_channels", [2, 6])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 def test_lgatr_block_equivariance(
-    batch_dims,
-    num_items,
-    mv_channels,
-    num_heads,
-    s_channels,
-    multi_query_attention,
-):
-    """Tests LGATrBlock for equivariance."""
+    batch_dims: tuple[int, ...],
+    num_items: int,
+    mv_channels: int,
+    num_heads: int,
+    s_channels: int,
+    multi_query_attention: bool,
+) -> None:
+    # LGATrBlock is Pin-equivariant.
     try:
         net = LGATrBlock(
             mv_channels,
@@ -83,8 +83,8 @@ def test_lgatr_block_equivariance(
     )
 
 
-def test_lgatr_block_none_scalars_at_runtime():
-    """Tests LGATrBlock accepts scalars=None at runtime."""
+def test_lgatr_block_none_scalars_at_runtime() -> None:
+    # LGATrBlock accepts scalars=None at runtime.
     net = LGATrBlock(
         mv_channels=4,
         s_channels=2,
