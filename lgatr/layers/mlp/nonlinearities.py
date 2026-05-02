@@ -3,12 +3,7 @@
 import torch
 from torch import nn
 
-from ...primitives.nonlinearities import (
-    gated_gelu,
-    gated_relu,
-    gated_sigmoid,
-    gated_silu,
-)
+from ...utils.misc import get_nonlinearity
 
 
 class ScalarGatedNonlinearity(nn.Module):
@@ -21,28 +16,13 @@ class ScalarGatedNonlinearity(nn.Module):
     Parameters
     ----------
     nonlinearity
-        Non-linearity type. One of ``"relu"``, ``"sigmoid"``, ``"gelu"``, ``"silu"``.
+        Non-linearity type. One of ``"relu"``, ``"sigmoid"``, ``"tanh"``, ``"gelu"``,
+        ``"silu"``.
     """
 
-    def __init__(self, nonlinearity: str = "relu") -> None:
+    def __init__(self, nonlinearity: str = "gelu") -> None:
         super().__init__()
-
-        gated_fn_dict = dict(
-            relu=gated_relu, gelu=gated_gelu, sigmoid=gated_sigmoid, silu=gated_silu
-        )
-        scalar_fn_dict = dict(
-            relu=nn.functional.relu,
-            gelu=nn.functional.gelu,
-            sigmoid=nn.functional.sigmoid,
-            silu=nn.functional.silu,
-        )
-        try:
-            self.gated_nonlinearity = gated_fn_dict[nonlinearity]
-            self.scalar_nonlinearity = scalar_fn_dict[nonlinearity]
-        except KeyError as exc:
-            raise ValueError(
-                f"Unknown nonlinearity {nonlinearity} for options {list(gated_fn_dict.keys())}"
-            ) from exc
+        self.nonlinearity = get_nonlinearity(nonlinearity)
 
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
@@ -65,7 +45,7 @@ class ScalarGatedNonlinearity(nn.Module):
         """
 
         gates = multivectors[..., 0:1]
-        outputs_mv = self.gated_nonlinearity(multivectors, gates=gates)
-        outputs_s = self.scalar_nonlinearity(scalars) if scalars is not None else None
+        outputs_mv = self.nonlinearity(gates) * multivectors
+        outputs_s = self.nonlinearity(scalars) if scalars is not None else None
 
         return outputs_mv, outputs_s

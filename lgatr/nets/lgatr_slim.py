@@ -8,23 +8,8 @@ from torch.nn.functional import dropout, dropout1d
 from torch.utils.checkpoint import checkpoint
 
 from ..primitives.attention import scaled_dot_product_attention
-from ..utils.misc import minimum_autocast_precision
-
-
-def get_nonlinearity(label: str) -> nn.Module:
-    """Return the :class:`torch.nn.Module` for the given nonlinearity label."""
-    if label == "relu":
-        return nn.ReLU()
-    elif label == "sigmoid":
-        return nn.Sigmoid()
-    elif label == "tanh":
-        return nn.Tanh()
-    elif label == "gelu":
-        return nn.GELU()
-    elif label == "silu":
-        return nn.SiLU()
-    else:
-        raise ValueError(f"Unsupported nonlinearity type: {label}")
+from ..utils.autocast import minimum_autocast_precision
+from ..utils.misc import get_nonlinearity
 
 
 def _post_attention_reshape(

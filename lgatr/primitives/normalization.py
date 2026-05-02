@@ -2,7 +2,7 @@
 
 import torch
 
-from ..utils.misc import minimum_autocast_precision
+from ..utils.autocast import minimum_autocast_precision
 from .invariants import abs_squared_norm
 
 

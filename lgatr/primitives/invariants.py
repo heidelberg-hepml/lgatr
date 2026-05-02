@@ -5,7 +5,7 @@ from functools import lru_cache
 
 import torch
 
-from ..utils.misc import minimum_autocast_precision
+from ..utils.autocast import minimum_autocast_precision
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 # Diagonal of the GA metric (signature of the inner product on each multivector grade).

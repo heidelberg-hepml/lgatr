@@ -1,1 +1,1 @@
-"""Internal utilities (autocast helpers)."""
+"""Internal utilities (autocast decorator, residual addition, activation lookup)."""

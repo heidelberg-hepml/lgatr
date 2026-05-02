@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from lgatr.utils.misc import minimum_autocast_precision
+from lgatr.utils.autocast import minimum_autocast_precision
 
 
 # Choose dtypes to work on most devices -- torch.bfloat16 is not available on some GPUs

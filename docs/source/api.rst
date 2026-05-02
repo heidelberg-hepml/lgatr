@@ -56,7 +56,6 @@ The L-GATr primitives implement the core equivariant operations and are called b
    lgatr.primitives.dropout
    lgatr.primitives.invariants
    lgatr.primitives.linear
-   lgatr.primitives.nonlinearities
    lgatr.primitives.normalization
 
 
