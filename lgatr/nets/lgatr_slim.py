@@ -27,7 +27,7 @@ def get_nonlinearity(label):
 
 
 def _post_attention_reshape(out, hidden_v_channels):
-    h_v = out[..., : hidden_v_channels * 4].reshape(*out.shape[:-1], hidden_v_channels, 4)
+    h_v = out[..., : hidden_v_channels * 4].unflatten(-1, (hidden_v_channels, 4))
     h_s = out[..., hidden_v_channels * 4 :]
 
     h_v = h_v.movedim(-3, -4).flatten(-3, -2)
@@ -64,12 +64,13 @@ class Dropout(nn.Module):
         torch.Tensor, torch.Tensor
             Tensors of the same shape as input representing the dropped out vectors and scalars.
         """
+        if not self.training or self._dropout_prob == 0.0:
+            return vectors, scalars
+
         # have to reshape vectors because dropout1d constrains input shape
         v = vectors.reshape(-1, 4)
-        out_v = dropout1d(v, p=self._dropout_prob, training=self.training)
-        out_v = out_v.reshape(vectors.shape)
-
-        out_s = dropout(scalars, p=self._dropout_prob, training=self.training)
+        out_v = dropout1d(v, p=self._dropout_prob, training=True).reshape(vectors.shape)
+        out_s = dropout(scalars, p=self._dropout_prob, training=True)
         return out_v, out_s
 
 
@@ -82,6 +83,7 @@ class RMSNorm(nn.Module):
     def __init__(self, epsilon: float = 0.01):
         super().__init__()
         self.epsilon = epsilon
+        self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
     @minimum_autocast_precision(torch.float32)
     def forward(self, vectors, scalars):
@@ -98,7 +100,7 @@ class RMSNorm(nn.Module):
         torch.Tensor, torch.Tensor
             Tensors of the same shape as input representing the normalized vectors and scalars.
         """
-        v_squared_norm = (vectors[..., 0].square() - vectors[..., 1:].square().sum(dim=-1)).abs()
+        v_squared_norm = (vectors.square() * self.metric).sum(-1).abs()
         s_squared_norm = scalars.square()
         total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
         mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
@@ -221,6 +223,7 @@ class GatedLinearUnit(nn.Module):
             out_s_channels=2 * out_s_channels,
         )
         self.nonlinearity = get_nonlinearity(nonlinearity)
+        self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
     def forward(self, vectors, scalars):
         """
@@ -248,10 +251,7 @@ class GatedLinearUnit(nn.Module):
 
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1, v_gates_2):
-        t = v_gates_1[..., 0] * v_gates_2[..., 0]
-        s = (v_gates_1[..., 1:] * v_gates_2[..., 1:]).sum(dim=-1)
-        v_gates = (t - s).unsqueeze(-1)
-        return v_gates
+        return ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
 
 
 class SelfAttention(nn.Module):
