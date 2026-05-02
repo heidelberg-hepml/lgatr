@@ -5,34 +5,30 @@ from functools import lru_cache
 
 import torch
 
-from ..utils.einsum import custom_einsum
 from ..utils.misc import minimum_autocast_precision
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
+# Diagonal of the GA metric (signature of the inner product on each multivector grade).
+_INNER_PRODUCT_FACTORS = torch.tensor(
+    [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1],
+    dtype=DEFAULT_DTYPE,
+    device=DEFAULT_DEVICE,
+)
+
 
 @lru_cache
-def _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
-    """Constructs an array of 1's and -1's for the metric of the space,
-    used to compute the inner product.
-
-    Parameters
-    ----------
-    device : torch.device
-        Device
-    dtype : torch.dtype
-        Dtype
+def _load_inner_product_factors(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    """Construct the diagonal of the GA metric used by the inner product.
 
     Returns
     -------
     ip_factors
         Inner-product factors of shape ``(16,)`` (entries are +1 or -1).
     """
-
-    _INNER_PRODUCT_FACTORS = [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1]
-    factors = torch.tensor(
-        _INNER_PRODUCT_FACTORS, dtype=DEFAULT_DTYPE, device=DEFAULT_DEVICE
-    ).to_dense()
-    return factors.to(device=device, dtype=dtype)
+    return _INNER_PRODUCT_FACTORS.to(device=device, dtype=dtype)
 
 
 @lru_cache
@@ -48,12 +44,11 @@ def _load_metric_grades(
         Tensor of shape ``(5, 16)``; row ``g`` holds the metric entries of grade ``g`` and zeros
         elsewhere.
     """
-    m = _load_inner_product_factors(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
     m_grades = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
     offset = 0
-    for k in range(4 + 1):
+    for k in range(5):
         d = math.comb(4, k)
-        m_grades[k, offset : offset + d] = m[offset : offset + d]
+        m_grades[k, offset : offset + d] = _INNER_PRODUCT_FACTORS[offset : offset + d]
         offset += d
     return m_grades.to(device=device, dtype=dtype)
 
@@ -102,11 +97,7 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
         Geometric-algebra norm of ``x``, shape ``(..., 1)``.
     """
     m = _load_metric_grades(device=x.device, dtype=x.dtype)
-    # Path captured via opt_einsum's "optimal" strategy for shapes (...,16), (...,16), (5,16);
-    # deterministic across batch sizes.
-    abs_squared_norms = (
-        custom_einsum("... i, ... i, g i -> ... g", x, x, m, path=[0, 1, 0, 1])
-        .abs()
-        .sum(-1, keepdim=True)
-    )
-    return abs_squared_norms
+    # Equivalent to ``einsum("... i, ... i, g i -> ... g", x, x, m)``: square ``x``
+    # element-wise, then a single matmul against the metric-grade rows.
+    per_grade = (x * x) @ m.T
+    return per_grade.abs().sum(-1, keepdim=True)

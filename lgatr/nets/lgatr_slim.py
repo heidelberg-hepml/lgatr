@@ -181,7 +181,11 @@ class Linear(nn.Module):
                 )
             )
         )
-        self.linear_s = nn.Linear(in_s_channels, out_s_channels, bias=bias)
+        self.linear_s: nn.Linear | None
+        if in_s_channels and out_s_channels:
+            self.linear_s = nn.Linear(in_s_channels, out_s_channels, bias=bias)
+        else:
+            self.linear_s = None
 
         self.reset_parameters(initialization)
 
@@ -205,7 +209,10 @@ class Linear(nn.Module):
             Scalar features of shape ``(..., out_s_channels)``.
         """
         vectors_out = self.weight_v @ vectors
-        scalars_out = self.linear_s(scalars)
+        if self.linear_s is not None:
+            scalars_out = self.linear_s(scalars)
+        else:
+            scalars_out = scalars.new_zeros(*scalars.shape[:-1], self._out_s_channels)
         return vectors_out, scalars_out
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
@@ -224,7 +231,7 @@ class Linear(nn.Module):
             bound = v_factor / math.sqrt(fan_in)
             nn.init.uniform_(self.weight_v, a=-bound, b=bound)
 
-        if self.linear_s.weight.numel() > 0:
+        if self.linear_s is not None:
             fan_in = max(self._in_s_channels, 1)
             bound = s_factor / math.sqrt(fan_in)
             nn.init.uniform_(self.linear_s.weight, a=-bound, b=bound)

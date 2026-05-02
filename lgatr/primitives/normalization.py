@@ -48,7 +48,7 @@ def equi_layer_norm(
     # entries don't contribute to the inner product / GP norm!)
     abs_squared_norms = torch.clamp(abs_squared_norms, epsilon)
 
-    # Rescale inputs
-    outputs = gain * x * torch.rsqrt(abs_squared_norms)
-
-    return outputs
+    # ``gain * rsqrt(...)`` collapses to a small (..., 1, 16) tensor first, so the final
+    # broadcast multiply touches ``x`` only once (rather than ``gain * x * rsqrt`` which
+    # would allocate an intermediate the size of ``x``).
+    return x * (gain * torch.rsqrt(abs_squared_norms))

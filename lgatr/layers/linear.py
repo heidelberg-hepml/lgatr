@@ -155,16 +155,24 @@ class EquiLinear(nn.Module):
             outputs_mv = outputs_mv + bias
 
         if self.s2mvs is not None and scalars is not None:
+            # Build a (..., out_c, 16) update with the s2mvs output written into the scalar
+            # (index 0) and, for the subgroup, pseudoscalar (index 15) slots. Functional
+            # cat-of-zeros instead of in-place advanced-index scatter — cleaner under autograd
+            # and torch.compile.
             if gatr_config.use_fully_connected_subgroup:
-                outputs_mv[..., [0, -1]] += self.s2mvs(scalars).view(
-                    *outputs_mv.shape[:-2], outputs_mv.shape[-2], 2
-                )
+                delta = self.s2mvs(scalars).unflatten(-1, (outputs_mv.shape[-2], 2))
+                zeros14 = delta.new_zeros(*delta.shape[:-1], 14)
+                delta_full = torch.cat([delta[..., 0:1], zeros14, delta[..., 1:2]], dim=-1)
             else:
-                outputs_mv[..., 0] += self.s2mvs(scalars)
+                delta = self.s2mvs(scalars).unsqueeze(-1)
+                delta_full = torch.nn.functional.pad(delta, (0, 15))
+            outputs_mv = outputs_mv + delta_full
 
         if self.mvs2s is not None:
             if gatr_config.use_fully_connected_subgroup:
-                outputs_s = self.mvs2s(multivectors[..., [0, -1]].flatten(start_dim=-2))
+                # Slice + cat instead of advanced indexing: same memory, no gather kernel.
+                mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
+                outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
             else:
                 outputs_s = self.mvs2s(multivectors[..., 0])
             if self.s2s is not None and scalars is not None:
