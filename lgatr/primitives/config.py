@@ -39,6 +39,10 @@ class LGATrConfig:
         batches/channels despite the lower flop count. Outputs match the dense path within
         standard test tolerances but are not bit-identical. Defaults to False for backward
         compatibility (existing checkpoints expect dense numerics).
+    triton
+        If True, route :func:`equi_linear` and :func:`geometric_product` through fused Triton
+        kernels when the inputs live on a CUDA device with a supported dtype, falling through to
+        the ``sparse`` dispatch otherwise. Defaults to False for backward compatibility.
     """
 
     use_fully_connected_subgroup: bool = True
@@ -47,6 +51,7 @@ class LGATrConfig:
     use_geometric_product: bool = True
 
     sparse: bool = False
+    triton: bool = False
 
     @property
     def num_pin_linear_basis_elements(self) -> int:
