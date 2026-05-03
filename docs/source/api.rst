@@ -93,6 +93,22 @@ which can be added as extra items or channels to break equivariance at the input
    lgatr.interface.axialvector
    lgatr.interface.spurions
 
+L-GATr Utilities
+----------------
+
+Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
+constructor path, a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates the
+primitive caches for a given ``(device, dtype)``, and an autocast decorator that pins inputs to a
+minimum precision.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.utils.compile
+   lgatr.primitives.compile
+   lgatr.utils.autocast
+
 L-GATr-slim Layers
 ------------------
 

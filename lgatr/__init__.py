@@ -13,6 +13,7 @@ from .nets.conditional_lgatr import ConditionalLGATr
 from .nets.conditional_lgatr_slim import ConditionalLGATrSlim
 from .nets.lgatr import LGATr
 from .nets.lgatr_slim import LGATrSlim
+from .primitives.compile import warmup_caches
 from .primitives.config import gatr_config
 
 __version__ = _pkg_version("lgatr")

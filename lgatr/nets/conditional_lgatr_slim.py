@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
+from ..utils.compile import compile_model
 from .lgatr_slim import (
     MLP,
     Dropout,
@@ -344,14 +345,10 @@ class ConditionalLGATrSlim(nn.Module):
         Whether to use gradient checkpointing for the blocks.
     compile
         Whether to wrap the model with :func:`torch.compile`.
-    compile_mode
-        Mode passed to :func:`torch.compile`.
-    compile_dynamic
-        Whether to use dynamic shapes with :func:`torch.compile`.
-    compile_fullgraph
-        Whether to require a full graph (no graph breaks). The model contains
-        :func:`torch.compiler.disable`-wrapped attention backends, so ``True`` will fail unless
-        those backends are not used.
+    **compile_kwargs
+        Forwarded to :func:`lgatr.utils.compile.compile_model` when ``compile=True``;
+        see there for the supported keys (``compile_mode``, ``compile_dynamic``,
+        ``compile_fullgraph``) and their defaults.
     """
 
     def __init__(
@@ -373,9 +370,7 @@ class ConditionalLGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
         compile: bool = False,
-        compile_mode: str = "default",
-        compile_dynamic: bool = True,
-        compile_fullgraph: bool = False,
+        **compile_kwargs,
     ) -> None:
         super().__init__()
 
@@ -413,16 +408,7 @@ class ConditionalLGATrSlim(nn.Module):
         self._checkpoint_blocks = checkpoint_blocks
 
         if compile:
-            # ugly hack to make torch.compile convenient for users; the clean solution is
-            # ``model = torch.compile(model, **kwargs)`` outside of the constructor.
-            # The model contains ``@torch.compiler.disable``-wrapped attention backends, so
-            # ``compile_fullgraph=True`` will fail unless those backends are not used.
-            self.__class__ = torch.compile(
-                self.__class__,
-                mode=compile_mode,
-                dynamic=compile_dynamic,
-                fullgraph=compile_fullgraph,
-            )
+            compile_model(self, **compile_kwargs)
 
     def forward(
         self,
