@@ -19,6 +19,7 @@ varlen-attention = ["torch>=2.10"]  # torch native varlen-attention added in tor
 xformers-attention = ["xformers"]
 flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
 flash-attention = ["flash-attn"]  # non-trivial, check https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup for build instructions
+triton = ["triton>=2.2"]  # GPU-only fast path for equi_linear and geometric_product
 dev = [
     "pre-commit",
     # unit tests
