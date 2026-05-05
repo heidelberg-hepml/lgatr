@@ -4,6 +4,7 @@ import torch
 from lgatr.layers import LGATrBlock
 from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.mlp.config import MLPConfig
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 
@@ -35,6 +36,7 @@ def test_lgatr_block_shape(
                 multi_query=multi_query_attention,
             ),
             mlp=MLPConfig(),
+            primitives=PrimitivesConfig(),
             dropout_prob=dropout_prob,
         )
     except NotImplementedError:
@@ -71,6 +73,7 @@ def test_lgatr_block_equivariance(
                 multi_query=multi_query_attention,
             ),
             mlp=MLPConfig(),
+            primitives=PrimitivesConfig(),
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine
@@ -90,5 +93,6 @@ def test_lgatr_block_none_scalars_at_runtime() -> None:
         s_channels=2,
         attention=SelfAttentionConfig(num_heads=2),
         mlp=MLPConfig(),
+        primitives=PrimitivesConfig(),
     )
     net(torch.randn(3, 5, 4, 16), scalars=None)

@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from lgatr.primitives.linear import equi_linear, grade_involute, grade_project, reverse
 from tests.helpers import (
     BATCH_DIMS,
@@ -50,8 +50,10 @@ def test_linear_equivariance(
     input_batch_dims: tuple[int, ...], coeff_batch_dims: tuple[int, ...]
 ) -> None:
     # equi_linear is Pin-equivariant for several input/coeff broadcasting shapes.
+    config = PrimitivesConfig()
     fn_kwargs = dict(
-        coeffs=torch.randn(*coeff_batch_dims, gatr_config.num_pin_linear_basis_elements),
+        coeffs=torch.randn(*coeff_batch_dims, config.num_pin_linear_basis_elements),
+        config=config,
     )
     check_pin_equivariance(
         equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=input_batch_dims, **TOLERANCES
@@ -64,18 +66,17 @@ def test_equi_linear_sparse_dense_equivalence(
     batch_dims: list[int], use_fully_connected_subgroup: bool
 ) -> None:
     # The sparse path agrees with the dense path within TOLERANCES on shared inputs.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+    config_dense = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, sparse=False
+    )
+    config_sparse = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, sparse=True
+    )
     in_c, out_c = 4, 7
     x = torch.randn(*batch_dims, in_c, 16)
-    coeffs = torch.randn(out_c, in_c, gatr_config.num_pin_linear_basis_elements)
-    try:
-        gatr_config.sparse = False
-        out_dense = equi_linear(x, coeffs)
-        gatr_config.sparse = True
-        out_sparse = equi_linear(x, coeffs)
-    finally:
-        gatr_config.sparse = False
-        gatr_config.use_fully_connected_subgroup = True
+    coeffs = torch.randn(out_c, in_c, config_dense.num_pin_linear_basis_elements)
+    out_dense = equi_linear(x, coeffs, config=config_dense)
+    out_sparse = equi_linear(x, coeffs, config=config_sparse)
     torch.testing.assert_close(out_sparse, out_dense, **TOLERANCES)
 
 
@@ -86,16 +87,12 @@ def test_equi_linear_sparse_equivariance(
 ) -> None:
     # The sparse path is Pin-equivariant. check_pin_equivariance builds inputs as
     # (*batch_dims, 16), so the trailing batch dim plays the role of in_channels.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
-    gatr_config.sparse = True
+    config = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, sparse=True
+    )
     in_c = batch_dims[-1]
     fn_kwargs = dict(
-        coeffs=torch.randn(7, in_c, gatr_config.num_pin_linear_basis_elements),
+        coeffs=torch.randn(7, in_c, config.num_pin_linear_basis_elements),
+        config=config,
     )
-    try:
-        check_pin_equivariance(
-            equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=batch_dims, **TOLERANCES
-        )
-    finally:
-        gatr_config.sparse = False
-        gatr_config.use_fully_connected_subgroup = True
+    check_pin_equivariance(equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=batch_dims, **TOLERANCES)

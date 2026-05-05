@@ -1,13 +1,19 @@
-"""Global configuration for the L-GATr primitives."""
+"""LGATr primitives configuration."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
-class LGATrConfig:
-    """Global configuration for the symmetry group and bilinear-layer toggles.
+class PrimitivesConfig:
+    """Symmetry-group and bilinear-layer toggles for an L-GATr model.
+
+    A :class:`PrimitivesConfig` is passed to :class:`~lgatr.LGATr` (and to the layers and
+    primitive functions it contains) at construction time. Multiple models with different
+    configs can coexist in the same process.
 
     Parameters
     ----------
@@ -57,5 +63,13 @@ class LGATrConfig:
     def num_pin_linear_basis_elements(self) -> int:
         return 10 if self.use_fully_connected_subgroup else 5
 
-
-gatr_config = LGATrConfig()
+    @classmethod
+    def cast(cls, config: Any) -> PrimitivesConfig:
+        """Cast an arbitrary object to a :class:`PrimitivesConfig`."""
+        if config is None:
+            return cls()
+        if isinstance(config, PrimitivesConfig):
+            return config
+        if isinstance(config, Mapping):
+            return cls(**config)
+        raise ValueError(f"Can not cast {config} to {cls}")

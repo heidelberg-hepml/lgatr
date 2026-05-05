@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from lgatr.layers import CrossAttention, CrossAttentionConfig
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 
@@ -42,7 +43,7 @@ def test_crossattention_equivariance(
         multi_query=multi_query,
         dropout_prob=dropout_prob,
     )
-    layer = CrossAttention(config)
+    layer = CrossAttention(config, PrimitivesConfig())
 
     scalars_q = torch.randn(*batch_dims, items_q, q_s_channels)
     scalars_kv = torch.randn(*batch_dims, items_kv, kv_s_channels)
@@ -71,7 +72,7 @@ def test_cross_attention_none_scalars() -> None:
         out_s_channels=0,
         num_heads=2,
     )
-    layer = CrossAttention(config)
+    layer = CrossAttention(config, PrimitivesConfig())
     mv_q = torch.randn(2, 3, 3, 16)
     mv_kv = torch.randn(2, 4, 2, 16)
     layer(mv_q, mv_kv, scalars_q=None, scalars_kv=None)

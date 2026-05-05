@@ -3,6 +3,7 @@ import torch
 
 from lgatr.layers import SelfAttention, SelfAttentionConfig
 from lgatr.primitives.attention import sdp_attention
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
@@ -36,7 +37,7 @@ def test_attention_equivariance(
         multi_query=multi_query,
         increase_hidden_channels=increase_hidden_channels,
     )
-    layer = SelfAttention(config)
+    layer = SelfAttention(config, PrimitivesConfig())
 
     data_dims = tuple(list(batch_dims) + [num_items, in_channels])
     scalars = torch.randn(*batch_dims, num_items, in_s_channels)

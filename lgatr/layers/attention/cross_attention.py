@@ -3,6 +3,7 @@
 import torch
 from torch import nn
 
+from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .attention import GeometricAttention
@@ -19,11 +20,14 @@ class CrossAttention(nn.Module):
     ----------
     config
         Attention configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
     def __init__(
         self,
         config: CrossAttentionConfig,
+        primitives: PrimitivesConfig,
     ) -> None:
         super().__init__()
 
@@ -37,10 +41,12 @@ class CrossAttention(nn.Module):
 
         # Store settings
         self.config = config
+        self.primitives = primitives
 
         self.q_linear = EquiLinear(
             in_mv_channels=config.q_mv_channels,
             out_mv_channels=config.hidden_mv_channels * config.num_heads,
+            primitives=primitives,
             in_s_channels=config.q_s_channels,
             out_s_channels=config.hidden_s_channels * config.num_heads,
         )
@@ -49,6 +55,7 @@ class CrossAttention(nn.Module):
             out_mv_channels=2
             * config.hidden_mv_channels
             * (1 if config.multi_query else config.num_heads),
+            primitives=primitives,
             in_s_channels=config.kv_s_channels,
             out_s_channels=2
             * config.hidden_s_channels
@@ -59,6 +66,7 @@ class CrossAttention(nn.Module):
         self.out_linear = EquiLinear(
             in_mv_channels=config.hidden_mv_channels * config.num_heads,
             out_mv_channels=config.out_mv_channels,
+            primitives=primitives,
             in_s_channels=config.hidden_s_channels * config.num_heads,
             out_s_channels=config.out_s_channels,
             initialization=config.output_init,

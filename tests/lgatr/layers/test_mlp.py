@@ -3,7 +3,7 @@ import torch
 
 from lgatr.layers import GeoMLP
 from lgatr.layers.mlp.config import MLPConfig
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 _CHANNELS = [(5, 12), (4, 10), (4, 0)]
@@ -21,14 +21,15 @@ def test_geo_mlp_shape(
     use_geometric_product: bool,
 ) -> None:
     # GeoMLP outputs match the input multivector and scalar shapes.
-    gatr_config.use_geometric_product = use_geometric_product
+    primitives = PrimitivesConfig(use_geometric_product=use_geometric_product)
 
     inputs = torch.randn(*batch_dims, mv_channels, 16)
     scalars = torch.randn(*batch_dims, s_channels) if s_channels else None
 
     try:
         net = GeoMLP(
-            MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation)
+            MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation),
+            primitives=primitives,
         )
     except NotImplementedError:
         return  # "GeoMLP not implemented for this configuration"
@@ -49,7 +50,13 @@ def test_geo_mlp_equivariance(
     activation: str,
 ) -> None:
     # GeoMLP is Spin-equivariant (Pin tested via the lower-level primitives).
-    net = GeoMLP(MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation))
+    # The geometric-product path requires scalar inputs (almost_unit_scalar init); fall back
+    # to the EquiLinear+nonlinearity path when there's no scalar stream.
+    primitives = PrimitivesConfig(use_geometric_product=s_channels > 0)
+    net = GeoMLP(
+        MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation),
+        primitives=primitives,
+    )
     data_dims = tuple(list(batch_dims) + [mv_channels])
     scalars = torch.randn(*batch_dims, s_channels) if s_channels else None
 

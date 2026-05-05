@@ -3,6 +3,7 @@
 import torch
 from torch import nn
 
+from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .attention import GeometricAttention
@@ -20,21 +21,29 @@ class SelfAttention(nn.Module):
     ----------
     config
         Attention configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
-    def __init__(self, config: SelfAttentionConfig) -> None:
+    def __init__(self, config: SelfAttentionConfig, primitives: PrimitivesConfig) -> None:
         super().__init__()
 
         # Store settings
         self.config = config
+        self.primitives = primitives
 
         # QKV computation
-        self.qkv_module = MultiQueryQKVModule(config) if config.multi_query else QKVModule(config)
+        self.qkv_module = (
+            MultiQueryQKVModule(config, primitives)
+            if config.multi_query
+            else QKVModule(config, primitives)
+        )
 
         # Output projection
         self.out_linear = EquiLinear(
             in_mv_channels=config.hidden_mv_channels * config.num_heads,
             out_mv_channels=config.out_mv_channels,
+            primitives=primitives,
             in_s_channels=config.hidden_s_channels * config.num_heads,
             out_s_channels=config.out_s_channels,
             initialization=config.output_init,

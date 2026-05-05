@@ -3,6 +3,7 @@
 import torch
 from torch import nn
 
+from ...primitives.config import PrimitivesConfig
 from ..layer_norm import EquiLayerNorm
 from ..linear import EquiLinear
 from .config import SelfAttentionConfig
@@ -17,18 +18,22 @@ class QKVModule(nn.Module):
     ----------
     config
         Attention configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
-    def __init__(self, config: SelfAttentionConfig) -> None:
+    def __init__(self, config: SelfAttentionConfig, primitives: PrimitivesConfig) -> None:
         super().__init__()
         self.in_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
             out_mv_channels=3 * config.hidden_mv_channels * config.num_heads,
+            primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=3 * config.hidden_s_channels * config.num_heads,
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
+        self.primitives = primitives
 
     def forward(
         self,
@@ -118,15 +123,18 @@ class MultiQueryQKVModule(nn.Module):
     ----------
     config
         Attention configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
-    def __init__(self, config: SelfAttentionConfig) -> None:
+    def __init__(self, config: SelfAttentionConfig, primitives: PrimitivesConfig) -> None:
         super().__init__()
 
         # Q projection
         self.q_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
             out_mv_channels=config.hidden_mv_channels * config.num_heads,
+            primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=config.hidden_s_channels * config.num_heads,
         )
@@ -135,17 +143,20 @@ class MultiQueryQKVModule(nn.Module):
         self.k_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels + config.additional_qk_mv_channels,
             out_mv_channels=config.hidden_mv_channels,
+            primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=config.hidden_s_channels,
         )
         self.v_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels,
             out_mv_channels=config.hidden_mv_channels,
+            primitives=primitives,
             in_s_channels=config.in_s_channels,
             out_s_channels=config.hidden_s_channels,
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
+        self.primitives = primitives
 
     def forward(
         self,

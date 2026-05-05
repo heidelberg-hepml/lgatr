@@ -7,6 +7,7 @@ from lgatr.layers import (
     MLPConfig,
     SelfAttentionConfig,
 )
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
 S_CHANNELS = [(3, 5), (2, 2), (0, 0)]
@@ -52,6 +53,7 @@ def test_conditional_gatr_block_shape(
                 multi_query=multi_query_attention,
             ),
             mlp=MLPConfig(),
+            primitives=PrimitivesConfig(),
             dropout_prob=dropout_prob,
         )
     except NotImplementedError:
@@ -104,6 +106,7 @@ def test_conditional_gatr_block_equivariance(
                 multi_query=multi_query_attention,
             ),
             mlp=MLPConfig(),
+            primitives=PrimitivesConfig(),
             dropout_prob=dropout_prob,
         )
     except NotImplementedError:
@@ -136,6 +139,7 @@ def test_conditional_lgatr_block_none_scalars_at_runtime() -> None:
         attention=SelfAttentionConfig(num_heads=2),
         crossattention=CrossAttentionConfig(num_heads=2),
         mlp=MLPConfig(),
+        primitives=PrimitivesConfig(),
     )
     mv = torch.randn(3, 5, 4, 16)
     net(mv, multivectors_cond=mv, scalars=None, scalars_cond=None)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 
-from .config import gatr_config
+from .config import PrimitivesConfig
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 # Module-level constants loaded once at import. Lru_cache helpers below only do `.to(...)`
@@ -58,7 +58,9 @@ def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.matmul(m, x.unsqueeze(-1)).squeeze(-1)
 
 
-def geometric_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def geometric_product(
+    x: torch.Tensor, y: torch.Tensor, *, config: PrimitivesConfig
+) -> torch.Tensor:
     """Compute the geometric product ``f(x, y) = x * y``.
 
     Parameters
@@ -69,13 +71,15 @@ def geometric_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     y
         Second input multivector of shape ``(..., 16)``.
         Batch dimensions must be broadcastable between ``x`` and ``y``.
+    config
+        LGATr primitives configuration.
 
     Returns
     -------
     outputs
         Result of shape ``(..., 16)``. Batch dimensions are the broadcast of ``x`` and ``y``.
     """
-    if gatr_config.triton:
+    if config.triton:
         try:
             from .triton import geometric_product_triton
             from .triton._utils import can_dispatch
@@ -84,6 +88,6 @@ def geometric_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         else:
             if can_dispatch(x, y):
                 return geometric_product_triton(x, y)
-    if gatr_config.sparse:
+    if config.sparse:
         return _geometric_product_sparse(x, y)
     return _geometric_product_dense(x, y)

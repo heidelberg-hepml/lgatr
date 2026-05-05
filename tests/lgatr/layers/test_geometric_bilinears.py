@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from lgatr.layers.mlp.geometric_bilinears import GeometricBilinear
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
@@ -21,11 +21,12 @@ def test_geometric_bilinears_equivariance(
     use_bivector: bool,
 ) -> None:
     # GeometricBilinear is Pin-equivariant, with and without bivector outputs.
-    gatr_config.use_bivector = use_bivector
+    primitives = PrimitivesConfig(use_bivector=use_bivector)
 
     layer = GeometricBilinear(
         in_mv_channels,
         out_mv_channels,
+        primitives=primitives,
         in_s_channels=in_s_channels,
         out_s_channels=out_s_channels,
     )
@@ -43,5 +44,10 @@ def test_geometric_bilinears_equivariance(
 
 def test_geometric_bilinears_none_scalars_at_runtime() -> None:
     # GeometricBilinear accepts scalars=None at runtime.
-    layer = GeometricBilinear(in_mv_channels=8, out_mv_channels=10, in_s_channels=3)
+    layer = GeometricBilinear(
+        in_mv_channels=8,
+        out_mv_channels=10,
+        primitives=PrimitivesConfig(),
+        in_s_channels=3,
+    )
     layer(torch.randn(4, 8, 16), scalars=None)

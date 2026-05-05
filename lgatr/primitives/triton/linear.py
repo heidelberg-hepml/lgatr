@@ -4,7 +4,6 @@ import torch
 import triton
 import triton.language as tl
 
-from ..config import gatr_config
 from ..linear import _compute_pin_equi_linear_basis
 from ._indices import (
     GRADE_COMPS,
@@ -199,6 +198,6 @@ class _EquiLinearTriton(torch.autograd.Function):
 
 
 @torch.compiler.disable()
-def equi_linear_triton(x: torch.Tensor, coeffs: torch.Tensor) -> torch.Tensor:
+def equi_linear_triton(x: torch.Tensor, coeffs: torch.Tensor, *, subgroup: bool) -> torch.Tensor:
     """Triton-accelerated :func:`lgatr.primitives.equi_linear`."""
-    return _EquiLinearTriton.apply(x, coeffs, gatr_config.use_fully_connected_subgroup)
+    return _EquiLinearTriton.apply(x, coeffs, subgroup)

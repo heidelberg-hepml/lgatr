@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from ..interface import embed_scalar
-from ..primitives.config import gatr_config
+from ..primitives.config import PrimitivesConfig
 from ..primitives.linear import equi_linear
 
 
@@ -26,7 +26,7 @@ class EquiLinear(nn.Module):
     :mod:`lgatr.primitives.linear`) and ``weights`` are the learnable weights of this layer.
     The ``basis_map`` includes 5 elements if the full Lorentz group is considered, and 10 elements
     if only the fully-connected subgroup is considered. See
-    :class:`lgatr.primitives.config.LGATrConfig` for the ``use_fully_connected_subgroup`` option.
+    :class:`lgatr.primitives.config.PrimitivesConfig` for the ``use_fully_connected_subgroup`` option.
 
     If there are auxiliary input scalars, they transform under a linear layer and mix with the
     scalar components of the multivector data. In this layer (and only here) the auxiliary scalars
@@ -50,6 +50,8 @@ class EquiLinear(nn.Module):
         Input multivector channels.
     out_mv_channels
         Output multivector channels.
+    primitives
+        LGATr primitives configuration.
     in_s_channels
         Input scalar channels. Use 0 for no scalar inputs.
     out_s_channels
@@ -65,12 +67,14 @@ class EquiLinear(nn.Module):
         self,
         in_mv_channels: int,
         out_mv_channels: int,
+        primitives: PrimitivesConfig,
         in_s_channels: int = 0,
         out_s_channels: int = 0,
         bias: bool = True,
         initialization: str = "default",
     ) -> None:
         super().__init__()
+        self.primitives = primitives
 
         # Check inputs
         if initialization in ["unit_scalar", "almost_unit_scalar"]:
@@ -92,7 +96,7 @@ class EquiLinear(nn.Module):
                 (
                     out_mv_channels,
                     in_mv_channels,
-                    gatr_config.num_pin_linear_basis_elements,
+                    primitives.num_pin_linear_basis_elements,
                 )
             )
         )
@@ -105,7 +109,7 @@ class EquiLinear(nn.Module):
 
         # Scalars -> MV scalars
         self.s2mvs: nn.Linear | None
-        mix_factor = 2 if gatr_config.use_fully_connected_subgroup else 1
+        mix_factor = 2 if primitives.use_fully_connected_subgroup else 1
         if in_s_channels:
             self.s2mvs = nn.Linear(in_s_channels, mix_factor * out_mv_channels, bias=bias)
         else:
@@ -148,7 +152,9 @@ class EquiLinear(nn.Module):
             Output scalars of shape ``(..., out_s_channels)``, or None if ``out_s_channels == 0``.
         """
 
-        outputs_mv = equi_linear(multivectors, self.weight)  # (..., out_channels, 16)
+        outputs_mv = equi_linear(
+            multivectors, self.weight, config=self.primitives
+        )  # (..., out_channels, 16)
 
         if self.bias is not None:
             bias = embed_scalar(self.bias)
@@ -159,7 +165,7 @@ class EquiLinear(nn.Module):
             # (index 0) and, for the subgroup, pseudoscalar (index 15) slots. Functional
             # cat-of-zeros instead of in-place advanced-index scatter — cleaner under autograd
             # and torch.compile.
-            if gatr_config.use_fully_connected_subgroup:
+            if self.primitives.use_fully_connected_subgroup:
                 delta = self.s2mvs(scalars).unflatten(-1, (outputs_mv.shape[-2], 2))
                 zeros14 = delta.new_zeros(*delta.shape[:-1], 14)
                 delta_full = torch.cat([delta[..., 0:1], zeros14, delta[..., 1:2]], dim=-1)
@@ -169,7 +175,7 @@ class EquiLinear(nn.Module):
             outputs_mv = outputs_mv + delta_full
 
         if self.mvs2s is not None:
-            if gatr_config.use_fully_connected_subgroup:
+            if self.primitives.use_fully_connected_subgroup:
                 # Slice + cat instead of advanced indexing: same memory, no gather kernel.
                 mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
                 outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
@@ -242,8 +248,8 @@ class EquiLinear(nn.Module):
         # Then let's consider the maps to scalars.
         self._init_scalars(s_factor)
 
-    @staticmethod
     def _compute_init_factors(
+        self,
         initialization: str,
         gain: float,
         additional_factor: float,
@@ -277,7 +283,7 @@ class EquiLinear(nn.Module):
             s_factor = gain * additional_factor * math.sqrt(3)
             mvs_bias_shift = 1.0
 
-        mv_component_factors = torch.ones(gatr_config.num_pin_linear_basis_elements)
+        mv_component_factors = torch.ones(self.primitives.num_pin_linear_basis_elements)
         return mv_component_factors, mv_factor, mvs_bias_shift, s_factor
 
     def _init_multivectors(
@@ -316,7 +322,7 @@ class EquiLinear(nn.Module):
             # contribution from scalar -> mv scalar
             bound = mv_component_factors[0] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
             nn.init.uniform_(self.weight[..., [0]], a=-bound, b=bound)
-            if gatr_config.use_fully_connected_subgroup:
+            if self.primitives.use_fully_connected_subgroup:
                 # contribution from scalar -> mv pseudoscalar
                 bound = mv_component_factors[-1] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
                 nn.init.uniform_(self.weight[..., [-1]], a=-bound, b=bound)

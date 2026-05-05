@@ -1,5 +1,7 @@
 """Equivariant conditional transformer for multivector data."""
 
+from collections.abc import Mapping
+
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
@@ -11,6 +13,7 @@ from ..layers import (
     SelfAttentionConfig,
 )
 from ..layers.mlp.config import MLPConfig
+from ..primitives.config import PrimitivesConfig
 from ..utils.compile import compile_model, warmup_after_apply
 
 
@@ -48,6 +51,9 @@ class ConditionalLGATr(nn.Module):
         Cross-attention configuration.
     mlp
         MLP configuration.
+    primitives
+        LGATr primitives configuration. Accepts a :class:`PrimitivesConfig` instance, a dict,
+        or ``None`` (uses defaults).
     dropout_prob
         Dropout probability.
     checkpoint_blocks
@@ -76,16 +82,20 @@ class ConditionalLGATr(nn.Module):
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
+        primitives: PrimitivesConfig | Mapping | None = None,
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
+        self.primitives = primitives
 
         self.linear_in = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=hidden_s_channels,
         )
@@ -104,6 +114,7 @@ class ConditionalLGATr(nn.Module):
                     attention=attention,
                     crossattention=crossattention,
                     mlp=mlp,
+                    primitives=primitives,
                     dropout_prob=dropout_prob,
                 )
                 for _ in range(num_blocks)
@@ -112,6 +123,7 @@ class ConditionalLGATr(nn.Module):
         self.linear_out = EquiLinear(
             hidden_mv_channels,
             out_mv_channels,
+            primitives,
             in_s_channels=hidden_s_channels,
             out_s_channels=out_s_channels,
         )

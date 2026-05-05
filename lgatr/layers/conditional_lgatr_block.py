@@ -5,6 +5,7 @@ from dataclasses import replace
 import torch
 from torch import nn
 
+from ..primitives.config import PrimitivesConfig
 from ..utils.misc import residual_add
 from .attention import (
     CrossAttention,
@@ -41,6 +42,8 @@ class ConditionalLGATrBlock(nn.Module):
         Cross-attention configuration.
     mlp
         MLP configuration.
+    primitives
+        LGATr primitives configuration.
     dropout_prob
         Dropout probability.
     """
@@ -54,9 +57,11 @@ class ConditionalLGATrBlock(nn.Module):
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
+        primitives: PrimitivesConfig,
         dropout_prob: float | None = None,
     ) -> None:
         super().__init__()
+        self.primitives = primitives
 
         # Normalization layer (stateless, so we can use the same layer for both normalization instances)
         self.norm = EquiLayerNorm()
@@ -71,7 +76,7 @@ class ConditionalLGATrBlock(nn.Module):
             output_init="small",
             dropout_prob=dropout_prob,
         )
-        self.attention = SelfAttention(attention)
+        self.attention = SelfAttention(attention, primitives)
 
         # Cross-attention layer
         crossattention = replace(
@@ -85,7 +90,7 @@ class ConditionalLGATrBlock(nn.Module):
             output_init="small",
             dropout_prob=dropout_prob,
         )
-        self.crossattention = CrossAttention(crossattention)
+        self.crossattention = CrossAttention(crossattention, primitives)
 
         # MLP block
         mlp = replace(
@@ -94,7 +99,7 @@ class ConditionalLGATrBlock(nn.Module):
             s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
-        self.mlp = GeoMLP(mlp)
+        self.mlp = GeoMLP(mlp, primitives)
 
     def forward(
         self,

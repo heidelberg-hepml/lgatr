@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from lgatr.primitives.bilinear import geometric_product
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from lgatr.primitives.triton import _HAVE_TRITON
 from tests.helpers import BATCH_DIMS, TOLERANCES
 
@@ -28,13 +28,8 @@ def test_geometric_product_triton_dense_equivalence(
     # The Triton path agrees with the dense path within dtype-appropriate tolerances.
     x = torch.randn(*batch_dims, 16, device="cuda", dtype=dtype)
     y = torch.randn(*batch_dims, 16, device="cuda", dtype=dtype)
-    try:
-        gatr_config.triton = False
-        out_dense = geometric_product(x, y)
-        gatr_config.triton = True
-        out_triton = geometric_product(x, y)
-    finally:
-        gatr_config.triton = False
+    out_dense = geometric_product(x, y, config=PrimitivesConfig(triton=False))
+    out_triton = geometric_product(x, y, config=PrimitivesConfig(triton=True))
     torch.testing.assert_close(out_triton, out_dense, **_TRITON_DTYPE_TOLERANCES[dtype])
 
 
@@ -54,13 +49,8 @@ def test_geometric_product_triton_dense_equivalence_broadcasting(
     # The Triton path preserves the broadcasting semantics of the dense path.
     x = torch.randn(*x_batch, device="cuda", dtype=torch.float32)
     y = torch.randn(*y_batch, device="cuda", dtype=torch.float32)
-    try:
-        gatr_config.triton = False
-        out_dense = geometric_product(x, y)
-        gatr_config.triton = True
-        out_triton = geometric_product(x, y)
-    finally:
-        gatr_config.triton = False
+    out_dense = geometric_product(x, y, config=PrimitivesConfig(triton=False))
+    out_triton = geometric_product(x, y, config=PrimitivesConfig(triton=True))
     torch.testing.assert_close(out_triton, out_dense, **TOLERANCES)
 
 
@@ -71,17 +61,14 @@ def test_geometric_product_triton_grad(dtype: torch.dtype) -> None:
     x = torch.randn(4, 8, 16, device="cuda", dtype=dtype)
     y = torch.randn(4, 8, 16, device="cuda", dtype=dtype)
     go = torch.randn(4, 8, 16, device="cuda", dtype=dtype)
-    try:
-        gatr_config.triton = True
-        x_t = x.clone().requires_grad_(True)
-        y_t = y.clone().requires_grad_(True)
-        geometric_product(x_t, y_t).backward(go)
 
-        gatr_config.triton = False
-        x_d = x.clone().requires_grad_(True)
-        y_d = y.clone().requires_grad_(True)
-        geometric_product(x_d, y_d).backward(go)
-    finally:
-        gatr_config.triton = False
+    x_t = x.clone().requires_grad_(True)
+    y_t = y.clone().requires_grad_(True)
+    geometric_product(x_t, y_t, config=PrimitivesConfig(triton=True)).backward(go)
+
+    x_d = x.clone().requires_grad_(True)
+    y_d = y.clone().requires_grad_(True)
+    geometric_product(x_d, y_d, config=PrimitivesConfig(triton=False)).backward(go)
+
     torch.testing.assert_close(x_t.grad, x_d.grad, **_TRITON_DTYPE_TOLERANCES[dtype])
     torch.testing.assert_close(y_t.grad, y_d.grad, **_TRITON_DTYPE_TOLERANCES[dtype])

@@ -63,14 +63,13 @@ L-GATr Configuration Classes
 ----------------------------
 
 L-GATr uses ``dataclass`` objects to organize less relevant hyperparameters like number of heads or the MLP nonlinearity.
-The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig` and :class:`~lgatr.layers.attention.config.CrossAttentionConfig` are arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules,
-whereas the :class:`~lgatr.primitives.config.LGATrConfig` is a global object that is accessed within the L-GATr primitives.
+The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig`, :class:`~lgatr.layers.attention.config.CrossAttentionConfig`, and :class:`~lgatr.primitives.config.PrimitivesConfig` are all arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules.
 
 .. autosummary::
    :toctree: generated/
    :recursive:
 
-   lgatr.primitives.config.LGATrConfig
+   lgatr.primitives.config.PrimitivesConfig
    lgatr.layers.attention.config.SelfAttentionConfig
    lgatr.layers.attention.config.CrossAttentionConfig
    lgatr.layers.mlp.config.MLPConfig

@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from lgatr.primitives.linear import equi_linear
 from lgatr.primitives.triton import _HAVE_TRITON
 
@@ -37,19 +37,18 @@ def test_equi_linear_triton_dense_equivalence(
     shape: tuple[int, ...], use_fully_connected_subgroup: bool, dtype: torch.dtype
 ) -> None:
     # The Triton path agrees with the dense path within dtype-appropriate tolerances.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+    config_dense = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, triton=False
+    )
+    config_triton = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, triton=True
+    )
     *batch, in_c, out_c = shape
-    nb = gatr_config.num_pin_linear_basis_elements
+    nb = config_dense.num_pin_linear_basis_elements
     x = torch.randn(*batch, in_c, 16, device="cuda", dtype=dtype)
     coeffs = torch.randn(out_c, in_c, nb, device="cuda", dtype=dtype)
-    try:
-        gatr_config.triton = False
-        out_dense = equi_linear(x, coeffs)
-        gatr_config.triton = True
-        out_triton = equi_linear(x, coeffs)
-    finally:
-        gatr_config.triton = False
-        gatr_config.use_fully_connected_subgroup = True
+    out_dense = equi_linear(x, coeffs, config=config_dense)
+    out_triton = equi_linear(x, coeffs, config=config_triton)
     torch.testing.assert_close(out_triton, out_dense, **_TRITON_DTYPE_TOLERANCES[dtype])
 
 
@@ -58,24 +57,25 @@ def test_equi_linear_triton_dense_equivalence(
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
 def test_equi_linear_triton_grad(use_fully_connected_subgroup: bool, dtype: torch.dtype) -> None:
     # Triton fwd+bwd produces gradients that match autograd through the dense path.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
-    nb = gatr_config.num_pin_linear_basis_elements
+    config_dense = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, triton=False
+    )
+    config_triton = PrimitivesConfig(
+        use_fully_connected_subgroup=use_fully_connected_subgroup, triton=True
+    )
+    nb = config_dense.num_pin_linear_basis_elements
     in_c, out_c = 8, 11
     x = torch.randn(4, in_c, 16, device="cuda", dtype=dtype)
     coeffs = torch.randn(out_c, in_c, nb, device="cuda", dtype=dtype)
     go = torch.randn(4, out_c, 16, device="cuda", dtype=dtype)
-    try:
-        gatr_config.triton = True
-        x_t = x.clone().requires_grad_(True)
-        c_t = coeffs.clone().requires_grad_(True)
-        equi_linear(x_t, c_t).backward(go)
 
-        gatr_config.triton = False
-        x_d = x.clone().requires_grad_(True)
-        c_d = coeffs.clone().requires_grad_(True)
-        equi_linear(x_d, c_d).backward(go)
-    finally:
-        gatr_config.triton = False
-        gatr_config.use_fully_connected_subgroup = True
+    x_t = x.clone().requires_grad_(True)
+    c_t = coeffs.clone().requires_grad_(True)
+    equi_linear(x_t, c_t, config=config_triton).backward(go)
+
+    x_d = x.clone().requires_grad_(True)
+    c_d = coeffs.clone().requires_grad_(True)
+    equi_linear(x_d, c_d, config=config_dense).backward(go)
+
     torch.testing.assert_close(x_t.grad, x_d.grad, **_TRITON_DTYPE_TOLERANCES[dtype])
     torch.testing.assert_close(c_t.grad, c_d.grad, **_TRITON_DTYPE_TOLERANCES[dtype])

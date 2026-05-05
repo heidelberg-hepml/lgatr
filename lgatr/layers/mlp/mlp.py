@@ -3,7 +3,7 @@
 import torch
 from torch import nn
 
-from ...primitives.config import gatr_config
+from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .config import MLPConfig
@@ -23,16 +23,20 @@ class GeoMLP(nn.Module):
     ----------
     config
         MLP configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
     def __init__(
         self,
         config: MLPConfig,
+        primitives: PrimitivesConfig,
     ) -> None:
         super().__init__()
 
         # Store settings
         self.config = config
+        self.primitives = primitives
 
         assert config.mv_channels is not None
         s_channels = config.s_channels
@@ -57,11 +61,11 @@ class GeoMLP(nn.Module):
                 in_s_channels=s_channels_list[0],
                 out_s_channels=s_channels_list[1],
             )
-            if gatr_config.use_geometric_product:
-                layers.append(GeometricBilinear(**kwargs))
+            if primitives.use_geometric_product:
+                layers.append(GeometricBilinear(primitives=primitives, **kwargs))
             else:
                 layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(EquiLinear(**kwargs))
+                layers.append(EquiLinear(primitives=primitives, **kwargs))
             if config.dropout_prob is not None:
                 layers.append(GradeDropout(config.dropout_prob))
 
@@ -73,7 +77,9 @@ class GeoMLP(nn.Module):
                 strict=False,
             ):
                 layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(EquiLinear(in_, out, in_s_channels=in_s, out_s_channels=out_s))
+                layers.append(
+                    EquiLinear(in_, out, primitives, in_s_channels=in_s, out_s_channels=out_s)
+                )
                 if config.dropout_prob is not None:
                     layers.append(GradeDropout(config.dropout_prob))
 

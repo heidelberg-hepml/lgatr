@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from lgatr.layers.linear import EquiLinear
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
@@ -24,13 +24,14 @@ def test_linear_layer_initialization(
     var_tolerance: float = 10.0,
 ) -> None:
     # EquiLinear maps unit-variance inputs to roughly unit-variance outputs across channel sizes.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+    primitives = PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup)
 
     # Create layer
     try:
         layer = EquiLinear(
             in_mv_channels,
             out_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             initialization=initialization,
@@ -65,13 +66,13 @@ def test_linear_layer_initialization(
     elif initialization == "unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if gatr_config.use_fully_connected_subgroup:
+        if primitives.use_fully_connected_subgroup:
             target_mean[-1] = 1.0
         target_var = 0.01 * torch.ones_like(mv_var) / 3.0
     elif initialization == "almost_unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if gatr_config.use_fully_connected_subgroup:
+        if primitives.use_fully_connected_subgroup:
             target_mean[-1] = 1.0
         target_var = 0.25 * torch.ones_like(mv_var) / 3.0
     else:
@@ -94,9 +95,6 @@ def test_linear_layer_initialization(
         else:
             assert 0.01 / 3.0 / var_tolerance < s_var < 0.01 / 3.0 * var_tolerance
 
-    # restore defaults
-    gatr_config.use_fully_connected_subgroup = True
-
 
 @pytest.mark.parametrize("rescaling", [0.0, -2.0, 100.0])
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -116,6 +114,7 @@ def test_linear_layer_linearity(
     layer = EquiLinear(
         in_mv_channels,
         out_mv_channels,
+        PrimitivesConfig(),
         in_s_channels=in_s_channels,
         out_s_channels=out_s_channels,
         bias=False,
@@ -162,11 +161,12 @@ def test_linear_layer_equivariance(
     use_fully_connected_subgroup: bool,
 ) -> None:
     # EquiLinear is Pin-equivariant for the full Lorentz group and the proper-orthochronous subgroup.
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
+    primitives = PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup)
 
     layer = EquiLinear(
         in_mv_channels,
         out_mv_channels,
+        primitives,
         in_s_channels=in_s_channels,
         out_s_channels=out_s_channels,
         bias=bias,
@@ -176,6 +176,3 @@ def test_linear_layer_equivariance(
     check_pin_equivariance(
         layer, 1, fn_kwargs=dict(scalars=scalars), batch_dims=data_dims, **TOLERANCES
     )
-
-    # restore defaults
-    gatr_config.use_fully_connected_subgroup = True

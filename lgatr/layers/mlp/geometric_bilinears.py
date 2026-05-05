@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 from ...primitives import geometric_product
-from ...primitives.config import gatr_config
+from ...primitives.config import PrimitivesConfig
 from ..layer_norm import EquiLayerNorm
 from ..linear import EquiLinear
 
@@ -18,6 +18,8 @@ class GeometricBilinear(nn.Module):
         Input multivector channels.
     out_mv_channels
         Output multivector channels.
+    primitives
+        LGATr primitives configuration.
     hidden_mv_channels
         Hidden multivector channels. If None, uses ``out_mv_channels``.
     in_s_channels
@@ -30,11 +32,13 @@ class GeometricBilinear(nn.Module):
         self,
         in_mv_channels: int,
         out_mv_channels: int,
+        primitives: PrimitivesConfig,
         hidden_mv_channels: int | None = None,
         in_s_channels: int = 0,
         out_s_channels: int = 0,
     ) -> None:
         super().__init__()
+        self.primitives = primitives
 
         # Default options
         if hidden_mv_channels is None:
@@ -44,12 +48,14 @@ class GeometricBilinear(nn.Module):
         self.linear_left = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=0,
         )
         self.linear_right = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=0,
             initialization="almost_unit_scalar",
@@ -57,7 +63,11 @@ class GeometricBilinear(nn.Module):
 
         # Output linear projection
         self.linear_out = EquiLinear(
-            hidden_mv_channels, out_mv_channels, in_s_channels, out_s_channels
+            hidden_mv_channels,
+            out_mv_channels,
+            primitives,
+            in_s_channels=in_s_channels,
+            out_s_channels=out_s_channels,
         )
         self.norm = EquiLayerNorm()
 
@@ -87,8 +97,8 @@ class GeometricBilinear(nn.Module):
         # GP
         left, _ = self.linear_left(multivectors, scalars=scalars)
         right, _ = self.linear_right(multivectors, scalars=scalars)
-        gp_outputs = geometric_product(left, right)
-        if not gatr_config.use_bivector:
+        gp_outputs = geometric_product(left, right, config=self.primitives)
+        if not self.primitives.use_bivector:
             gp_outputs[..., 5:11] = 0.0
 
         # Output linear

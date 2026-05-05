@@ -5,6 +5,7 @@ from dataclasses import replace
 import torch
 from torch import nn
 
+from ..primitives.config import PrimitivesConfig
 from ..utils.misc import residual_add
 from .attention import SelfAttention, SelfAttentionConfig
 from .layer_norm import EquiLayerNorm
@@ -29,6 +30,8 @@ class LGATrBlock(nn.Module):
         Self-attention configuration.
     mlp
         MLP configuration.
+    primitives
+        LGATr primitives configuration.
     dropout_prob
         Dropout probability.
     """
@@ -39,9 +42,11 @@ class LGATrBlock(nn.Module):
         s_channels: int,
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
+        primitives: PrimitivesConfig,
         dropout_prob: float | None = None,
     ) -> None:
         super().__init__()
+        self.primitives = primitives
 
         # Normalization layer (stateless, so we can use the same layer for both normalization instances)
         self.norm = EquiLayerNorm()
@@ -56,7 +61,7 @@ class LGATrBlock(nn.Module):
             output_init="small",
             dropout_prob=dropout_prob,
         )
-        self.attention = SelfAttention(attention)
+        self.attention = SelfAttention(attention, primitives)
 
         # MLP block
         mlp = replace(
@@ -65,7 +70,7 @@ class LGATrBlock(nn.Module):
             s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
-        self.mlp = GeoMLP(mlp)
+        self.mlp = GeoMLP(mlp, primitives)
 
     def forward(
         self,

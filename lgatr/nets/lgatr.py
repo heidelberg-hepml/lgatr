@@ -1,5 +1,6 @@
 """Equivariant transformer for multivector data."""
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 import torch
@@ -10,6 +11,7 @@ from ..layers.attention.config import SelfAttentionConfig
 from ..layers.lgatr_block import LGATrBlock
 from ..layers.linear import EquiLinear
 from ..layers.mlp.config import MLPConfig
+from ..primitives.config import PrimitivesConfig
 from ..utils.compile import compile_model, warmup_after_apply
 
 
@@ -44,6 +46,9 @@ class LGATr(nn.Module):
         Self-attention configuration (see :class:`~lgatr.layers.attention.config.SelfAttentionConfig`).
     mlp
         MLP configuration (see :class:`~lgatr.layers.mlp.config.MLPConfig`).
+    primitives
+        LGATr primitives configuration. Accepts a :class:`PrimitivesConfig` instance, a dict,
+        or ``None`` (uses defaults).
     reinsert_mv_channels
         If not None, specifies multivector channels that will be reinserted in every attention layer.
     reinsert_s_channels
@@ -73,6 +78,7 @@ class LGATr(nn.Module):
         hidden_s_channels: int,
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
+        primitives: PrimitivesConfig | Mapping | None = None,
         reinsert_mv_channels: tuple[int] | None = None,
         reinsert_s_channels: tuple[int] | None = None,
         dropout_prob: float | None = None,
@@ -81,9 +87,12 @@ class LGATr(nn.Module):
         **compile_kwargs,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
+        self.primitives = primitives
         self.linear_in = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=hidden_s_channels,
         )
@@ -102,6 +111,7 @@ class LGATr(nn.Module):
                     s_channels=hidden_s_channels,
                     attention=attention,
                     mlp=mlp,
+                    primitives=primitives,
                     dropout_prob=dropout_prob,
                 )
                 for _ in range(num_blocks)
@@ -110,6 +120,7 @@ class LGATr(nn.Module):
         self.linear_out = EquiLinear(
             hidden_mv_channels,
             out_mv_channels,
+            primitives,
             in_s_channels=hidden_s_channels,
             out_s_channels=out_s_channels,
         )
