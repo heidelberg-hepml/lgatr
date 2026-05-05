@@ -100,9 +100,9 @@ class GeoMLP(nn.Module):
             Output scalars of shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
-        mv, s = multivectors, scalars
+        h_mv, h_s = multivectors, scalars
 
         for layer in self.layers:
-            mv, s = layer(mv, scalars=s)
+            h_mv, h_s = layer(h_mv, scalars=h_s)
 
-        return mv, s
+        return h_mv, h_s

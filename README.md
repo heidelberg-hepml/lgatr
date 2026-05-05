@@ -48,7 +48,7 @@ Overview of features in L-GATr:
 ` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
-- Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATRConfig` objects
+- Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATrConfig` objects
 - `LGATrSlim` and `ConditionalLGATrSlim` as more efficient variants that use only scalar and vector representations
 
 ## Examples

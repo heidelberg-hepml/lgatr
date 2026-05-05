@@ -39,17 +39,17 @@ class CrossAttention(nn.Module):
         self.config = config
 
         self.q_linear = EquiLinear(
-            in_mv_channels=config.in_q_mv_channels,
+            in_mv_channels=config.q_mv_channels,
             out_mv_channels=config.hidden_mv_channels * config.num_heads,
-            in_s_channels=config.in_q_s_channels,
+            in_s_channels=config.q_s_channels,
             out_s_channels=config.hidden_s_channels * config.num_heads,
         )
         self.kv_linear = EquiLinear(
-            in_mv_channels=config.in_kv_mv_channels,
+            in_mv_channels=config.kv_mv_channels,
             out_mv_channels=2
             * config.hidden_mv_channels
             * (1 if config.multi_query else config.num_heads),
-            in_s_channels=config.in_kv_s_channels,
+            in_s_channels=config.kv_s_channels,
             out_s_channels=2
             * config.hidden_s_channels
             * (1 if config.multi_query else config.num_heads),
@@ -81,10 +81,10 @@ class CrossAttention(nn.Module):
 
     def forward(
         self,
-        multivectors_kv: torch.Tensor,
         multivectors_q: torch.Tensor,
-        scalars_kv: torch.Tensor | None = None,
+        multivectors_kv: torch.Tensor,
         scalars_q: torch.Tensor | None = None,
+        scalars_kv: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Compute cross-attention.
@@ -94,9 +94,9 @@ class CrossAttention(nn.Module):
         .. code-block::
 
             # For each head
-            queries = linear_channels(inputs_q)
-            keys = linear_channels(inputs_kv)
-            values = linear_channels(inputs_kv)
+            queries = linear_channels(multivectors_q)
+            keys = linear_channels(multivectors_kv)
+            values = linear_channels(multivectors_kv)
             hidden = attention_items(queries, keys, values, biases=biases)
             head_output = linear_channels(hidden)
 
@@ -105,23 +105,23 @@ class CrossAttention(nn.Module):
 
         Parameters
         ----------
-        multivectors_kv
-            Input multivectors for keys and values, shape ``(..., items_kv, mv_channels, 16)``.
         multivectors_q
-            Input multivectors for queries, shape ``(..., items_q, mv_channels, 16)``.
-        scalars_kv
-            Optional input scalars for keys and values, shape ``(..., items_kv, s_channels)``.
+            Input multivectors for queries, shape ``(..., items_q, q_mv_channels, 16)``.
+        multivectors_kv
+            Input multivectors for keys and values, shape ``(..., items_kv, kv_mv_channels, 16)``.
         scalars_q
-            Optional input scalars for queries, shape ``(..., items_q, s_channels)``.
+            Optional input scalars for queries, shape ``(..., items_q, q_s_channels)``.
+        scalars_kv
+            Optional input scalars for keys and values, shape ``(..., items_kv, kv_s_channels)``.
         **attn_kwargs
             Optional keyword arguments forwarded to attention.
 
         Returns
         -------
         outputs_mv
-            Output multivectors of shape ``(..., items_q, mv_channels, 16)``.
+            Output multivectors of shape ``(..., items_q, out_mv_channels, 16)``.
         outputs_s
-            Output scalars of shape ``(..., items_q, s_channels)``, or None.
+            Output scalars of shape ``(..., items_q, out_s_channels)``, or None.
         """
         q_mv, q_s = self.q_linear(
             multivectors_q, scalars_q

@@ -18,10 +18,10 @@ def test_dropout_shape(training: bool, p: float, batch_dims: tuple[int, ...]) ->
 
     mv = torch.randn(*batch_dims, 16)
     s = torch.randn(*batch_dims)
-    out_mv, out_s = layer(mv, s)
+    outputs_mv, outputs_s = layer(mv, s)
 
-    assert out_mv.shape == mv.shape
-    assert out_s.shape == s.shape
+    assert outputs_mv.shape == mv.shape
+    assert outputs_s.shape == s.shape
 
 
 @pytest.mark.parametrize("batch_dims", [(10,)])
@@ -36,10 +36,10 @@ def test_dropout_trivial_limit(training: bool, batch_dims: tuple[int, ...]) -> N
 
     mv = torch.randn(*batch_dims, 16)
     s = torch.randn(*batch_dims)
-    out_mv, out_s = layer(mv, s)
+    outputs_mv, outputs_s = layer(mv, s)
 
-    torch.testing.assert_close(out_mv, mv, **TOLERANCES)
-    torch.testing.assert_close(out_s, s, **TOLERANCES)
+    torch.testing.assert_close(outputs_mv, mv, **TOLERANCES)
+    torch.testing.assert_close(outputs_s, s, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", [(10,)])
@@ -57,17 +57,17 @@ def test_dropout_expectation(
 
     mv = torch.randn(*batch_dims, 16)
     s = torch.randn(*batch_dims)
-    out_mv, out_s = layer(
+    outputs_mv, outputs_s = layer(
         mv.unsqueeze(0).expand(num_trials, *mv.shape),
         s.unsqueeze(0).expand(num_trials, *s.shape),
     )
-    out_mv = out_mv.mean(dim=0)
-    out_s = out_s.mean(dim=0)
+    outputs_mv = outputs_mv.mean(dim=0)
+    outputs_s = outputs_s.mean(dim=0)
 
     torch.testing.assert_close(
-        out_mv, mv, **MILD_TOLERANCES
+        outputs_mv, mv, **MILD_TOLERANCES
     )  # Over 10k trials we won't get perfect agreement
-    torch.testing.assert_close(out_s, s, **MILD_TOLERANCES)
+    torch.testing.assert_close(outputs_s, s, **MILD_TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", [(10,)])
@@ -85,6 +85,6 @@ def test_dropout_none_scalars() -> None:
     layer = GradeDropout(p=0.2)
     layer.train()
     mv = torch.randn(10, 16)
-    out_mv, out_s = layer(mv, None)
-    assert out_mv.shape == mv.shape
-    assert out_s is None
+    outputs_mv, outputs_s = layer(mv, None)
+    assert outputs_mv.shape == mv.shape
+    assert outputs_s is None

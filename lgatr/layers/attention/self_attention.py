@@ -70,9 +70,9 @@ class SelfAttention(nn.Module):
         .. code-block::
 
             # For each head
-            queries = linear_channels(inputs)
-            keys = linear_channels(inputs)
-            values = linear_channels(inputs)
+            queries = linear_channels(multivectors)
+            keys = linear_channels(multivectors)
+            values = linear_channels(multivectors)
             hidden = attention_items(queries, keys, values, biases=biases)
             head_output = linear_channels(hidden)
 

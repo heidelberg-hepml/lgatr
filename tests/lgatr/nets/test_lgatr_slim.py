@@ -36,9 +36,9 @@ def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> Non
     # shape
     v = torch.randn(*batch_dims, 4)
     s = torch.randn(*batch_dims)
-    out_v, out_s = layer(v, scalars=s)
-    assert out_v.shape == v.shape
-    assert out_s.shape == s.shape
+    outputs_v, outputs_s = layer(v, scalars=s)
+    assert outputs_v.shape == v.shape
+    assert outputs_s.shape == s.shape
 
     # equivariance
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
@@ -52,9 +52,9 @@ def test_RMSNorm_equivariance(batch_dims: list[int]) -> None:
     # shape
     v = torch.randn(*batch_dims, 4)
     s = torch.randn(*batch_dims)
-    out_v, out_s = layer(v, scalars=s)
-    assert out_v.shape == v.shape
-    assert out_s.shape == s.shape
+    outputs_v, outputs_s = layer(v, scalars=s)
+    assert outputs_v.shape == v.shape
+    assert outputs_s.shape == s.shape
 
     # equivariance
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
@@ -81,9 +81,9 @@ def test_GatedLinearUnit_equivariance(
     )
     s = torch.randn(*batch_dims, in_s_channels)
     v = torch.randn(*batch_dims, in_v_channels, 4)
-    out_v, out_s = layer(v, s)
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+    outputs_v, outputs_s = layer(v, s)
+    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]
@@ -111,9 +111,9 @@ def test_Linear_equivariance(
     )
     s = torch.randn(*batch_dims, in_s_channels)
     v = torch.randn(*batch_dims, in_v_channels, 4)
-    out_v, out_s = layer(v, s)
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+    outputs_v, outputs_s = layer(v, s)
+    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]
@@ -179,9 +179,9 @@ def test_SelfAttention_equivariance(
     s = torch.randn(*batch_dims, s_channels)
 
     v = torch.randn(*batch_dims, v_channels, 4)
-    out_v, out_s = layer(v, s)
-    assert out_v.shape == v.shape
-    assert out_s.shape == s.shape
+    outputs_v, outputs_s = layer(v, s)
+    assert outputs_v.shape == v.shape
+    assert outputs_s.shape == s.shape
 
     batch_dims = batch_dims + [v_channels]
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
@@ -279,9 +279,9 @@ def test_LGATrSlim_equivariance(
     layer.eval()
     s = torch.randn(*batch_dims, in_s_channels)
     v = torch.randn(*batch_dims, in_v_channels, 4)
-    out_v, out_s = layer(v, s)
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+    outputs_v, outputs_s = layer(v, s)
+    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]
@@ -322,9 +322,9 @@ def test_LGATrSlim_equivariance_compiled(
     layer.eval()
     s = torch.randn(*batch_dims, in_s_channels)
     v = torch.randn(*batch_dims, in_v_channels, 4)
-    out_v, out_s = layer(v, s)
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+    outputs_v, outputs_s = layer(v, s)
+    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]

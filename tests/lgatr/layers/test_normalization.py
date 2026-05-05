@@ -34,6 +34,6 @@ def test_equi_layer_norm_none_scalars() -> None:
     # EquiLayerNorm propagates scalars=None.
     layer = EquiLayerNorm()
     inputs = torch.randn(4, 5, 16)
-    out_mv, out_s = layer(inputs, scalars=None)
-    assert out_mv.shape == inputs.shape
-    assert out_s is None
+    outputs_mv, outputs_s = layer(inputs, scalars=None)
+    assert outputs_mv.shape == inputs.shape
+    assert outputs_s is None

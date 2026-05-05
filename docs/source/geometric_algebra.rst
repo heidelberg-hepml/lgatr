@@ -28,7 +28,7 @@ geometric algebra can be written as
 .. math::
     x = x_0 + x_\mu^V \gamma^\mu + x_{\mu\nu}^B \sigma^{\mu\nu} + x_\mu^A \gamma^\mu\gamma^5 + x^P \gamma^5.
 
-The 5 terms in this equation represent the 5 `grades` scalar, vector, antisymmetric tensor, axialvector,
+The 5 terms in this equation represent the 5 `grades` scalar, vector, bivector, axialvector,
 and pseudoscalar, which form subrepresentations of the Lorentz group.
 L-GATr internally performs operations on the 16-dimensional object
 :math:`(x^S, x_\mu^V, x_{\mu\nu}^B, x_\mu^A, x^P)`, which fully characterizes a multivector.
@@ -94,7 +94,7 @@ shapes using these conventions:
 - Leading batch dimensions ``...`` are arbitrary and broadcast as in standard PyTorch ops.
 
 The 16 multivector slots index the geometric-algebra basis as defined above:
-``[scalar, vector(4), bivector(6), trivector(4), pseudoscalar]``. Use the helpers in
+``[scalar, vector(4), bivector(6), axialvector(4), pseudoscalar]``. Use the helpers in
 :mod:`lgatr.interface.scalar`, :mod:`lgatr.interface.vector`,
 :mod:`lgatr.interface.axialvector`, and :mod:`lgatr.interface.pseudoscalar` to embed and extract
 individual grades.

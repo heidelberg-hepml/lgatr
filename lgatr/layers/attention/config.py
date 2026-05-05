@@ -103,15 +103,15 @@ class CrossAttentionConfig:
 
     Parameters auto-set by LGATr
     ----------------------------
-    in_q_mv_channels
+    q_mv_channels
         Number of input query multivector channels.
-    in_kv_mv_channels
+    kv_mv_channels
         Number of input key/value multivector channels.
     out_mv_channels
         Number of output multivector channels.
-    in_q_s_channels
+    q_s_channels
         Input query scalar channels. Use 0 for no scalar inputs.
-    in_kv_s_channels
+    kv_s_channels
         Input key/value scalar channels. Use 0 for no scalar inputs.
     out_s_channels
         Output scalar channels. Use 0 for no scalar outputs.
@@ -129,12 +129,12 @@ class CrossAttentionConfig:
         Dropout probability.
     """
 
-    in_q_mv_channels: int | None = None
-    in_kv_mv_channels: int | None = None
+    q_mv_channels: int | None = None
+    kv_mv_channels: int | None = None
     out_mv_channels: int | None = None
     out_s_channels: int = 0
-    in_q_s_channels: int = 0
-    in_kv_s_channels: int = 0
+    q_s_channels: int = 0
+    kv_s_channels: int = 0
     additional_q_mv_channels: int = 0
     additional_q_s_channels: int = 0
     additional_k_mv_channels: int = 0
@@ -149,16 +149,16 @@ class CrossAttentionConfig:
     @property
     def hidden_mv_channels(self) -> int | None:
         """Number of hidden multivector channels."""
-        return max(self.increase_hidden_channels * self.in_q_mv_channels // self.num_heads, 1)
+        return max(self.increase_hidden_channels * self.q_mv_channels // self.num_heads, 1)
 
     @property
     def hidden_s_channels(self) -> int:
         """Number of hidden scalar channels (0 if no scalar stream)."""
-        if self.in_q_s_channels == 0:
-            assert self.in_kv_s_channels == 0
+        if self.q_s_channels == 0:
+            assert self.kv_s_channels == 0
             return 0
 
-        return max(self.increase_hidden_channels * self.in_q_s_channels // self.num_heads, 4)
+        return max(self.increase_hidden_channels * self.q_s_channels // self.num_heads, 4)
 
     @classmethod
     def cast(cls, config: Any) -> CrossAttentionConfig:

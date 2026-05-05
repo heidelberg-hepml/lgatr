@@ -28,7 +28,7 @@ class ConditionalLGATr(nn.Module):
         Number of transformer blocks.
     in_mv_channels
         Number of input multivector channels.
-    condition_mv_channels
+    mv_channels_cond
         Number of condition multivector channels.
     out_mv_channels
         Number of output multivector channels.
@@ -36,7 +36,7 @@ class ConditionalLGATr(nn.Module):
         Number of hidden multivector channels.
     in_s_channels
         Number of scalar input channels. Use 0 for no scalar inputs.
-    condition_s_channels
+    s_channels_cond
         Number of scalar condition channels. Use 0 for no scalar condition stream.
     out_s_channels
         Number of scalar output channels. Use 0 for no scalar outputs.
@@ -66,11 +66,11 @@ class ConditionalLGATr(nn.Module):
         self,
         num_blocks: int,
         in_mv_channels: int,
-        condition_mv_channels: int,
+        mv_channels_cond: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
         in_s_channels: int,
-        condition_s_channels: int,
+        s_channels_cond: int,
         out_s_channels: int,
         hidden_s_channels: int,
         attention: SelfAttentionConfig,
@@ -99,8 +99,8 @@ class ConditionalLGATr(nn.Module):
                 ConditionalLGATrBlock(
                     mv_channels=hidden_mv_channels,
                     s_channels=hidden_s_channels,
-                    condition_mv_channels=condition_mv_channels,
-                    condition_s_channels=condition_s_channels,
+                    mv_channels_cond=mv_channels_cond,
+                    s_channels_cond=s_channels_cond,
                     attention=attention,
                     crossattention=crossattention,
                     mlp=mlp,
@@ -129,9 +129,9 @@ class ConditionalLGATr(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        multivectors_condition: torch.Tensor,
+        multivectors_cond: torch.Tensor,
         scalars: torch.Tensor | None = None,
-        scalars_condition: torch.Tensor | None = None,
+        scalars_cond: torch.Tensor | None = None,
         attn_kwargs: dict | None = None,
         crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -141,12 +141,12 @@ class ConditionalLGATr(nn.Module):
         ----------
         multivectors
             Input multivectors of shape ``(..., items, in_mv_channels, 16)``.
-        multivectors_condition
-            Condition multivectors of shape ``(..., items_condition, condition_mv_channels, 16)``.
+        multivectors_cond
+            Condition multivectors of shape ``(..., items_cond, mv_channels_cond, 16)``.
         scalars
             Optional input scalars of shape ``(..., items, in_s_channels)``.
-        scalars_condition
-            Optional condition scalars of shape ``(..., items_condition, condition_s_channels)``.
+        scalars_cond
+            Optional condition scalars of shape ``(..., items_cond, s_channels_cond)``.
         attn_kwargs
             Optional keyword arguments forwarded to self-attention.
         crossattn_kwargs
@@ -163,7 +163,6 @@ class ConditionalLGATr(nn.Module):
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
-        # Decode condition into main track with
         h_mv, h_s = self.linear_in(multivectors, scalars=scalars)
         for block in self.blocks:
             if self._checkpoint_blocks:
@@ -172,8 +171,8 @@ class ConditionalLGATr(nn.Module):
                     h_mv,
                     use_reentrant=False,
                     scalars=h_s,
-                    multivectors_condition=multivectors_condition,
-                    scalars_condition=scalars_condition,
+                    multivectors_cond=multivectors_cond,
+                    scalars_cond=scalars_cond,
                     attn_kwargs=attn_kwargs,
                     crossattn_kwargs=crossattn_kwargs,
                 )
@@ -181,8 +180,8 @@ class ConditionalLGATr(nn.Module):
                 h_mv, h_s = block(
                     h_mv,
                     scalars=h_s,
-                    multivectors_condition=multivectors_condition,
-                    scalars_condition=scalars_condition,
+                    multivectors_cond=multivectors_cond,
+                    scalars_cond=scalars_cond,
                     attn_kwargs=attn_kwargs,
                     crossattn_kwargs=crossattn_kwargs,
                 )

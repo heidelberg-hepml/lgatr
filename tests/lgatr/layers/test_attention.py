@@ -53,5 +53,5 @@ def test_attention_equivariance(
 def test_sdp_attention_none_scalars() -> None:
     # sdp_attention propagates None when q_s/k_s/v_s are all None.
     q = k = v = torch.randn(2, 3, 4, 16)
-    _, out_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None)
-    assert out_s is None
+    _, outputs_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None)
+    assert outputs_s is None

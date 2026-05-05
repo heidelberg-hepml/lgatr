@@ -58,19 +58,19 @@ class Dropout(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors with dropout, same shape as ``vectors``.
-        scalars_out
+        outputs_s
             Scalar features with dropout, same shape as ``scalars``.
         """
         if not self.training or self._dropout_prob == 0.0:
             return vectors, scalars
 
         # have to reshape vectors because dropout1d constrains input shape
-        v = vectors.reshape(-1, 4)
-        out_v = dropout1d(v, p=self._dropout_prob, training=True).reshape(vectors.shape)
-        out_s = dropout(scalars, p=self._dropout_prob, training=True)
-        return out_v, out_s
+        flat_v = vectors.reshape(-1, 4)
+        outputs_v = dropout1d(flat_v, p=self._dropout_prob, training=True).reshape(vectors.shape)
+        outputs_s = dropout(scalars, p=self._dropout_prob, training=True)
+        return outputs_v, outputs_s
 
 
 class RMSNorm(nn.Module):
@@ -105,9 +105,9 @@ class RMSNorm(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Normalized Lorentz vectors, same shape as ``vectors``.
-        scalars_out
+        outputs_s
             Normalized scalar features, same shape as ``scalars``.
         """
         v_squared_norm = (vectors.square() * self.metric).sum(-1).abs()
@@ -116,9 +116,9 @@ class RMSNorm(nn.Module):
         mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
         norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
-        vectors_out = vectors * norm[..., None, None]
-        scalars_out = scalars * norm[..., None]
-        return vectors_out, scalars_out
+        outputs_v = vectors * norm[..., None, None]
+        outputs_s = scalars * norm[..., None]
+        return outputs_v, outputs_s
 
 
 class Linear(nn.Module):
@@ -189,17 +189,17 @@ class Linear(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., out_v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
-        vectors_out = self.weight_v @ vectors
+        outputs_v = self.weight_v @ vectors
         if self.linear_s is not None:
-            scalars_out = self.linear_s(scalars)
+            outputs_s = self.linear_s(scalars)
         else:
-            scalars_out = scalars.new_zeros(*scalars.shape[:-1], self._out_s_channels)
-        return vectors_out, scalars_out
+            outputs_s = scalars.new_zeros(*scalars.shape[:-1], self._out_s_channels)
+        return outputs_v, outputs_s
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
         """Re-initialize the weights with the given scheme."""
@@ -276,9 +276,9 @@ class GatedLinearUnit(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., out_v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
         v_full, s_full = self.linear(vectors, scalars)
@@ -287,9 +287,9 @@ class GatedLinearUnit(nn.Module):
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
-        vectors_out = self.nonlinearity(v_gates) * v_pre
-        scalars_out = self.nonlinearity(s_gates) * s_pre
-        return vectors_out, scalars_out
+        outputs_v = self.nonlinearity(v_gates) * v_pre
+        outputs_s = self.nonlinearity(s_gates) * s_pre
+        return outputs_v, outputs_s
 
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
@@ -390,9 +390,9 @@ class SelfAttention(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items, v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
@@ -401,11 +401,11 @@ class SelfAttention(nn.Module):
         out = _call_attention(q, k, v, **attn_kwargs)
         h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
-        out_v, out_s = self.linear_out(h_v, h_s)
+        outputs_v, outputs_s = self.linear_out(h_v, h_s)
 
         if self.dropout is not None:
-            out_v, out_s = self.dropout(out_v, out_s)
-        return out_v, out_s
+            outputs_v, outputs_s = self.dropout(outputs_v, outputs_s)
+        return outputs_v, outputs_s
 
 
 class MLP(nn.Module):
@@ -480,17 +480,17 @@ class MLP(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., s_channels)``.
         """
-        v, s = vectors, scalars
+        h_v, h_s = vectors, scalars
 
         for layer in self.layers:
-            v, s = layer(v, scalars=s)
+            h_v, h_s = layer(h_v, scalars=h_s)
 
-        return v, s
+        return h_v, h_s
 
 
 class LGATrSlimBlock(nn.Module):
@@ -566,9 +566,9 @@ class LGATrSlimBlock(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items, v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
         h_v, h_s = self.norm(vectors, scalars)
@@ -708,9 +708,9 @@ class LGATrSlim(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items, out_v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items, out_s_channels)``.
         """
         h_v, h_s = self.linear_in(vectors, scalars)

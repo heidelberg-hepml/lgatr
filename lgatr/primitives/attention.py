@@ -25,8 +25,8 @@ def sdp_attention(
             ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
             + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
         ]
-        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-        out_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
+        outputs_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+        outputs_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
     Parameters
     ----------
@@ -65,12 +65,12 @@ def sdp_attention(
         k = torch.cat([k, k_s], -1)
         v = torch.cat([v, v_s], -1)
 
-    v_out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
+    outputs = scaled_dot_product_attention(q, k, v, **attn_kwargs)
 
-    v_out_mv = v_out[..., : num_channels_out * 16].unflatten(-1, (-1, 16))
-    v_out_s = None if q_s is None else v_out[..., num_channels_out * 16 :]
+    outputs_mv = outputs[..., : num_channels_out * 16].unflatten(-1, (-1, 16))
+    outputs_s = None if q_s is None else outputs[..., num_channels_out * 16 :]
 
-    return v_out_mv, v_out_s
+    return outputs_mv, outputs_s
 
 
 def scaled_dot_product_attention(

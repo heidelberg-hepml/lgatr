@@ -121,46 +121,46 @@ class CrossAttention(nn.Module):
 
     def forward(
         self,
-        vectors: torch.Tensor,
-        vectors_condition: torch.Tensor,
-        scalars: torch.Tensor,
-        scalars_condition: torch.Tensor,
+        vectors_q: torch.Tensor,
+        vectors_kv: torch.Tensor,
+        scalars_q: torch.Tensor,
+        scalars_kv: torch.Tensor,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply cross-attention.
 
         Parameters
         ----------
-        vectors
-            Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
-        vectors_condition
-            Condition Lorentz vectors of shape ``(..., items_kv, kv_v_channels, 4)``.
-        scalars
-            Scalar features of shape ``(..., items_q, q_s_channels)``.
-        scalars_condition
-            Condition scalar features of shape ``(..., items_kv, kv_s_channels)``.
+        vectors_q
+            Query Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
+        vectors_kv
+            Key/value Lorentz vectors of shape ``(..., items_kv, kv_v_channels, 4)``.
+        scalars_q
+            Query scalar features of shape ``(..., items_q, q_s_channels)``.
+        scalars_kv
+            Key/value scalar features of shape ``(..., items_kv, kv_s_channels)``.
         **attn_kwargs
             Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items_q, q_s_channels)``.
         """
-        q_v, q_s = self.linear_in_q(vectors, scalars)
-        kv_v, kv_s = self.linear_in_kv(vectors_condition, scalars_condition)
+        q_v, q_s = self.linear_in_q(vectors_q, scalars_q)
+        kv_v, kv_s = self.linear_in_kv(vectors_kv, scalars_kv)
 
         q, k, v = self._pre_attention_reshape(q_v, kv_v, q_s, kv_s)
         out = _call_attention(q, k, v, **attn_kwargs)
         h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
-        out_v, out_s = self.linear_out(h_v, h_s)
+        outputs_v, outputs_s = self.linear_out(h_v, h_s)
 
         if self.dropout is not None:
-            out_v, out_s = self.dropout(out_v, out_s)
-        return out_v, out_s
+            outputs_v, outputs_s = self.dropout(outputs_v, outputs_s)
+        return outputs_v, outputs_s
 
 
 class ConditionalLGATrSlimBlock(nn.Module):
@@ -173,11 +173,11 @@ class ConditionalLGATrSlimBlock(nn.Module):
     ----------
     v_channels
         Number of vector channels.
-    condition_v_channels
+    v_channels_cond
         Number of condition vector channels.
     s_channels
         Number of scalar channels.
-    condition_s_channels
+    s_channels_cond
         Number of condition scalar channels.
     num_heads
         Number of attention heads.
@@ -196,9 +196,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
     def __init__(
         self,
         v_channels: int,
-        condition_v_channels: int,
+        v_channels_cond: int,
         s_channels: int,
-        condition_s_channels: int,
+        s_channels_cond: int,
         num_heads: int,
         nonlinearity: str = "gelu",
         mlp_ratio: int = 2,
@@ -219,9 +219,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
         )
         self.crossattention = CrossAttention(
             q_v_channels=v_channels,
-            kv_v_channels=condition_v_channels,
+            kv_v_channels=v_channels_cond,
             q_s_channels=s_channels,
-            kv_s_channels=condition_s_channels,
+            kv_s_channels=s_channels_cond,
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
@@ -239,9 +239,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
     def forward(
         self,
         vectors: torch.Tensor,
-        vectors_condition: torch.Tensor,
+        vectors_cond: torch.Tensor,
         scalars: torch.Tensor,
-        scalars_condition: torch.Tensor,
+        scalars_cond: torch.Tensor,
         attn_kwargs: dict | None = None,
         crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -251,12 +251,12 @@ class ConditionalLGATrSlimBlock(nn.Module):
         ----------
         vectors
             Lorentz vectors of shape ``(..., items, v_channels, 4)``.
-        vectors_condition
-            Condition Lorentz vectors of shape ``(..., items_condition, condition_v_channels, 4)``.
+        vectors_cond
+            Condition Lorentz vectors of shape ``(..., items_cond, v_channels_cond, 4)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
-        scalars_condition
-            Condition scalar features of shape ``(..., items_condition, condition_s_channels)``.
+        scalars_cond
+            Condition scalar features of shape ``(..., items_cond, s_channels_cond)``.
         attn_kwargs
             Optional keyword arguments forwarded to self-attention.
         crossattn_kwargs
@@ -264,9 +264,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items, v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
@@ -286,9 +286,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
         h_v, h_s = self.norm(outputs_v, outputs_s)
         h_v, h_s = self.crossattention(
             h_v,
-            vectors_condition,
+            vectors_cond,
             h_s,
-            scalars_condition,
+            scalars_cond,
             **crossattn_kwargs,
         )
         outputs_v = outputs_v + h_v
@@ -313,7 +313,7 @@ class ConditionalLGATrSlim(nn.Module):
     ----------
     in_v_channels
         Number of input vector channels.
-    condition_v_channels
+    v_channels_cond
         Number of conditional vector channels.
     out_v_channels
         Number of output vector channels.
@@ -321,7 +321,7 @@ class ConditionalLGATrSlim(nn.Module):
         Number of hidden vector channels.
     in_s_channels
         Number of input scalar channels.
-    condition_s_channels
+    s_channels_cond
         Number of conditional scalar channels.
     out_s_channels
         Number of output scalar channels.
@@ -354,11 +354,11 @@ class ConditionalLGATrSlim(nn.Module):
     def __init__(
         self,
         in_v_channels: int,
-        condition_v_channels: int,
+        v_channels_cond: int,
         out_v_channels: int,
         hidden_v_channels: int,
         in_s_channels: int,
-        condition_s_channels: int,
+        s_channels_cond: int,
         out_s_channels: int,
         hidden_s_channels: int,
         num_blocks: int,
@@ -386,8 +386,8 @@ class ConditionalLGATrSlim(nn.Module):
                 ConditionalLGATrSlimBlock(
                     v_channels=hidden_v_channels,
                     s_channels=hidden_s_channels,
-                    condition_v_channels=condition_v_channels,
-                    condition_s_channels=condition_s_channels,
+                    v_channels_cond=v_channels_cond,
+                    s_channels_cond=s_channels_cond,
                     num_heads=num_heads,
                     nonlinearity=nonlinearity,
                     mlp_ratio=mlp_ratio,
@@ -413,9 +413,9 @@ class ConditionalLGATrSlim(nn.Module):
     def forward(
         self,
         vectors: torch.Tensor,
-        vectors_condition: torch.Tensor,
+        vectors_cond: torch.Tensor,
         scalars: torch.Tensor,
-        scalars_condition: torch.Tensor,
+        scalars_cond: torch.Tensor,
         attn_kwargs: dict | None = None,
         crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -425,12 +425,12 @@ class ConditionalLGATrSlim(nn.Module):
         ----------
         vectors
             Lorentz vectors of shape ``(..., items, in_v_channels, 4)``.
-        vectors_condition
-            Condition Lorentz vectors of shape ``(..., items_condition, condition_v_channels, 4)``.
+        vectors_cond
+            Condition Lorentz vectors of shape ``(..., items_cond, v_channels_cond, 4)``.
         scalars
             Scalar features of shape ``(..., items, in_s_channels)``.
-        scalars_condition
-            Condition scalar features of shape ``(..., items_condition, condition_s_channels)``.
+        scalars_cond
+            Condition scalar features of shape ``(..., items_cond, s_channels_cond)``.
         attn_kwargs
             Optional keyword arguments forwarded to self-attention.
         crossattn_kwargs
@@ -438,9 +438,9 @@ class ConditionalLGATrSlim(nn.Module):
 
         Returns
         -------
-        vectors_out
+        outputs_v
             Lorentz vectors of shape ``(..., items, out_v_channels, 4)``.
-        scalars_out
+        outputs_s
             Scalar features of shape ``(..., items, out_s_channels)``.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
@@ -454,8 +454,8 @@ class ConditionalLGATrSlim(nn.Module):
                     block,
                     vectors=h_v,
                     scalars=h_s,
-                    vectors_condition=vectors_condition,
-                    scalars_condition=scalars_condition,
+                    vectors_cond=vectors_cond,
+                    scalars_cond=scalars_cond,
                     use_reentrant=False,
                     attn_kwargs=attn_kwargs,
                     crossattn_kwargs=crossattn_kwargs,
@@ -464,8 +464,8 @@ class ConditionalLGATrSlim(nn.Module):
                 h_v, h_s = block(
                     vectors=h_v,
                     scalars=h_s,
-                    vectors_condition=vectors_condition,
-                    scalars_condition=scalars_condition,
+                    vectors_cond=vectors_cond,
+                    scalars_cond=scalars_cond,
                     attn_kwargs=attn_kwargs,
                     crossattn_kwargs=crossattn_kwargs,
                 )

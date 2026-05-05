@@ -40,12 +40,12 @@ class GradeDropout(nn.Module):
             Scalars after dropout, shape ``(...)``, or None if ``scalars`` is None.
         """
 
-        out_mv = grade_dropout(multivectors, p=self._dropout_prob, training=self.training)
+        outputs_mv = grade_dropout(multivectors, p=self._dropout_prob, training=self.training)
         if scalars is None:
-            out_s = None
+            outputs_s = None
         else:
-            out_s = torch.nn.functional.dropout(
+            outputs_s = torch.nn.functional.dropout(
                 scalars, p=self._dropout_prob, training=self.training
             )
 
-        return out_mv, out_s
+        return outputs_mv, outputs_s

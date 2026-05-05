@@ -32,7 +32,7 @@ class QKVModule(nn.Module):
 
     def forward(
         self,
-        inputs: torch.Tensor,
+        multivectors: torch.Tensor,
         scalars: torch.Tensor | None = None,
         additional_qk_features_mv: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
@@ -51,7 +51,7 @@ class QKVModule(nn.Module):
 
         Parameters
         ----------
-        inputs
+        multivectors
             Multivector inputs of shape ``(..., items, mv_channels, 16)``.
         scalars
             Optional scalar inputs of shape ``(..., items, s_channels)``. If None, the scalar
@@ -79,12 +79,12 @@ class QKVModule(nn.Module):
 
         # Additional inputs
         if additional_qk_features_mv is not None:
-            inputs = torch.cat((inputs, additional_qk_features_mv), dim=-2)
+            multivectors = torch.cat((multivectors, additional_qk_features_mv), dim=-2)
         if scalars is not None and additional_qk_features_s is not None:
             scalars = torch.cat((scalars, additional_qk_features_s), dim=-1)
 
         qkv_mv, qkv_s = self.in_linear(
-            inputs, scalars
+            multivectors, scalars
         )  # (..., num_items, 3 * hidden_channels * num_heads, 16)
         # "... items (qkv hidden num_heads) x -> qkv ... num_heads items hidden x"
         qkv_mv = qkv_mv.unflatten(
@@ -149,7 +149,7 @@ class MultiQueryQKVModule(nn.Module):
 
     def forward(
         self,
-        inputs: torch.Tensor,
+        multivectors: torch.Tensor,
         scalars: torch.Tensor | None = None,
         additional_qk_features_mv: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
@@ -168,7 +168,7 @@ class MultiQueryQKVModule(nn.Module):
 
         Parameters
         ----------
-        inputs
+        multivectors
             Multivector inputs of shape ``(..., items, mv_channels, 16)``.
         scalars
             Optional scalar inputs of shape ``(..., items, s_channels)``. If None, the scalar
@@ -196,9 +196,9 @@ class MultiQueryQKVModule(nn.Module):
 
         # Additional inputs
         if additional_qk_features_mv is not None:
-            qk_inputs = torch.cat((inputs, additional_qk_features_mv), dim=-2)
+            qk_multivectors = torch.cat((multivectors, additional_qk_features_mv), dim=-2)
         else:
-            qk_inputs = inputs
+            qk_multivectors = multivectors
         if scalars is not None and additional_qk_features_s is not None:
             qk_scalars = torch.cat((scalars, additional_qk_features_s), dim=-1)
         else:
@@ -206,10 +206,12 @@ class MultiQueryQKVModule(nn.Module):
 
         # Project to queries, keys, and values (multivector reps)
         q_mv, q_s = self.q_linear(
-            qk_inputs, qk_scalars
+            qk_multivectors, qk_scalars
         )  # (..., num_items, hidden_channels * num_heads, 16)
-        k_mv, k_s = self.k_linear(qk_inputs, qk_scalars)  # (..., num_items, hidden_channels, 16)
-        v_mv, v_s = self.v_linear(inputs, scalars)  # (..., num_items, hidden_channels, 16)
+        k_mv, k_s = self.k_linear(
+            qk_multivectors, qk_scalars
+        )  # (..., num_items, hidden_channels, 16)
+        v_mv, v_s = self.v_linear(multivectors, scalars)  # (..., num_items, hidden_channels, 16)
 
         # Rearrange to (..., heads, items, channels, 16) shape
         q_mv = q_mv.unflatten(-2, (self.config.hidden_mv_channels, self.config.num_heads)).movedim(

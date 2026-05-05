@@ -11,10 +11,10 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,num_items_condition", [(2, 2), (2, 9)])
-@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(6, 6), (7, 11)])
+@pytest.mark.parametrize("num_items,num_items_cond", [(2, 2), (2, 9)])
+@pytest.mark.parametrize("in_mv_channels,mv_channels_cond", [(6, 6), (7, 11)])
 @pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
-@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", S_CHANNELS)
+@pytest.mark.parametrize("in_s_channels,s_channels_cond", S_CHANNELS)
 @pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
 @pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
 @pytest.mark.parametrize("dropout_prob", [None])
@@ -24,15 +24,15 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 def test_conditional_gatr_shape(
     batch_dims: list[int],
     num_items: int,
-    num_items_condition: int,
+    num_items_cond: int,
     in_mv_channels: int,
-    in_mv_channels_condition: int,
+    mv_channels_cond: int,
     hidden_mv_channels: int,
     out_mv_channels: int,
     num_heads: int,
     num_blocks: int,
     in_s_channels: int,
-    in_s_channels_condition: int,
+    s_channels_cond: int,
     hidden_s_channels: int,
     out_s_channels: int,
     multi_query_attention: bool,
@@ -45,23 +45,19 @@ def test_conditional_gatr_shape(
 
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
     scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
-    condition_mv = torch.randn(*batch_dims, num_items_condition, in_mv_channels_condition, 16)
-    condition_s = (
-        torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
-        if in_s_channels_condition
-        else None
-    )
+    mv_cond = torch.randn(*batch_dims, num_items_cond, mv_channels_cond, 16)
+    s_cond = torch.randn(*batch_dims, num_items_cond, s_channels_cond) if s_channels_cond else None
 
     try:
         net = ConditionalLGATr(
             in_mv_channels=in_mv_channels,
             out_mv_channels=out_mv_channels,
             hidden_mv_channels=hidden_mv_channels,
-            condition_mv_channels=in_mv_channels_condition,
+            mv_channels_cond=mv_channels_cond,
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,
-            condition_s_channels=in_s_channels_condition,
+            s_channels_cond=s_channels_cond,
             attention=dict(
                 num_heads=num_heads,
                 multi_query=multi_query_attention,
@@ -82,8 +78,8 @@ def test_conditional_gatr_shape(
     outputs, output_scalars = net(
         inputs,
         scalars=scalars,
-        multivectors_condition=condition_mv,
-        scalars_condition=condition_s,
+        multivectors_cond=mv_cond,
+        scalars_cond=s_cond,
     )
 
     assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
@@ -95,10 +91,10 @@ def test_conditional_gatr_shape(
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,num_items_condition", [(2, 2), (2, 9)])
-@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(6, 6), (7, 11)])
+@pytest.mark.parametrize("num_items,num_items_cond", [(2, 2), (2, 9)])
+@pytest.mark.parametrize("in_mv_channels,mv_channels_cond", [(6, 6), (7, 11)])
 @pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
-@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", S_CHANNELS)
+@pytest.mark.parametrize("in_s_channels,s_channels_cond", S_CHANNELS)
 @pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
 @pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
 @pytest.mark.parametrize("dropout_prob", [None])
@@ -106,15 +102,15 @@ def test_conditional_gatr_shape(
 def test_conditional_gatr_equivariance(
     batch_dims: list[int],
     num_items: int,
-    num_items_condition: int,
+    num_items_cond: int,
     in_mv_channels: int,
-    in_mv_channels_condition: int,
+    mv_channels_cond: int,
     hidden_mv_channels: int,
     out_mv_channels: int,
     num_heads: int,
     num_blocks: int,
     in_s_channels: int,
-    in_s_channels_condition: int,
+    s_channels_cond: int,
     hidden_s_channels: int,
     out_s_channels: int,
     multi_query_attention: bool,
@@ -126,11 +122,11 @@ def test_conditional_gatr_equivariance(
             in_mv_channels=in_mv_channels,
             out_mv_channels=out_mv_channels,
             hidden_mv_channels=hidden_mv_channels,
-            condition_mv_channels=in_mv_channels_condition,
+            mv_channels_cond=mv_channels_cond,
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
             hidden_s_channels=hidden_s_channels,
-            condition_s_channels=in_s_channels_condition,
+            s_channels_cond=s_channels_cond,
             attention=SelfAttentionConfig(
                 num_heads=num_heads,
                 multi_query=multi_query_attention,
@@ -148,40 +144,40 @@ def test_conditional_gatr_equivariance(
         return
 
     scalars = torch.randn(*batch_dims, num_items, in_s_channels)
-    scalars_condition = torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+    scalars_cond = torch.randn(*batch_dims, num_items_cond, s_channels_cond)
 
     data_dims = [
         tuple(list(batch_dims) + [num_items, in_mv_channels]),
-        tuple(list(batch_dims) + [num_items_condition, in_mv_channels_condition]),
+        tuple(list(batch_dims) + [num_items_cond, mv_channels_cond]),
     ]
     check_pin_equivariance(
         net,
         2,
         batch_dims=data_dims,
-        fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
+        fn_kwargs=dict(scalars=scalars, scalars_cond=scalars_cond),
         **MILD_TOLERANCES,
     )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,num_items_condition", [(2, 9)])
-@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(7, 11)])
+@pytest.mark.parametrize("num_items,num_items_cond", [(2, 9)])
+@pytest.mark.parametrize("in_mv_channels,mv_channels_cond", [(7, 11)])
 @pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
-@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", [(3, 5)])
+@pytest.mark.parametrize("in_s_channels,s_channels_cond", [(3, 5)])
 @pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
 @pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
 def test_conditional_gatr_equivariance_compiled(
     batch_dims: list[int],
     num_items: int,
-    num_items_condition: int,
+    num_items_cond: int,
     in_mv_channels: int,
-    in_mv_channels_condition: int,
+    mv_channels_cond: int,
     hidden_mv_channels: int,
     out_mv_channels: int,
     num_heads: int,
     num_blocks: int,
     in_s_channels: int,
-    in_s_channels_condition: int,
+    s_channels_cond: int,
     hidden_s_channels: int,
     out_s_channels: int,
     compile: bool = True,
@@ -191,11 +187,11 @@ def test_conditional_gatr_equivariance_compiled(
         in_mv_channels=in_mv_channels,
         out_mv_channels=out_mv_channels,
         hidden_mv_channels=hidden_mv_channels,
-        condition_mv_channels=in_mv_channels_condition,
+        mv_channels_cond=mv_channels_cond,
         in_s_channels=in_s_channels,
         out_s_channels=out_s_channels,
         hidden_s_channels=hidden_s_channels,
-        condition_s_channels=in_s_channels_condition,
+        s_channels_cond=s_channels_cond,
         attention=SelfAttentionConfig(num_heads=num_heads),
         crossattention=CrossAttentionConfig(num_heads=num_heads),
         mlp=MLPConfig(),
@@ -204,16 +200,16 @@ def test_conditional_gatr_equivariance_compiled(
     )
 
     scalars = torch.randn(*batch_dims, num_items, in_s_channels)
-    scalars_condition = torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+    scalars_cond = torch.randn(*batch_dims, num_items_cond, s_channels_cond)
 
     data_dims = [
         tuple(list(batch_dims) + [num_items, in_mv_channels]),
-        tuple(list(batch_dims) + [num_items_condition, in_mv_channels_condition]),
+        tuple(list(batch_dims) + [num_items_cond, mv_channels_cond]),
     ]
     check_pin_equivariance(
         net,
         2,
         batch_dims=data_dims,
-        fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
+        fn_kwargs=dict(scalars=scalars, scalars_cond=scalars_cond),
         **MILD_TOLERANCES,
     )

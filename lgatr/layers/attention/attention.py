@@ -18,8 +18,8 @@ class GeometricAttention(nn.Module):
             ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
             + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
         ]
-        out_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-        out_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
+        outputs_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
+        outputs_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
 
     Parameters
     ----------

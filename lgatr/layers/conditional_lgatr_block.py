@@ -31,9 +31,9 @@ class ConditionalLGATrBlock(nn.Module):
         Number of input and output multivector channels.
     s_channels
         Number of input and output scalar channels. Use 0 for no scalar stream.
-    condition_mv_channels
+    mv_channels_cond
         Number of condition multivector channels.
-    condition_s_channels
+    s_channels_cond
         Number of condition scalar channels. Use 0 for no scalar condition stream.
     attention
         Self-attention configuration.
@@ -49,8 +49,8 @@ class ConditionalLGATrBlock(nn.Module):
         self,
         mv_channels: int,
         s_channels: int,
-        condition_mv_channels: int,
-        condition_s_channels: int,
+        mv_channels_cond: int,
+        s_channels_cond: int,
         attention: SelfAttentionConfig,
         crossattention: CrossAttentionConfig,
         mlp: MLPConfig,
@@ -76,10 +76,10 @@ class ConditionalLGATrBlock(nn.Module):
         # Cross-attention layer
         crossattention = replace(
             crossattention,
-            in_q_mv_channels=mv_channels,
-            in_q_s_channels=s_channels,
-            in_kv_mv_channels=condition_mv_channels,
-            in_kv_s_channels=condition_s_channels,
+            q_mv_channels=mv_channels,
+            q_s_channels=s_channels,
+            kv_mv_channels=mv_channels_cond,
+            kv_s_channels=s_channels_cond,
             out_mv_channels=mv_channels,
             out_s_channels=s_channels,
             output_init="small",
@@ -99,9 +99,9 @@ class ConditionalLGATrBlock(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        multivectors_condition: torch.Tensor,
+        multivectors_cond: torch.Tensor,
         scalars: torch.Tensor | None = None,
-        scalars_condition: torch.Tensor | None = None,
+        scalars_cond: torch.Tensor | None = None,
         attn_kwargs: dict | None = None,
         crossattn_kwargs: dict | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -111,13 +111,13 @@ class ConditionalLGATrBlock(nn.Module):
         ----------
         multivectors
             Input multivectors of shape ``(..., items, mv_channels, 16)``.
-        multivectors_condition
-            Condition multivectors of shape ``(..., items_condition, condition_mv_channels, 16)``.
+        multivectors_cond
+            Condition multivectors of shape ``(..., items_cond, mv_channels_cond, 16)``.
         scalars
             Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
             stream is bypassed and ``outputs_s`` is None.
-        scalars_condition
-            Optional condition scalars of shape ``(..., items_condition, condition_s_channels)``.
+        scalars_cond
+            Optional condition scalars of shape ``(..., items_cond, s_channels_cond)``.
         attn_kwargs
             Optional keyword arguments forwarded to self-attention (e.g. attention masks).
         crossattn_kwargs
@@ -149,14 +149,14 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Cross-attention block: pre layer norm
         h_mv, h_s = self.norm(multivectors, scalars=scalars)
-        c_mv, c_s = self.norm(multivectors_condition, scalars=scalars_condition)
+        mv_cond, s_cond = self.norm(multivectors_cond, scalars=scalars_cond)
 
         # Cross-attention block: cross attention
         h_mv, h_s = self.crossattention(
             multivectors_q=h_mv,
-            multivectors_kv=c_mv,
+            multivectors_kv=mv_cond,
             scalars_q=h_s,
-            scalars_kv=c_s,
+            scalars_kv=s_cond,
             **crossattn_kwargs,
         )
 

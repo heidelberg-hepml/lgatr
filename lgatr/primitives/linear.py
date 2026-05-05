@@ -202,7 +202,7 @@ def reverse(x: torch.Tensor) -> torch.Tensor:
     """Compute the reversal of a multivector.
 
     The reversal preserves the scalar, vector, and pseudoscalar components and flips the sign of
-    the bivector and trivector components.
+    the bivector and axialvector components.
 
     Parameters
     ----------
@@ -221,7 +221,7 @@ def grade_involute(x: torch.Tensor) -> torch.Tensor:
     """Compute the grade involution of a multivector.
 
     The grade involution preserves the scalar, bivector, and pseudoscalar components and flips the
-    sign of the vector and trivector components.
+    sign of the vector and axialvector components.
 
     Parameters
     ----------
