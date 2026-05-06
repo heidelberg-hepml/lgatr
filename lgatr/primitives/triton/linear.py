@@ -4,7 +4,7 @@ import torch
 import triton
 import triton.language as tl
 
-from ..linear import _compute_pin_equi_linear_basis
+from ..linear import _compute_dual_sign, _compute_grade_projection_mask
 from ._indices import (
     GRADE_COMPS,
     GRADE_DG_BWD,
@@ -172,11 +172,36 @@ def _equi_linear_bwd_x(
 def _equi_linear_bwd_coeffs(
     grad_out: torch.Tensor, x: torch.Tensor, subgroup: bool
 ) -> torch.Tensor:
-    """grad_coeffs via the dense basis; output is small (out_c × in_c × NB ≤ 10240)."""
-    basis = _compute_pin_equi_linear_basis(subgroup, device=x.device, dtype=x.dtype)
-    g_flat = grad_out.reshape(-1, grad_out.shape[-2], grad_out.shape[-1])
-    x_flat = x.reshape(-1, x.shape[-2], x.shape[-1])
-    return torch.einsum("byi,aij,bxj->yxa", g_flat, basis, x_flat)
+    """grad_coeffs via two batch-sum einsums + small grade-grouping einsums. The basis is
+    ~98% sparse, so the dense formulation's 80 MB intermediate is pure waste — instead, sum
+    over batch first into a tiny ``(out_c, in_c, 16)`` tensor (one cuBLAS BMM via einsum),
+    then group ``i`` positions into basis indices by per-grade mask. Output is small:
+    ``out_c × in_c × NB ≤ 10 KB``.
+    """
+    out_c = grad_out.shape[-2]
+    in_c = x.shape[-2]
+    nb = 10 if subgroup else 5
+    g_flat = grad_out.reshape(-1, out_c, 16)
+    x_flat = x.reshape(-1, in_c, 16)
+
+    # Per-position batch sum: (out_c, in_c, 16). Cheap: one batched matmul, ~65 KB output.
+    inter = torch.einsum("byi,bxi->yxi", g_flat, x_flat)
+
+    grad_coeffs = torch.empty(out_c, in_c, nb, device=x.device, dtype=x.dtype)
+    # Group ``i`` positions into the 5 grade-preserving basis indices.
+    mask = _compute_grade_projection_mask(device=x.device, dtype=x.dtype)  # (5, 16)
+    grad_coeffs[..., :5] = torch.einsum("yxi,gi->yxg", inter, mask)
+
+    if subgroup:
+        # Dual basis at a = 9-g uses the (signed, flipped) ``x`` along ``i``, then groups by
+        # grade in *reversed* order (a in [5, 10) maps to grade 9-a, which is the original
+        # mask reversed along the grade axis).
+        s = _compute_dual_sign(device=x.device, dtype=x.dtype)
+        x_dual = x_flat.flip(-1) * s
+        inter_dual = torch.einsum("byi,bxi->yxi", g_flat, x_dual)
+        grad_coeffs[..., 5:] = torch.einsum("yxi,gi->yxg", inter_dual, mask.flip(0))
+
+    return grad_coeffs
 
 
 class _EquiLinearTriton(torch.autograd.Function):
