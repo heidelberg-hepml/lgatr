@@ -8,7 +8,6 @@ from torch.nn.functional import dropout, dropout1d
 from torch.utils.checkpoint import checkpoint
 
 from ..primitives.attention import scaled_dot_product_attention
-from ..utils.autocast import minimum_autocast_precision
 from ..utils.compile import compile_model
 from ..utils.misc import get_nonlinearity
 
@@ -24,7 +23,6 @@ def _post_attention_reshape(
     return h_v, h_s
 
 
-@minimum_autocast_precision(torch.float32)
 def _call_attention(*args, **kwargs):
     return scaled_dot_product_attention(*args, **kwargs)
 
@@ -90,7 +88,6 @@ class RMSNorm(nn.Module):
         self.epsilon = epsilon
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
-    @minimum_autocast_precision(torch.float32)
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -240,8 +237,11 @@ class GatedLinearUnit(nn.Module):
     out_s_channels
         Number of output scalar channels.
     nonlinearity
-        Nonlinearity for the gate. One of ``"relu"``, ``"sigmoid"``, ``"tanh"``, ``"gelu"``,
-        ``"silu"``.
+        Nonlinearity for the scalar gate (and for the vector gate when ``nonlinearity_v`` is
+        ``None``). One of ``"relu"``, ``"sigmoid"``, ``"tanh"``, ``"gelu"``, ``"silu"``.
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity. ``None`` falls back to
+        ``nonlinearity``.
     """
 
     def __init__(
@@ -251,6 +251,7 @@ class GatedLinearUnit(nn.Module):
         in_s_channels: int,
         out_s_channels: int,
         nonlinearity: str = "gelu",
+        nonlinearity_v: str | None = None,
     ) -> None:
         super().__init__()
         self.linear = Linear(
@@ -260,6 +261,9 @@ class GatedLinearUnit(nn.Module):
             out_s_channels=2 * out_s_channels,
         )
         self.nonlinearity = get_nonlinearity(nonlinearity)
+        self.nonlinearity_v = (
+            get_nonlinearity(nonlinearity_v) if nonlinearity_v is not None else self.nonlinearity
+        )
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
     def forward(
@@ -287,11 +291,10 @@ class GatedLinearUnit(nn.Module):
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
-        outputs_v = self.nonlinearity(v_gates) * v_pre
+        outputs_v = self.nonlinearity_v(v_gates) * v_pre
         outputs_s = self.nonlinearity(s_gates) * s_pre
         return outputs_v, outputs_s
 
-    @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         return ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
 
@@ -311,6 +314,11 @@ class SelfAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
+    rmsnorm_eps
+        Epsilon for the qkv :class:`RMSNorm` (only used when ``attn_norm`` is ``True``).
+    attn_norm
+        If ``True`` (default), apply :class:`RMSNorm` to qkv before attention. If ``False``,
+        skip the qkv normalization entirely.
     """
 
     def __init__(
@@ -320,6 +328,8 @@ class SelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        rmsnorm_eps: float = 0.01,
+        attn_norm: bool = True,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -342,7 +352,7 @@ class SelfAttention(nn.Module):
             out_s_channels=s_channels,
             initialization="small",
         )
-        self.norm = RMSNorm()
+        self.norm = RMSNorm(epsilon=rmsnorm_eps) if attn_norm else None
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
         else:
@@ -362,8 +372,9 @@ class SelfAttention(nn.Module):
             .movedim(-1, -3)
         )
 
-        # normalize for stability (important)
-        qkv_v, qkv_s = self.norm(qkv_v, qkv_s)
+        # normalize for stability (important; can be disabled via attn_norm=False)
+        if self.norm is not None:
+            qkv_v, qkv_s = self.norm(qkv_v, qkv_s)
 
         q_v, k_v, v_v = qkv_v.unbind(0)
         q_s, k_s, v_s = qkv_s.unbind(0)
@@ -418,7 +429,10 @@ class MLP(nn.Module):
     s_channels
         Number of scalar channels.
     nonlinearity
-        Nonlinearity for the GLU layers.
+        Nonlinearity for the GLU layers (scalar gate, and vector gate when
+        ``nonlinearity_v`` is ``None``).
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity in each GLU.
     mlp_ratio
         Expansion ratio for hidden channels.
     num_layers
@@ -432,6 +446,7 @@ class MLP(nn.Module):
         v_channels: int,
         s_channels: int,
         nonlinearity: str = "gelu",
+        nonlinearity_v: str | None = None,
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
@@ -451,6 +466,7 @@ class MLP(nn.Module):
                     in_s_channels=s_channels_list[i],
                     out_s_channels=s_channels_list[i + 1],
                     nonlinearity=nonlinearity,
+                    nonlinearity_v=nonlinearity_v,
                 )
             )
             if dropout_prob is not None:
@@ -508,6 +524,8 @@ class LGATrSlimBlock(nn.Module):
         Number of attention heads.
     nonlinearity
         Nonlinearity for the MLP layers.
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity in the MLP's GLUs.
     mlp_ratio
         Expansion ratio for MLP hidden channels.
     attn_ratio
@@ -516,6 +534,11 @@ class LGATrSlimBlock(nn.Module):
         Number of layers in the MLP.
     dropout_prob
         Dropout probability.
+    rmsnorm_eps
+        Epsilon for every :class:`RMSNorm` instance in the block.
+    attn_norm
+        If ``False``, disable the qkv :class:`RMSNorm` inside :class:`SelfAttention`. The block's
+        own pre-norms are unaffected.
     """
 
     def __init__(
@@ -524,14 +547,17 @@ class LGATrSlimBlock(nn.Module):
         s_channels: int,
         num_heads: int,
         nonlinearity: str = "gelu",
+        nonlinearity_v: str | None = None,
         mlp_ratio: int = 2,
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
+        rmsnorm_eps: float = 0.01,
+        attn_norm: bool = True,
     ) -> None:
         super().__init__()
 
-        self.norm = RMSNorm()
+        self.norm = RMSNorm(epsilon=rmsnorm_eps)
 
         self.attention = SelfAttention(
             v_channels=v_channels,
@@ -539,12 +565,15 @@ class LGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            rmsnorm_eps=rmsnorm_eps,
+            attn_norm=attn_norm,
         )
 
         self.mlp = MLP(
             v_channels=v_channels,
             s_channels=s_channels,
             nonlinearity=nonlinearity,
+            nonlinearity_v=nonlinearity_v,
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
@@ -619,6 +648,9 @@ class LGATrSlim(nn.Module):
         Number of attention heads.
     nonlinearity
         Nonlinearity for the MLP layers.
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity in every GLU. ``None`` falls
+        back to ``nonlinearity``.
     mlp_ratio
         Expansion ratio for MLP hidden channels.
     attn_ratio
@@ -627,6 +659,11 @@ class LGATrSlim(nn.Module):
         Number of layers in each MLP.
     dropout_prob
         Dropout probability.
+    rmsnorm_eps
+        Epsilon for every :class:`RMSNorm` instance in the network.
+    attn_norm
+        If ``False``, disable the qkv :class:`RMSNorm` inside :class:`SelfAttention`. The
+        block-level pre-norms remain active.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     compile
@@ -648,10 +685,13 @@ class LGATrSlim(nn.Module):
         num_blocks: int,
         num_heads: int,
         nonlinearity: str = "gelu",
+        nonlinearity_v: str | None = None,
         mlp_ratio: int = 2,
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
+        rmsnorm_eps: float = 0.01,
+        attn_norm: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -672,10 +712,13 @@ class LGATrSlim(nn.Module):
                     s_channels=hidden_s_channels,
                     num_heads=num_heads,
                     nonlinearity=nonlinearity,
+                    nonlinearity_v=nonlinearity_v,
                     mlp_ratio=mlp_ratio,
                     attn_ratio=attn_ratio,
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
+                    rmsnorm_eps=rmsnorm_eps,
+                    attn_norm=attn_norm,
                 )
                 for _ in range(num_blocks)
             ]
