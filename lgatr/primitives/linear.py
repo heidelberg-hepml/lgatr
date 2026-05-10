@@ -32,13 +32,13 @@ assert torch.equal(_DUAL_PERM, torch.arange(16).flip(0)), "sparse linear: bad ba
 
 @lru_cache
 def _compute_pin_equi_linear_basis(
-    use_fully_connected_subgroup: bool = True,
+    subgroup: bool = True,
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
     # Lorentz-equivariant basis of shape (10, 16, 16) for the proper orthochronous subgroup,
     # or (5, 16, 16) for the full Pin group.
-    src = _BASIS_SUBGROUP if use_fully_connected_subgroup else _BASIS_FULL
+    src = _BASIS_SUBGROUP if subgroup else _BASIS_FULL
     return src.to(device=device, dtype=dtype)
 
 
@@ -95,9 +95,7 @@ def _equi_linear_dense(
     # Equation: out[..., y, i] = sum_{x, a, j} coeffs[y, x, a] * basis[a, i, j] * x[..., x, j]
     # basis is ~1% nonzero, so this path spends most of its FLOPs on zero entries; the sparse
     # path skips those at the cost of less optimized kernels (no fused BLAS GEMM).
-    basis = _compute_pin_equi_linear_basis(
-        config.use_fully_connected_subgroup, device=x.device, dtype=x.dtype
-    )
+    basis = _compute_pin_equi_linear_basis(config.subgroup, device=x.device, dtype=x.dtype)
     # Fold (coeffs, basis) into an effective (out_c, in_c, 16, 16) weight via one GEMM,
     # then contract that weight with x.
     weight = (coeffs @ basis.flatten(-2)).unflatten(-1, (16, 16))
@@ -127,7 +125,7 @@ def _equi_linear_sparse(
     x3 = x[..., 11:15]
     x4 = x[..., 15:16]
 
-    if config.use_fully_connected_subgroup:
+    if config.subgroup:
         # 10 basis elements: indices 0..4 are grade-preserving, 5..9 are the Hodge dual mapping
         # grade g -> grade 4-g. The dual reduces to a sign-flip + per-grade reverse view, so each
         # term stays a single GEMM (no full 16-wide gather).
@@ -168,15 +166,6 @@ def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConf
     outputs
         Result of shape ``(..., out_channels, 16)``.
     """
-    if config.triton:
-        try:
-            from .triton import equi_linear_triton
-            from .triton._utils import can_dispatch
-        except ImportError:
-            pass
-        else:
-            if can_dispatch(x, coeffs):
-                return equi_linear_triton(x, coeffs, subgroup=config.use_fully_connected_subgroup)
     if config.sparse:
         return _equi_linear_sparse(x, coeffs, config=config)
     return _equi_linear_dense(x, coeffs, config=config)

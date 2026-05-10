@@ -26,7 +26,7 @@ class EquiLinear(nn.Module):
     :mod:`lgatr.primitives.linear`) and ``weights`` are the learnable weights of this layer.
     The ``basis_map`` includes 5 elements if the full Lorentz group is considered, and 10 elements
     if only the fully-connected subgroup is considered. See
-    :class:`lgatr.primitives.config.PrimitivesConfig` for the ``use_fully_connected_subgroup`` option.
+    :class:`lgatr.primitives.config.PrimitivesConfig` for the ``subgroup`` option.
 
     If there are auxiliary input scalars, they transform under a linear layer and mix with the
     scalar components of the multivector data. In this layer (and only here) the auxiliary scalars
@@ -109,7 +109,7 @@ class EquiLinear(nn.Module):
 
         # Scalars -> MV scalars
         self.s2mvs: nn.Linear | None
-        mix_factor = 2 if primitives.use_fully_connected_subgroup else 1
+        mix_factor = 2 if primitives.subgroup else 1
         if in_s_channels:
             self.s2mvs = nn.Linear(in_s_channels, mix_factor * out_mv_channels, bias=bias)
         else:
@@ -165,7 +165,7 @@ class EquiLinear(nn.Module):
             # (index 0) and, for the subgroup, pseudoscalar (index 15) slots. Functional
             # cat-of-zeros instead of in-place advanced-index scatter — cleaner under autograd
             # and torch.compile.
-            if self.primitives.use_fully_connected_subgroup:
+            if self.primitives.subgroup:
                 delta = self.s2mvs(scalars).unflatten(-1, (outputs_mv.shape[-2], 2))
                 zeros14 = delta.new_zeros(*delta.shape[:-1], 14)
                 delta_full = torch.cat([delta[..., 0:1], zeros14, delta[..., 1:2]], dim=-1)
@@ -175,7 +175,7 @@ class EquiLinear(nn.Module):
             outputs_mv = outputs_mv + delta_full
 
         if self.mvs2s is not None:
-            if self.primitives.use_fully_connected_subgroup:
+            if self.primitives.subgroup:
                 # Slice + cat instead of advanced indexing: same memory, no gather kernel.
                 mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
                 outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
@@ -322,7 +322,7 @@ class EquiLinear(nn.Module):
             # contribution from scalar -> mv scalar
             bound = mv_component_factors[0] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
             nn.init.uniform_(self.weight[..., [0]], a=-bound, b=bound)
-            if self.primitives.use_fully_connected_subgroup:
+            if self.primitives.subgroup:
                 # contribution from scalar -> mv pseudoscalar
                 bound = mv_component_factors[-1] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
                 nn.init.uniform_(self.weight[..., [-1]], a=-bound, b=bound)

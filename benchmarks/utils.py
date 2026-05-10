@@ -32,8 +32,7 @@ def time_fwd_bwd(forward_fn, grad_tensors, *, device, warmup=25, iters=100):
     ``cudaDeviceSynchronize`` overhead (a few µs each, comparable to the kernels we measure).
     On CPU, ``time.perf_counter`` is used directly.
 
-    Resets peak-memory stats *after* warmup so triton's autotune workspace (a ~256 MB L2-flush
-    buffer allocated by ``triton.testing.do_bench`` during the first call) does not contaminate
+    Resets peak-memory stats *after* warmup so transient warmup allocations do not contaminate
     the reported peak. Grads are zeroed in place between iters rather than nulled, so backward
     does not re-allocate ``t.grad`` every iteration.
 
@@ -116,12 +115,12 @@ def _trim_mean(values, frac=0.2):
 
 @lru_cache
 def config_for(mode: str) -> PrimitivesConfig:
-    """Cached :class:`PrimitivesConfig` per dispatch path (``dense`` / ``sparse`` / ``triton``).
+    """Cached :class:`PrimitivesConfig` per dispatch path (``dense`` / ``sparse``).
 
     The cache returns the same instance on repeated calls so ``torch.compile`` dynamo guards
     don't trigger a recompile each time the bench picks a config.
     """
-    return PrimitivesConfig(sparse=mode == "sparse", triton=mode == "triton")
+    return PrimitivesConfig(sparse=mode == "sparse")
 
 
 def reset_peak_mem(device):

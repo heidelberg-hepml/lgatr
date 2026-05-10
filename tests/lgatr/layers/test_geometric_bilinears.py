@@ -11,17 +11,17 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("out_mv_channels", [10])
 @pytest.mark.parametrize("in_s_channels", [3])
 @pytest.mark.parametrize("out_s_channels", [5])
-@pytest.mark.parametrize("use_bivector", [True, False])
+@pytest.mark.parametrize("bivector", [True, False])
 def test_geometric_bilinears_equivariance(
     batch_dims: list[int],
     in_mv_channels: int,
     out_mv_channels: int,
     in_s_channels: int,
     out_s_channels: int,
-    use_bivector: bool,
+    bivector: bool,
 ) -> None:
     # GeometricBilinear is Pin-equivariant, with and without bivector outputs.
-    primitives = PrimitivesConfig(use_bivector=use_bivector)
+    primitives = PrimitivesConfig(bivector=bivector)
 
     layer = GeometricBilinear(
         in_mv_channels,

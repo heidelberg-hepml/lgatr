@@ -20,7 +20,7 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+@pytest.mark.parametrize("subgroup", [True, False])
 def test_conditional_gatr_shape(
     batch_dims: list[int],
     num_items: int,
@@ -38,7 +38,7 @@ def test_conditional_gatr_shape(
     multi_query_attention: bool,
     dropout_prob: float | None,
     checkpoint_blocks: bool,
-    use_fully_connected_subgroup: bool,
+    subgroup: bool,
 ) -> None:
     # ConditionalLGATr's outputs match the expected shapes across all combinations.
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -65,7 +65,7 @@ def test_conditional_gatr_shape(
                 multi_query=multi_query_attention,
             ),
             mlp=dict(),
-            primitives=PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup),
+            primitives=PrimitivesConfig(subgroup=subgroup),
             num_blocks=num_blocks,
             dropout_prob=dropout_prob,
             checkpoint_blocks=checkpoint_blocks,

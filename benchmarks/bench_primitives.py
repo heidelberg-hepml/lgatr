@@ -1,8 +1,7 @@
 """Speed benchmark for ``equi_linear`` and ``geometric_product`` in isolation.
 
-Compares up to five dispatch options across a batch sweep: ``dense``, ``sparse``, ``triton``
-(eager only — kernels are wrapped in ``@torch.compiler.disable``), plus optional ``dense+compile``
-and ``sparse+compile``. ``--compile``, ``--triton`` and ``--cpu`` are opt-in.
+Compares dispatch options across a batch sweep: ``dense``, ``sparse``, plus optional
+``dense+compile`` and ``sparse+compile``. ``--compile`` and ``--cpu`` are opt-in.
 """
 
 from __future__ import annotations
@@ -39,11 +38,6 @@ def parse_args():
         help="add the dense+compile and sparse+compile legs",
     )
     p.add_argument(
-        "--triton",
-        action="store_true",
-        help="add the triton column (CUDA host with importable triton)",
-    )
-    p.add_argument(
         "--cpu",
         action="store_true",
         help="force CPU only (skip CUDA even if available)",
@@ -51,20 +45,9 @@ def parse_args():
     return p.parse_args()
 
 
-def _have_triton() -> bool:
-    """Lazy probe — only imports the triton subpackage on demand to avoid an unconditional
-    ``import triton`` on CUDA hosts when the user hasn't asked for it."""
-    from lgatr.primitives.triton import _HAVE_TRITON
-
-    return _HAVE_TRITON
-
-
 def resolve_modes(device, compiled, args):
     """Return dispatch modes to time for one (device, compiled) leg."""
-    modes = ["dense", "sparse"]
-    if args.triton and device.type == "cuda" and not compiled and _have_triton():
-        modes.append("triton")
-    return modes
+    return ["dense", "sparse"]
 
 
 def run_one(fn, inputs, mode, device):
@@ -217,10 +200,7 @@ def main():
                 "batches": BATCHES,
                 "bench": args.bench,
                 "compile": args.compile,
-                "triton": args.triton,
                 "cpu": args.cpu,
-                # None when --triton was not passed (we don't probe to avoid importing triton).
-                "have_triton": _have_triton() if args.triton else None,
             },
             "sweeps": sweeps,
         },

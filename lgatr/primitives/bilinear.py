@@ -79,15 +79,6 @@ def geometric_product(
     outputs
         Result of shape ``(..., 16)``. Batch dimensions are the broadcast of ``x`` and ``y``.
     """
-    if config.triton:
-        try:
-            from .triton import geometric_product_triton
-            from .triton._utils import can_dispatch
-        except ImportError:
-            pass
-        else:
-            if can_dispatch(x, y):
-                return geometric_product_triton(x, y)
     if config.sparse:
         return _geometric_product_sparse(x, y)
     return _geometric_product_dense(x, y)

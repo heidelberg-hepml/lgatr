@@ -98,7 +98,7 @@ class GeometricBilinear(nn.Module):
         left, _ = self.linear_left(multivectors, scalars=scalars)
         right, _ = self.linear_right(multivectors, scalars=scalars)
         gp_outputs = geometric_product(left, right, config=self.primitives)
-        if not self.primitives.use_bivector:
+        if not self.primitives.bivector:
             gp_outputs[..., 5:11] = 0.0
 
         # Output linear

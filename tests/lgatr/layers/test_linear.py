@@ -12,7 +12,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize(
     "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
 )
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+@pytest.mark.parametrize("subgroup", [True, False])
 def test_linear_layer_initialization(
     initialization: str,
     batch_dims: tuple[int, ...],
@@ -20,11 +20,11 @@ def test_linear_layer_initialization(
     out_mv_channels: int,
     in_s_channels: int,
     out_s_channels: int,
-    use_fully_connected_subgroup: bool,
+    subgroup: bool,
     var_tolerance: float = 10.0,
 ) -> None:
     # EquiLinear maps unit-variance inputs to roughly unit-variance outputs across channel sizes.
-    primitives = PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup)
+    primitives = PrimitivesConfig(subgroup=subgroup)
 
     # Create layer
     try:
@@ -66,13 +66,13 @@ def test_linear_layer_initialization(
     elif initialization == "unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if primitives.use_fully_connected_subgroup:
+        if primitives.subgroup:
             target_mean[-1] = 1.0
         target_var = 0.01 * torch.ones_like(mv_var) / 3.0
     elif initialization == "almost_unit_scalar":
         target_mean = torch.zeros_like(mv_mean)
         target_mean[0] = 1.0
-        if primitives.use_fully_connected_subgroup:
+        if primitives.subgroup:
             target_mean[-1] = 1.0
         target_var = 0.25 * torch.ones_like(mv_var) / 3.0
     else:
@@ -150,7 +150,7 @@ def test_linear_layer_linearity(
 @pytest.mark.parametrize("bias", [False, True])
 @pytest.mark.parametrize("in_s_channels", [0, 3])
 @pytest.mark.parametrize("out_s_channels", [0, 4])
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+@pytest.mark.parametrize("subgroup", [True, False])
 def test_linear_layer_equivariance(
     batch_dims: list[int],
     in_mv_channels: int,
@@ -158,10 +158,10 @@ def test_linear_layer_equivariance(
     in_s_channels: int,
     out_s_channels: int,
     bias: bool,
-    use_fully_connected_subgroup: bool,
+    subgroup: bool,
 ) -> None:
     # EquiLinear is Pin-equivariant for the full Lorentz group and the proper-orthochronous subgroup.
-    primitives = PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup)
+    primitives = PrimitivesConfig(subgroup=subgroup)
 
     layer = EquiLinear(
         in_mv_channels,

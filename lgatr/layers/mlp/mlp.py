@@ -61,7 +61,7 @@ class GeoMLP(nn.Module):
                 in_s_channels=s_channels_list[0],
                 out_s_channels=s_channels_list[1],
             )
-            if primitives.use_geometric_product:
+            if primitives.geometric_product:
                 layers.append(GeometricBilinear(primitives=primitives, **kwargs))
             else:
                 layers.append(ScalarGatedNonlinearity(config.activation))

@@ -19,7 +19,7 @@ S_CHANNELS = [(0, 0, 7), (0, 0, 0), (4, 5, 6)]
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+@pytest.mark.parametrize("subgroup", [True, False])
 def test_lgatr_shape(
     batch_dims: list[int],
     num_items: int,
@@ -34,7 +34,7 @@ def test_lgatr_shape(
     multi_query_attention: bool,
     dropout_prob: float | None,
     checkpoint_blocks: bool,
-    use_fully_connected_subgroup: bool,
+    subgroup: bool,
 ) -> None:
     # LGATr's outputs match the expected shapes for all combinations of channels and config.
     inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
@@ -54,7 +54,7 @@ def test_lgatr_shape(
             ),
             num_blocks=num_blocks,
             mlp=dict(),
-            primitives=PrimitivesConfig(use_fully_connected_subgroup=use_fully_connected_subgroup),
+            primitives=PrimitivesConfig(subgroup=subgroup),
             dropout_prob=dropout_prob,
             checkpoint_blocks=checkpoint_blocks,
         )
@@ -170,8 +170,8 @@ def test_two_lgatr_configs_coexist() -> None:
         attention=SelfAttentionConfig(num_heads=2),
         mlp=MLPConfig(),
     )
-    cfg_subgroup = PrimitivesConfig(use_fully_connected_subgroup=True)
-    cfg_full = PrimitivesConfig(use_fully_connected_subgroup=False)
+    cfg_subgroup = PrimitivesConfig(subgroup=True)
+    cfg_full = PrimitivesConfig(subgroup=False)
     m_sub = LGATr(primitives=cfg_subgroup, **common)
     m_full = LGATr(primitives=cfg_full, **common)
 
