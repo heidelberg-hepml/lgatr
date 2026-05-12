@@ -180,17 +180,59 @@ def test_SelfAttention_equivariance(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("v_channels,s_channels", [(32, 4), (16, 8)])
 @pytest.mark.parametrize("mlp_ratio,num_layers", [(1, 2), (2, 2), (1, 3)])
-def test_MLP_equivariance(batch_dims, v_channels, s_channels, mlp_ratio, num_layers):
+@pytest.mark.parametrize(
+    "hidden_v_channels,hidden_s_channels,out_v_channels,out_s_channels",
+    [
+        (None, None, None, None),
+        (48, 6, None, None),
+        (None, None, 16, 8),
+        (24, 4, 12, 2),
+    ],
+)
+def test_MLP_equivariance(
+    batch_dims, v_channels, s_channels, mlp_ratio, num_layers,
+    hidden_v_channels, hidden_s_channels, out_v_channels, out_s_channels,
+):
     layer = MLP(
         v_channels=v_channels,
         s_channels=s_channels,
         mlp_ratio=mlp_ratio,
         num_layers=num_layers,
+        hidden_v_channels=hidden_v_channels,
+        hidden_s_channels=hidden_s_channels,
+        out_v_channels=out_v_channels,
+        out_s_channels=out_s_channels,
     )
     s = torch.randn(*batch_dims, s_channels)
-    batch_dims = batch_dims + [v_channels]
+    v = torch.randn(*batch_dims, v_channels, 4)
+    out_v, out_s = layer(v, s)
+    assert out_v.shape == v.shape[:-2] + (out_v_channels or v_channels, 4)
+    assert out_s.shape == s.shape[:-1] + (out_s_channels or s_channels,)
 
-    # equivariance
+    batch_dims = batch_dims + [v_channels]
+    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+@pytest.mark.parametrize("v_channels,s_channels", [(32, 4)])
+@pytest.mark.parametrize("mlp_ratio,num_layers", [(2, 2)])
+def test_MLP_equivariance_compiled(
+    batch_dims, v_channels, s_channels, mlp_ratio, num_layers, compile=True
+):
+    layer = MLP(
+        v_channels=v_channels,
+        s_channels=s_channels,
+        mlp_ratio=mlp_ratio,
+        num_layers=num_layers,
+        compile=compile,
+    )
+    s = torch.randn(*batch_dims, s_channels)
+    v = torch.randn(*batch_dims, v_channels, 4)
+    out_v, out_s = layer(v, s)
+    assert out_v.shape == v.shape
+    assert out_s.shape == s.shape
+
+    batch_dims = batch_dims + [v_channels]
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
 
 
