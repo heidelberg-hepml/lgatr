@@ -357,13 +357,26 @@ class MLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
+        hidden_v_channels: int | None = None,
+        hidden_s_channels: int | None = None,
+        out_v_channels: int | None = None,
+        out_s_channels: int | None = None,
     ):
         super().__init__()
         assert num_layers >= 2
         layers = []
 
-        v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
-        s_channels_list = [s_channels] + [mlp_ratio * s_channels] * (num_layers - 1) + [s_channels]
+        if hidden_v_channels is None:
+            hidden_v_channels = v_channels * mlp_ratio
+        if hidden_s_channels is None:
+            hidden_s_channels = s_channels * mlp_ratio
+        if out_v_channels is None:
+            out_v_channels = v_channels
+        if out_s_channels is None:
+            out_s_channels = s_channels
+
+        v_channels_list = [v_channels] + [hidden_v_channels] * (num_layers - 1) + [out_v_channels]
+        s_channels_list = [s_channels] + [hidden_s_channels] * (num_layers - 1) + [out_s_channels]
 
         for i in range(num_layers - 1):
             layers.append(
