@@ -361,6 +361,10 @@ class MLP(nn.Module):
         hidden_s_channels: int | None = None,
         out_v_channels: int | None = None,
         out_s_channels: int | None = None,
+        compile: bool = False,
+        compile_fullgraph: bool = True,
+        compile_mode: str = "default",
+        compile_dynamic: bool = True,
     ):
         super().__init__()
         assert num_layers >= 2
@@ -400,6 +404,13 @@ class MLP(nn.Module):
         )
 
         self.layers = nn.ModuleList(layers)
+
+        if compile:
+            # ugly hack to make torch.compile convenient for users
+            # the clean solution is model = torch.compile(model, **kwargs) outside of the constructor
+            self.__class__ = torch.compile(
+                self.__class__, fullgraph=compile_fullgraph, dynamic=compile_dynamic, mode=compile_mode
+            )
 
     def forward(self, vectors, scalars):
         """
