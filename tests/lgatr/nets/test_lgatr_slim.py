@@ -47,7 +47,7 @@ def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> Non
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 def test_RMSNorm_equivariance(batch_dims: list[int]) -> None:
     # RMSNorm preserves shapes and is SO(1, 3)-equivariant.
-    layer = RMSNorm()
+    layer = RMSNorm(batch_dims[-1], batch_dims[-1])
 
     # shape
     v = torch.randn(*batch_dims, 4)

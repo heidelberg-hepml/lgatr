@@ -8,6 +8,7 @@ from torch.nn.functional import dropout, dropout1d
 from torch.utils.checkpoint import checkpoint
 
 from ..primitives.attention import scaled_dot_product_attention
+from ..utils.autocast import minimum_autocast_precision
 from ..utils.compile import compile_model
 from ..utils.misc import get_nonlinearity
 
@@ -83,11 +84,25 @@ class RMSNorm(nn.Module):
         Small numerical offset to avoid instabilities.
     """
 
-    def __init__(self, epsilon: float = 0.01) -> None:
+    def __init__(
+        self,
+        v_channels: int,
+        s_channels: int,
+        epsilon: float = 0.01,
+        elementwise_affine: bool = False,
+    ) -> None:
         super().__init__()
         self.epsilon = epsilon
+        self.elementwise_affine = elementwise_affine
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
+        if elementwise_affine:
+            self.weight_v = nn.Parameter(torch.ones(v_channels))
+            self.weight_s = nn.Parameter(torch.ones(s_channels))
+        else:
+            self.register_parameter("weight_v", None)
+            self.register_parameter("weight_s", None)
 
+    @minimum_autocast_precision(torch.float32)
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -115,6 +130,9 @@ class RMSNorm(nn.Module):
 
         outputs_v = vectors * norm[..., None, None]
         outputs_s = scalars * norm[..., None]
+        if self.elementwise_affine:
+            outputs_v = outputs_v * self.weight_v[..., None]
+            outputs_s = outputs_s * self.weight_s
         return outputs_v, outputs_s
 
 
@@ -295,6 +313,7 @@ class GatedLinearUnit(nn.Module):
         outputs_s = self.nonlinearity(s_gates) * s_pre
         return outputs_v, outputs_s
 
+    @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         return ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
 
@@ -330,6 +349,7 @@ class SelfAttention(nn.Module):
         dropout_prob: float | None = None,
         rmsnorm_eps: float = 0.01,
         attn_norm: bool = True,
+        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -352,7 +372,16 @@ class SelfAttention(nn.Module):
             out_s_channels=s_channels,
             initialization="small",
         )
-        self.norm = RMSNorm(epsilon=rmsnorm_eps) if attn_norm else None
+        self.norm = (
+            RMSNorm(
+                v_channels,
+                s_channels,
+                epsilon=rmsnorm_eps,
+                elementwise_affine=norm_elementwise_affine,
+            )
+            if attn_norm
+            else None
+        )
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
         else:
@@ -554,10 +583,16 @@ class LGATrSlimBlock(nn.Module):
         dropout_prob: float | None = None,
         rmsnorm_eps: float = 0.01,
         attn_norm: bool = True,
+        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
 
-        self.norm = RMSNorm(epsilon=rmsnorm_eps)
+        self.norm1 = RMSNorm(
+            v_channels, s_channels, epsilon=rmsnorm_eps, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm2 = RMSNorm(
+            v_channels, s_channels, epsilon=rmsnorm_eps, elementwise_affine=norm_elementwise_affine
+        )
 
         self.attention = SelfAttention(
             v_channels=v_channels,
@@ -567,6 +602,7 @@ class LGATrSlimBlock(nn.Module):
             dropout_prob=dropout_prob,
             rmsnorm_eps=rmsnorm_eps,
             attn_norm=attn_norm,
+            norm_elementwise_affine=norm_elementwise_affine,
         )
 
         self.mlp = MLP(
@@ -600,7 +636,7 @@ class LGATrSlimBlock(nn.Module):
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
-        h_v, h_s = self.norm(vectors, scalars)
+        h_v, h_s = self.norm1(vectors, scalars)
 
         h_v, h_s = self.attention(
             h_v,
@@ -611,7 +647,7 @@ class LGATrSlimBlock(nn.Module):
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
 
-        h_v, h_s = self.norm(outputs_v, outputs_s)
+        h_v, h_s = self.norm2(outputs_v, outputs_s)
 
         h_v, h_s = self.mlp(h_v, h_s)
 
@@ -692,6 +728,7 @@ class LGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         rmsnorm_eps: float = 0.01,
         attn_norm: bool = True,
+        norm_elementwise_affine: bool = False,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -719,6 +756,7 @@ class LGATrSlim(nn.Module):
                     dropout_prob=dropout_prob,
                     rmsnorm_eps=rmsnorm_eps,
                     attn_norm=attn_norm,
+                    norm_elementwise_affine=norm_elementwise_affine,
                 )
                 for _ in range(num_blocks)
             ]

@@ -76,7 +76,8 @@ class CrossAttention(nn.Module):
             initialization="small",
         )
 
-        self.norm = RMSNorm()
+        self.norm_q = RMSNorm(q_v_channels, q_s_channels)
+        self.norm_kv = RMSNorm(kv_v_channels, kv_s_channels)
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
         else:
@@ -107,8 +108,8 @@ class CrossAttention(nn.Module):
         )  # (*B, H, Nc, Cs)
 
         # normalize for stability (important)
-        q_v, q_s = self.norm(q_v, q_s)
-        kv_v, kv_s = self.norm(kv_v, kv_s)
+        q_v, q_s = self.norm_q(q_v, q_s)
+        kv_v, kv_s = self.norm_kv(kv_v, kv_s)
 
         k_v, v_v = kv_v.unbind(0)
         k_s, v_s = kv_s.unbind(0)
@@ -208,7 +209,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.norm = RMSNorm()
+        self.norm1 = RMSNorm(v_channels, s_channels)
+        self.norm2 = RMSNorm(v_channels, s_channels)
+        self.norm3 = RMSNorm(v_channels, s_channels)
 
         self.selfattention = SelfAttention(
             v_channels=v_channels,
@@ -273,7 +276,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
         # self-attention block
-        h_v, h_s = self.norm(vectors, scalars)
+        h_v, h_s = self.norm1(vectors, scalars)
         h_v, h_s = self.selfattention(
             h_v,
             h_s,
@@ -283,7 +286,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         outputs_s = scalars + h_s
 
         # cross-attention block
-        h_v, h_s = self.norm(outputs_v, outputs_s)
+        h_v, h_s = self.norm2(outputs_v, outputs_s)
         h_v, h_s = self.crossattention(
             h_v,
             vectors_cond,
@@ -295,7 +298,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         outputs_s = outputs_s + h_s
 
         # MLP block
-        h_v, h_s = self.norm(outputs_v, outputs_s)
+        h_v, h_s = self.norm3(outputs_v, outputs_s)
         h_v, h_s = self.mlp(h_v, h_s)
         outputs_v = outputs_v + h_v
         outputs_s = outputs_s + h_s
