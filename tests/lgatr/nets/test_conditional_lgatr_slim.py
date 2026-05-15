@@ -17,6 +17,7 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
 @pytest.mark.parametrize("v_channels,v_channels_cond,s_channels,s_channels_cond", [(24, 6, 14, 20)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_CrossAttention_equivariance(
     batch_dims: list[int],
     N: int,
@@ -27,6 +28,7 @@ def test_CrossAttention_equivariance(
     s_channels_cond: int,
     num_heads: int,
     attn_ratio: int,
+    norm_elementwise_affine: bool,
 ) -> None:
     # Slim CrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
     layer = CrossAttention(
@@ -36,6 +38,7 @@ def test_CrossAttention_equivariance(
         kv_s_channels=s_channels_cond,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     s = torch.randn(*batch_dims, N, s_channels)
     s_cond = torch.randn(*batch_dims, N_cond, s_channels_cond)
@@ -62,6 +65,7 @@ def test_CrossAttention_equivariance(
     "v_channels,v_channels_cond,s_channels,s_channels_cond,num_heads", [(24, 6, 14, 20, 2)]
 )
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_ConditionalLGATrSlimBlock_equivariance(
     batch_dims: list[int],
     N: int,
@@ -72,6 +76,7 @@ def test_ConditionalLGATrSlimBlock_equivariance(
     s_channels_cond: int,
     num_heads: int,
     dropout_prob: float | None,
+    norm_elementwise_affine: bool,
 ) -> None:
     # ConditionalLGATrSlimBlock is SO(1, 3)-equivariant at eval time.
     layer = ConditionalLGATrSlimBlock(
@@ -81,6 +86,7 @@ def test_ConditionalLGATrSlimBlock_equivariance(
         s_channels_cond=s_channels_cond,
         num_heads=num_heads,
         dropout_prob=dropout_prob,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
 
@@ -113,6 +119,7 @@ def test_ConditionalLGATrSlimBlock_equivariance(
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 @pytest.mark.parametrize("num_blocks", [1, 2])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_ConditionalLGATrSlim_equivariance(
     batch_dims: list[int],
     N: int,
@@ -129,6 +136,7 @@ def test_ConditionalLGATrSlim_equivariance(
     num_blocks: int,
     dropout_prob: float | None,
     checkpoint_blocks: bool,
+    norm_elementwise_affine: bool,
 ) -> None:
     # ConditionalLGATrSlim (full network) preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = ConditionalLGATrSlim(
@@ -144,6 +152,7 @@ def test_ConditionalLGATrSlim_equivariance(
         num_heads=num_heads,
         dropout_prob=dropout_prob,
         checkpoint_blocks=checkpoint_blocks,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
 

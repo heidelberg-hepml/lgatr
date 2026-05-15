@@ -374,8 +374,8 @@ class SelfAttention(nn.Module):
         )
         self.norm = (
             RMSNorm(
-                v_channels,
-                s_channels,
+                self.hidden_v_channels,
+                self.hidden_s_channels,
                 epsilon=rmsnorm_eps,
                 elementwise_affine=norm_elementwise_affine,
             )

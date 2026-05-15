@@ -46,6 +46,7 @@ class CrossAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * q_v_channels // num_heads, 1)
@@ -76,8 +77,16 @@ class CrossAttention(nn.Module):
             initialization="small",
         )
 
-        self.norm_q = RMSNorm(q_v_channels, q_s_channels)
-        self.norm_kv = RMSNorm(kv_v_channels, kv_s_channels)
+        self.norm_q = RMSNorm(
+            self.hidden_v_channels,
+            self.hidden_s_channels,
+            elementwise_affine=norm_elementwise_affine,
+        )
+        self.norm_kv = RMSNorm(
+            self.hidden_v_channels,
+            self.hidden_s_channels,
+            elementwise_affine=norm_elementwise_affine,
+        )
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
         else:
@@ -192,6 +201,8 @@ class ConditionalLGATrSlimBlock(nn.Module):
         Number of layers in the MLP.
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the :class:`RMSNorm` instances learn per-channel gains.
     """
 
     def __init__(
@@ -206,12 +217,13 @@ class ConditionalLGATrSlimBlock(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
 
-        self.norm1 = RMSNorm(v_channels, s_channels)
-        self.norm2 = RMSNorm(v_channels, s_channels)
-        self.norm3 = RMSNorm(v_channels, s_channels)
+        self.norm1 = RMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        self.norm2 = RMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        self.norm3 = RMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
 
         self.selfattention = SelfAttention(
             v_channels=v_channels,
@@ -219,6 +231,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            norm_elementwise_affine=norm_elementwise_affine,
         )
         self.crossattention = CrossAttention(
             q_v_channels=v_channels,
@@ -228,6 +241,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            norm_elementwise_affine=norm_elementwise_affine,
         )
 
         self.mlp = MLP(
@@ -344,6 +358,8 @@ class ConditionalLGATrSlim(nn.Module):
         Number of layers in each MLP.
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the :class:`RMSNorm` instances learn per-channel gains.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     compile
@@ -371,6 +387,7 @@ class ConditionalLGATrSlim(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = False,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -397,6 +414,7 @@ class ConditionalLGATrSlim(nn.Module):
                     attn_ratio=attn_ratio,
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
+                    norm_elementwise_affine=norm_elementwise_affine,
                 )
                 for _ in range(num_blocks)
             ]

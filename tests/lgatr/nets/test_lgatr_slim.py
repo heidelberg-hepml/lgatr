@@ -162,12 +162,14 @@ def test_Linear_initialization(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("v_channels,s_channels", [(24, 14)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_SelfAttention_equivariance(
     batch_dims: list[int],
     v_channels: int,
     s_channels: int,
     num_heads: int,
     attn_ratio: int,
+    norm_elementwise_affine: bool,
 ) -> None:
     # Slim SelfAttention preserves shapes and is SO(1, 3)-equivariant.
     layer = SelfAttention(
@@ -175,6 +177,7 @@ def test_SelfAttention_equivariance(
         s_channels=s_channels,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     s = torch.randn(*batch_dims, s_channels)
 
@@ -214,12 +217,14 @@ def test_MLP_equivariance(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("v_channels,s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_LGATrSlimBlock_equivariance(
     batch_dims: list[int],
     v_channels: int,
     s_channels: int,
     num_heads: int,
     dropout_prob: float | None,
+    norm_elementwise_affine: bool,
 ) -> None:
     # LGATrSlimBlock is SO(1, 3)-equivariant at eval time.
     layer = LGATrSlimBlock(
@@ -227,6 +232,7 @@ def test_LGATrSlimBlock_equivariance(
         s_channels=s_channels,
         num_heads=num_heads,
         dropout_prob=dropout_prob,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
     s = torch.randn(*batch_dims, s_channels)
@@ -250,6 +256,7 @@ def test_LGATrSlimBlock_equivariance(
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 @pytest.mark.parametrize("num_blocks", [1, 2])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_LGATrSlim_equivariance(
     batch_dims: list[int],
     in_v_channels: int,
@@ -262,6 +269,7 @@ def test_LGATrSlim_equivariance(
     num_blocks: int,
     dropout_prob: float | None,
     checkpoint_blocks: bool,
+    norm_elementwise_affine: bool,
 ) -> None:
     # LGATrSlim (full network) preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = LGATrSlim(
@@ -275,6 +283,7 @@ def test_LGATrSlim_equivariance(
         num_heads=num_heads,
         dropout_prob=dropout_prob,
         checkpoint_blocks=checkpoint_blocks,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
     s = torch.randn(*batch_dims, in_s_channels)
