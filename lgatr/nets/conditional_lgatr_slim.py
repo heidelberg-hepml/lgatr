@@ -46,7 +46,6 @@ class CrossAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
-        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * q_v_channels // num_heads, 1)
@@ -60,6 +59,7 @@ class CrossAttention(nn.Module):
             out_v_channels=self.hidden_v_channels * self.num_heads,
             in_s_channels=q_s_channels,
             out_s_channels=self.hidden_s_channels * self.num_heads,
+            bias=False,
             initialization="small",
         )
         self.linear_in_kv = Linear(
@@ -67,6 +67,7 @@ class CrossAttention(nn.Module):
             out_v_channels=2 * self.hidden_v_channels * self.num_heads,
             in_s_channels=kv_s_channels,
             out_s_channels=2 * self.hidden_s_channels * self.num_heads,
+            bias=False,
             initialization="small",
         )
         self.linear_out = Linear(
@@ -77,15 +78,10 @@ class CrossAttention(nn.Module):
             initialization="small",
         )
 
-        self.norm_q = RMSNorm(
+        self.norm = RMSNorm(
             self.hidden_v_channels,
             self.hidden_s_channels,
-            elementwise_affine=norm_elementwise_affine,
-        )
-        self.norm_kv = RMSNorm(
-            self.hidden_v_channels,
-            self.hidden_s_channels,
-            elementwise_affine=norm_elementwise_affine,
+            elementwise_affine=False,
         )
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
@@ -116,15 +112,13 @@ class CrossAttention(nn.Module):
             -1, -3
         )  # (*B, H, Nc, Cs)
 
-        # normalize for stability (important)
-        q_v, q_s = self.norm_q(q_v, q_s)
-        kv_v, kv_s = self.norm_kv(kv_v, kv_s)
+        q_v, q_s = self.norm(q_v, q_s)
+        k_v, k_s = self.norm(kv_v[0], kv_s[0])
+        v_v, v_s = kv_v[1], kv_s[1]
 
-        k_v, v_v = kv_v.unbind(0)
-        k_s, v_s = kv_s.unbind(0)
+        q_v = q_v * self.metric.to(q_v.dtype)
 
-        q_v_mod = q_v * self.metric.to(q_v.dtype)
-        q = torch.cat([q_v_mod.flatten(start_dim=-2), q_s], dim=-1)
+        q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
         return q, k, v
@@ -217,7 +211,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
-        norm_elementwise_affine: bool = False,
+        norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
 
@@ -231,7 +225,6 @@ class ConditionalLGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
-            norm_elementwise_affine=norm_elementwise_affine,
         )
         self.crossattention = CrossAttention(
             q_v_channels=v_channels,
@@ -241,7 +234,6 @@ class ConditionalLGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
-            norm_elementwise_affine=norm_elementwise_affine,
         )
 
         self.mlp = MLP(
@@ -387,7 +379,7 @@ class ConditionalLGATrSlim(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
-        norm_elementwise_affine: bool = False,
+        norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,

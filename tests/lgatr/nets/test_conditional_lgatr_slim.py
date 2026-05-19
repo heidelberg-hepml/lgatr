@@ -17,7 +17,6 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
 @pytest.mark.parametrize("v_channels,v_channels_cond,s_channels,s_channels_cond", [(24, 6, 14, 20)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
-@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_CrossAttention_equivariance(
     batch_dims: list[int],
     N: int,
@@ -28,7 +27,6 @@ def test_CrossAttention_equivariance(
     s_channels_cond: int,
     num_heads: int,
     attn_ratio: int,
-    norm_elementwise_affine: bool,
 ) -> None:
     # Slim CrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
     layer = CrossAttention(
@@ -38,7 +36,6 @@ def test_CrossAttention_equivariance(
         kv_s_channels=s_channels_cond,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
-        norm_elementwise_affine=norm_elementwise_affine,
     )
     s = torch.randn(*batch_dims, N, s_channels)
     s_cond = torch.randn(*batch_dims, N_cond, s_channels_cond)

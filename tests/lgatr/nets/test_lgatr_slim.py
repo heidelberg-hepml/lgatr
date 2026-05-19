@@ -162,14 +162,12 @@ def test_Linear_initialization(
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("v_channels,s_channels", [(24, 14)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
-@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_SelfAttention_equivariance(
     batch_dims: list[int],
     v_channels: int,
     s_channels: int,
     num_heads: int,
     attn_ratio: int,
-    norm_elementwise_affine: bool,
 ) -> None:
     # Slim SelfAttention preserves shapes and is SO(1, 3)-equivariant.
     layer = SelfAttention(
@@ -177,7 +175,6 @@ def test_SelfAttention_equivariance(
         s_channels=s_channels,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
-        norm_elementwise_affine=norm_elementwise_affine,
     )
     s = torch.randn(*batch_dims, s_channels)
 

@@ -89,7 +89,7 @@ class RMSNorm(nn.Module):
         v_channels: int,
         s_channels: int,
         epsilon: float = 0.01,
-        elementwise_affine: bool = False,
+        elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
         self.epsilon = epsilon
@@ -236,6 +236,8 @@ class Linear(nn.Module):
             fan_in = max(self._in_s_channels, 1)
             bound = s_factor / math.sqrt(fan_in)
             nn.init.uniform_(self.linear_s.weight, a=-bound, b=bound)
+            if self.linear_s.bias is not None:
+                nn.init.zeros_(self.linear_s.bias)
 
 
 class GatedLinearUnit(nn.Module):
@@ -315,7 +317,8 @@ class GatedLinearUnit(nn.Module):
 
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
-        return ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
+        # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
+        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
 
 
 class SelfAttention(nn.Module):
@@ -333,11 +336,6 @@ class SelfAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
-    rmsnorm_eps
-        Epsilon for the qkv :class:`RMSNorm` (only used when ``attn_norm`` is ``True``).
-    attn_norm
-        If ``True`` (default), apply :class:`RMSNorm` to qkv before attention. If ``False``,
-        skip the qkv normalization entirely.
     """
 
     def __init__(
@@ -347,9 +345,6 @@ class SelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
-        rmsnorm_eps: float = 0.01,
-        attn_norm: bool = True,
-        norm_elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -363,6 +358,7 @@ class SelfAttention(nn.Module):
             out_v_channels=3 * self.hidden_v_channels * self.num_heads,
             in_s_channels=s_channels,
             out_s_channels=3 * self.hidden_s_channels * self.num_heads,
+            bias=False,
             initialization="small",
         )
         self.linear_out = Linear(
@@ -372,15 +368,10 @@ class SelfAttention(nn.Module):
             out_s_channels=s_channels,
             initialization="small",
         )
-        self.norm = (
-            RMSNorm(
-                self.hidden_v_channels,
-                self.hidden_s_channels,
-                epsilon=rmsnorm_eps,
-                elementwise_affine=norm_elementwise_affine,
-            )
-            if attn_norm
-            else None
+        self.norm = RMSNorm(
+            self.hidden_v_channels,
+            self.hidden_s_channels,
+            elementwise_affine=False,
         )
         if dropout_prob is not None:
             self.dropout = Dropout(dropout_prob)
@@ -401,15 +392,15 @@ class SelfAttention(nn.Module):
             .movedim(-1, -3)
         )
 
-        # normalize for stability (important; can be disabled via attn_norm=False)
-        if self.norm is not None:
-            qkv_v, qkv_s = self.norm(qkv_v, qkv_s)
+        # norm QK to avoid attention logit blowup (standard in LLMs)
+        qk_v, qk_s = self.norm(qkv_v[:2], qkv_s[:2])
+        q_v, k_v = qk_v.unbind(0)
+        q_s, k_s = qk_s.unbind(0)
+        v_v, v_s = qkv_v[2], qkv_s[2]
 
-        q_v, k_v, v_v = qkv_v.unbind(0)
-        q_s, k_s, v_s = qkv_s.unbind(0)
+        q_v = q_v * self.metric.to(q_v.dtype)
 
-        q_v_mod = q_v * self.metric.to(q_v.dtype)
-        q = torch.cat([q_v_mod.flatten(start_dim=-2), q_s], dim=-1)
+        q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
         v = torch.cat([v_v.flatten(start_dim=-2), v_s], dim=-1)
         return q, k, v
@@ -563,11 +554,7 @@ class LGATrSlimBlock(nn.Module):
         Number of layers in the MLP.
     dropout_prob
         Dropout probability.
-    rmsnorm_eps
-        Epsilon for every :class:`RMSNorm` instance in the block.
-    attn_norm
-        If ``False``, disable the qkv :class:`RMSNorm` inside :class:`SelfAttention`. The block's
-        own pre-norms are unaffected.
+
     """
 
     def __init__(
@@ -576,23 +563,17 @@ class LGATrSlimBlock(nn.Module):
         s_channels: int,
         num_heads: int,
         nonlinearity: str = "gelu",
-        nonlinearity_v: str | None = None,
+        nonlinearity_v: str | None = "sigmoid",
         mlp_ratio: int = 2,
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
-        rmsnorm_eps: float = 0.01,
-        attn_norm: bool = True,
-        norm_elementwise_affine: bool = False,
+        norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
 
-        self.norm1 = RMSNorm(
-            v_channels, s_channels, epsilon=rmsnorm_eps, elementwise_affine=norm_elementwise_affine
-        )
-        self.norm2 = RMSNorm(
-            v_channels, s_channels, epsilon=rmsnorm_eps, elementwise_affine=norm_elementwise_affine
-        )
+        self.norm1 = RMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        self.norm2 = RMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
 
         self.attention = SelfAttention(
             v_channels=v_channels,
@@ -600,9 +581,6 @@ class LGATrSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
-            rmsnorm_eps=rmsnorm_eps,
-            attn_norm=attn_norm,
-            norm_elementwise_affine=norm_elementwise_affine,
         )
 
         self.mlp = MLP(
@@ -695,11 +673,6 @@ class LGATrSlim(nn.Module):
         Number of layers in each MLP.
     dropout_prob
         Dropout probability.
-    rmsnorm_eps
-        Epsilon for every :class:`RMSNorm` instance in the network.
-    attn_norm
-        If ``False``, disable the qkv :class:`RMSNorm` inside :class:`SelfAttention`. The
-        block-level pre-norms remain active.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     compile
@@ -726,9 +699,7 @@ class LGATrSlim(nn.Module):
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
-        rmsnorm_eps: float = 0.01,
-        attn_norm: bool = True,
-        norm_elementwise_affine: bool = False,
+        norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -754,8 +725,6 @@ class LGATrSlim(nn.Module):
                     attn_ratio=attn_ratio,
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
-                    rmsnorm_eps=rmsnorm_eps,
-                    attn_norm=attn_norm,
                     norm_elementwise_affine=norm_elementwise_affine,
                 )
                 for _ in range(num_blocks)
