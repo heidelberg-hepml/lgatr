@@ -187,6 +187,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
         Number of attention heads.
     nonlinearity
         Nonlinearity for the MLP layers.
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity in every GLU. ``None`` falls
+        back to ``nonlinearity``.
     mlp_ratio
         Expansion ratio for MLP hidden channels.
     attn_ratio
@@ -206,7 +209,8 @@ class ConditionalLGATrSlimBlock(nn.Module):
         s_channels: int,
         s_channels_cond: int,
         num_heads: int,
-        nonlinearity: str = "gelu",
+        nonlinearity: str = "silu",
+        nonlinearity_v: str | None = "sigmoid",
         mlp_ratio: int = 2,
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
@@ -240,6 +244,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
             v_channels=v_channels,
             s_channels=s_channels,
             nonlinearity=nonlinearity,
+            nonlinearity_v=nonlinearity_v,
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
@@ -342,6 +347,9 @@ class ConditionalLGATrSlim(nn.Module):
         Number of attention heads.
     nonlinearity
         Nonlinearity for the MLP layers.
+    nonlinearity_v
+        Optional override for the vector-path gate nonlinearity in every GLU. ``None`` falls
+        back to ``nonlinearity``.
     mlp_ratio
         Expansion ratio for MLP hidden channels.
     attn_ratio
@@ -374,7 +382,8 @@ class ConditionalLGATrSlim(nn.Module):
         hidden_s_channels: int,
         num_blocks: int,
         num_heads: int,
-        nonlinearity: str = "gelu",
+        nonlinearity: str = "silu",
+        nonlinearity_v: str | None = "sigmoid",
         mlp_ratio: int = 2,
         attn_ratio: int = 1,
         num_layers_mlp: int = 2,
@@ -402,6 +411,7 @@ class ConditionalLGATrSlim(nn.Module):
                     s_channels_cond=s_channels_cond,
                     num_heads=num_heads,
                     nonlinearity=nonlinearity,
+                    nonlinearity_v=nonlinearity_v,
                     mlp_ratio=mlp_ratio,
                     attn_ratio=attn_ratio,
                     num_layers_mlp=num_layers_mlp,
