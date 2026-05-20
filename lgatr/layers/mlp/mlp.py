@@ -3,7 +3,7 @@
 import torch
 from torch import nn
 
-from ...primitives.config import gatr_config
+from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
 from .config import MLPConfig
@@ -12,45 +12,45 @@ from .nonlinearities import ScalarGatedNonlinearity
 
 
 class GeoMLP(nn.Module):
-    """MLP with geometric product.
+    """MLP with a geometric product as the first nonlinear mixing step.
 
-    This is a core component of L-GATr's transformer blocks. It is similar to a regular MLP, except
-    that it uses geometric bilinears (the geometric product) in place of the first linear layer.
-
-    Assumes input has shape (..., channels, 16), output has shape (..., channels, 16),
-    will create hidden layers with shape (..., increase_hidden_channels*channels, 16).
+    Similar to a regular MLP, except the first linear layer is replaced by a geometric bilinear
+    (the geometric product). Inputs of shape ``(..., channels, 16)`` map to outputs of shape
+    ``(..., channels, 16)``; hidden layers have shape
+    ``(..., increase_hidden_channels * channels, 16)``.
 
     Parameters
     ----------
-    config: MLPConfig
-        Configuration object
+    config
+        MLP configuration.
+    primitives
+        LGATr primitives configuration.
     """
 
     def __init__(
         self,
         config: MLPConfig,
+        primitives: PrimitivesConfig,
     ) -> None:
         super().__init__()
 
         # Store settings
         self.config = config
+        self.primitives = primitives
 
         assert config.mv_channels is not None
-        s_channels = None if config.s_channels is None else config.s_channels
+        s_channels = config.s_channels
 
         mv_channels_list = [config.mv_channels]
         mv_channels_list.extend(
             [config.increase_hidden_channels * config.mv_channels] * config.num_hidden_layers
         )
         mv_channels_list.append(config.mv_channels)
-        if s_channels is not None:
-            s_channels_list = [s_channels]
-            s_channels_list.extend(
-                [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
-            )
-            s_channels_list.append(s_channels)
-        else:
-            s_channels_list = [None] * (len(mv_channels_list))
+        s_channels_list = [s_channels]
+        s_channels_list.extend(
+            [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
+        )
+        s_channels_list.append(s_channels)
 
         layers: list[nn.Module] = []
 
@@ -61,11 +61,11 @@ class GeoMLP(nn.Module):
                 in_s_channels=s_channels_list[0],
                 out_s_channels=s_channels_list[1],
             )
-            if gatr_config.use_geometric_product:
-                layers.append(GeometricBilinear(**kwargs))
+            if primitives.geometric_product:
+                layers.append(GeometricBilinear(primitives=primitives, **kwargs))
             else:
                 layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(EquiLinear(**kwargs))
+                layers.append(EquiLinear(primitives=primitives, **kwargs))
             if config.dropout_prob is not None:
                 layers.append(GradeDropout(config.dropout_prob))
 
@@ -77,35 +77,38 @@ class GeoMLP(nn.Module):
                 strict=False,
             ):
                 layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(EquiLinear(in_, out, in_s_channels=in_s, out_s_channels=out_s))
+                layers.append(
+                    EquiLinear(in_, out, primitives, in_s_channels=in_s, out_s_channels=out_s)
+                )
                 if config.dropout_prob is not None:
                     layers.append(GradeDropout(config.dropout_prob))
 
         self.layers = nn.ModuleList(layers)
 
     def forward(
-        self, multivectors: torch.Tensor, scalars: torch.Tensor
+        self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., s_channels).
+        multivectors
+            Input multivectors of shape ``(..., mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., s_channels)``. If None, the scalar stream is
+            bypassed and ``outputs_s`` is None.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors  with shape (..., mv_channels, 16).
-        outputs_s : None or torch.Tensor
-            Output scalars with shape (..., s_channels).
+        outputs_mv
+            Output multivectors of shape ``(..., mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
-        mv, s = multivectors, scalars
+        h_mv, h_s = multivectors, scalars
 
         for layer in self.layers:
-            mv, s = layer(mv, scalars=s)
+            h_mv, h_s = layer(h_mv, scalars=h_s)
 
-        return mv, s
+        return h_mv, h_s

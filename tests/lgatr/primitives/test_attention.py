@@ -13,16 +13,15 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 @pytest.mark.parametrize("num_tokens_out", [5, 1])
 @pytest.mark.parametrize("num_tokens_in", [7, 1])
 def test_scalar_attention_shape(
-    batch_dims,
-    num_tokens_in,
-    num_tokens_out,
-    num_mv_channels_in,
-    num_mv_channels_out,
-    num_s_channels_in,
-    num_s_channels_out,
-):
-    """Tests that outputs of scalar_attention() have correct shape."""
-    # Generate inputs
+    batch_dims: list[int],
+    num_tokens_in: int,
+    num_tokens_out: int,
+    num_mv_channels_in: int,
+    num_mv_channels_out: int,
+    num_s_channels_in: int,
+    num_s_channels_out: int,
+) -> None:
+    # sdp_attention outputs have the expected (..., items_out, channels) shapes.
     q_mv = torch.randn(*batch_dims, num_tokens_out, num_mv_channels_in, 16)
     k_mv = torch.randn(*batch_dims, num_tokens_in, num_mv_channels_in, 16)
     v_mv = torch.randn(*batch_dims, num_tokens_in, num_mv_channels_out, 16)
@@ -42,8 +41,13 @@ def test_scalar_attention_shape(
 @pytest.mark.parametrize("num_scalars", [5])
 @pytest.mark.parametrize("key_dim", [2])
 @pytest.mark.parametrize("item_dim", [3])
-def test_scalar_attention_equivariance(batch_dims, key_dim, item_dim, num_scalars):
-    """Tests scalar_attention() for Pin equivariance."""
+def test_scalar_attention_equivariance(
+    batch_dims: list[int],
+    key_dim: int,
+    item_dim: int,
+    num_scalars: int,
+) -> None:
+    # sdp_attention is Pin-equivariant when scalar Q/K/V are passed.
     data_dims = tuple(list(batch_dims) + [item_dim, key_dim])
     queries_scalar = torch.randn(*batch_dims, item_dim, num_scalars)
     keys_scalar = torch.randn(*batch_dims, item_dim, num_scalars)

@@ -1,3 +1,5 @@
+"""High-level L-GATr layers (linear, attention, MLP, dropout, normalization)."""
+
 from .attention.config import CrossAttentionConfig, SelfAttentionConfig
 from .attention.cross_attention import CrossAttention
 from .attention.self_attention import SelfAttention

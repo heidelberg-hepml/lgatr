@@ -6,29 +6,27 @@ from .vector import embed_vector
 
 
 def get_num_spurions(
-    beam_spurion="xyplane",
-    add_time_spurion=True,
-    beam_mirror=True,
-):
-    """
-    Compute how many reference multivectors/spurions a given configuration will have
+    beam_spurion: str | None = "xyplane",
+    add_time_spurion: bool = True,
+    beam_mirror: bool = True,
+) -> int:
+    """Compute how many reference multivectors / spurions a given configuration will have.
 
     Parameters
     ----------
-    beam_spurion: str
-        Different options for adding a beam_reference
-        Options: 'lightlike', 'spacelike', 'timelike', 'xyplane', None
-    add_time_spurion: bool
-        Whether to add the time direction as a reference to the network
-    beam_mirror: bool
-        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1).
-        Only relevant for beam_reference in ['lightlike', 'spacelike', 'timelike']
-        This is not required for ``beam_spurion=xyplane``, as the xy-plane is symmetric
+    beam_spurion
+        Beam-reference option. One of ``'lightlike'``, ``'spacelike'``, ``'timelike'``,
+        ``'xyplane'``, or ``None``.
+    add_time_spurion
+        Whether to add the time direction as a reference to the network.
+    beam_mirror
+        If True, include ``(x, 0, 0, -1)`` in addition to ``(x, 0, 0, 1)``. Only relevant for
+        ``beam_spurion`` in ``['lightlike', 'spacelike', 'timelike']`` (the xy-plane is symmetric).
 
     Returns
     -------
-    num_spurions: int
-        Number of spurions
+    num_spurions
+        Number of spurions.
     """
     assert beam_spurion in ["xyplane", "lightlike", "spacelike", "timelike", None]
 
@@ -43,34 +41,29 @@ def get_num_spurions(
 
 
 def get_spurions(
-    beam_spurion="xyplane",
-    add_time_spurion=True,
-    beam_mirror=True,
-    device="cpu",
-    dtype=torch.float32,
-):
-    """
-    Construct a list of reference multivectors/spurions for symmetry breaking
+    beam_spurion: str | None = "xyplane",
+    add_time_spurion: bool = True,
+    beam_mirror: bool = True,
+    device: torch.device | str = "cpu",
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    """Construct a list of reference multivectors / spurions for symmetry breaking.
 
     Parameters
     ----------
-    beam_spurion: str
-        Different options for adding a beam_reference
-        Options: 'lightlike', 'spacelike', 'timelike', 'xyplane', None
-    add_time_spurion: bool
-        Whether to add the time direction as a reference to the network
-    beam_mirror: bool
-        Whether we only want (x, 0, 0, 1) or both (x, 0, 0, +/- 1) for the beam
-        If true, include (x, 0, 0, -1) in addition to (x, 0, 0, 1).
-        Only relevant for beam_reference in ['lightlike', 'spacelike', 'timelike']
-        This is not required for ``beam_spurion=xyplane``, as the xy-plane is symmetric
-    device: torch.device
-    dtype: torch.dtype
+    beam_spurion
+        Beam-reference option. One of ``'lightlike'``, ``'spacelike'``, ``'timelike'``,
+        ``'xyplane'``, or ``None``.
+    add_time_spurion
+        Whether to add the time direction as a reference to the network.
+    beam_mirror
+        If True, include ``(x, 0, 0, -1)`` in addition to ``(x, 0, 0, 1)``. Only relevant for
+        ``beam_spurion`` in ``['lightlike', 'spacelike', 'timelike']`` (the xy-plane is symmetric).
 
     Returns
     -------
-    spurions: torch.tensor
-        spurion embedded as multivector object with shape (num_spurions, 16)
+    spurions
+        Spurions embedded as multivectors, shape ``(num_spurions, 16)``.
     """
     assert beam_spurion in ["xyplane", "lightlike", "spacelike", "timelike", None]
     kwargs = {"device": device, "dtype": dtype}

@@ -11,31 +11,37 @@ except ModuleNotFoundError as err:
 
 
 @torch.compiler.disable()
-def attention(query, key, value, dtype=None, **kwargs):
-    """Pass to flash-attention's flash_attn_varlen_func.
-    Note that flash-attention expects the shape (batch=1, items, head, channel).
+def attention(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    dtype: torch.dtype | None = None,
+    **kwargs,
+) -> torch.Tensor:
+    """Forward to flash-attention's ``flash_attn_varlen_func``.
 
-    There is no fancy docs website, so one has to check the source code for the interface:
-    https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_attn_interface.py
+    flash-attention expects shape ``(batch=1, items, head, channel)`` internally; this wrapper
+    transposes between the L-GATr layout and that.
+    See https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/flash_attn_interface.py.
 
     Parameters
     ----------
-    query : torch.Tensor
-        Queries with shape (batch, head, items_out, channel)
-    key : torch.Tensor
-        Keys with shape (batch, head, items_in, channel)
-    value : torch.Tensor
-        Values with shape (batch, head, items_in, channel)
-    dtype : torch.dtype, optional
-        If specified, cast input tensors to this dtype before passing to flash-attention.
-        If None, use torch.get_autocast_gpu_dtype().
+    query
+        Queries of shape ``(batch, head, items_out, channel)``.
+    key
+        Keys of shape ``(batch, head, items_in, channel)``.
+    value
+        Values of shape ``(batch, head, items_in, channel)``.
+    dtype
+        If specified, cast input tensors to this dtype before passing to flash-attention. If None,
+        use ``torch.get_autocast_gpu_dtype()``.
     **kwargs
-        Additional keyword arguments passed to flash_attn_varlen_func.
+        Additional keyword arguments forwarded to ``flash_attn_varlen_func``.
 
     Returns
     -------
-    out : torch.Tensor
-        Result with shape (batch, head, items_out, channel)
+    out
+        Result of shape ``(batch, head, items_out, channel)``.
     """
     assert len(query.shape) == 4, (
         "flash-attn constrains attention input shape to (batch, head, items, channel)."
@@ -50,7 +56,7 @@ def attention(query, key, value, dtype=None, **kwargs):
     else:
         in_dtype = None
 
-    def reshape(x):
+    def reshape(x: torch.Tensor) -> torch.Tensor:
         assert x.shape[0] == 1
         return x.squeeze(0).transpose(0, 1).contiguous()
 

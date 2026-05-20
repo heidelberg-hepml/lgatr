@@ -1,8 +1,9 @@
-"""Utility functions to test callables for consistency with clifford algebras."""
+"""Utility functions to test callables for consistency with clifford-algebra references."""
 
 from math import prod
 
 import clifford
+import numpy as np
 import torch
 
 from .clifford import mv_list_to_tensor
@@ -10,8 +11,10 @@ from .clifford import mv_list_to_tensor
 LAYOUT, _ = clifford.Cl(1, 3)
 
 
-def _sample_list_of_mv(batch_dims, rng):
-    """Utility function that samples a list of multivectors."""
+def _sample_list_of_mv(
+    batch_dims: tuple | list, rng: np.random.Generator | None
+) -> list[clifford.MultiVector]:
+    """Sample a list of multivectors of total length ``prod(batch_dims)``."""
     total_batchsize = 1 if not batch_dims else prod(batch_dims)
     xs = clifford.randomMV(layout=LAYOUT, n=total_batchsize, rng=rng)
     if total_batchsize == 1:  # Dealing with inconsistency of clifford.randomMV
@@ -19,8 +22,13 @@ def _sample_list_of_mv(batch_dims, rng):
     return xs
 
 
-def check_consistence_with_geometric_product(function, batch_dims=(1,), rng=None, **kwargs):
-    """Checks whether a callable computes the geometric product."""
+def check_consistence_with_geometric_product(
+    function,
+    batch_dims: tuple | list = (1,),
+    rng: np.random.Generator | None = None,
+    **kwargs,
+) -> None:
+    """Check that ``function`` matches the clifford reference for the geometric product."""
 
     # Generate random inputs
     xs = _sample_list_of_mv(batch_dims, rng)
@@ -39,8 +47,13 @@ def check_consistence_with_geometric_product(function, batch_dims=(1,), rng=None
     torch.testing.assert_close(xy, xy_true, **kwargs)
 
 
-def check_consistence_with_reversal(function, batch_dims=(1,), rng=None, **kwargs):
-    """Checks whether a callable computes the reversal of a multivector."""
+def check_consistence_with_reversal(
+    function,
+    batch_dims: tuple | list = (1,),
+    rng: np.random.Generator | None = None,
+    **kwargs,
+) -> None:
+    """Check that ``function`` matches the clifford reference for multivector reversal."""
 
     # Generate random inputs
     xs = _sample_list_of_mv(batch_dims, rng)
@@ -57,8 +70,13 @@ def check_consistence_with_reversal(function, batch_dims=(1,), rng=None, **kwarg
     torch.testing.assert_close(reversed_x, reversed_x_true, **kwargs)
 
 
-def check_consistence_with_grade_involution(function, batch_dims=(1,), rng=None, **kwargs):
-    """Checks whether a callable computes the grade involution of a multivectors."""
+def check_consistence_with_grade_involution(
+    function,
+    batch_dims: tuple | list = (1,),
+    rng: np.random.Generator | None = None,
+    **kwargs,
+) -> None:
+    """Check that ``function`` matches the clifford reference for the grade involution."""
 
     # Generate random inputs
     xs = _sample_list_of_mv(batch_dims, rng)

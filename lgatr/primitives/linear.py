@@ -1,203 +1,232 @@
 """Linear operations on multivectors, in particular linear basis maps."""
 
+import math
 from functools import lru_cache
 from pathlib import Path
 
 import torch
 
-from ..utils.einsum import cached_einsum, custom_einsum
-from .config import gatr_config
+from .config import PrimitivesConfig
 
 DEFAULT_DEVICE = torch.device("cpu")
 DEFAULT_DTYPE = torch.float32
 
 
+# Module-level constants loaded once at import. lru_cache helpers below only do `.to(...)`
+# casts on these, keeping them traceable under torch.compile(fullgraph=True).
+def _load_basis(name: str) -> torch.Tensor:
+    return torch.load(Path(__file__).parent.resolve() / name).to(DEFAULT_DTYPE).to_dense()
+
+
+_BASIS_SUBGROUP = _load_basis("linear_basis_subgroup.pt")
+_BASIS_FULL = _load_basis("linear_basis_full.pt")
+
+# Subgroup dual basis: summing the 5 dual rows yields a (16, 16) sign-permutation
+# (one nonzero per row). Sparse path replaces the 16-wide gather x[..., dual_perm]
+# with per-grade slice + flip(-1); this assert pins the basis layout it relies on.
+_DUAL = _BASIS_SUBGROUP[5:10].sum(dim=0)
+_DUAL_PERM = _DUAL.abs().argmax(dim=-1)
+_DUAL_SIGN = torch.gather(_DUAL, -1, _DUAL_PERM.unsqueeze(-1)).squeeze(-1)
+assert torch.equal(_DUAL_PERM, torch.arange(16).flip(0)), "sparse linear: bad basis layout"
+
+
 @lru_cache
 def _compute_pin_equi_linear_basis(
-    use_fully_connected_subgroup: bool = True,
-    device=DEFAULT_DEVICE,
-    dtype=DEFAULT_DTYPE,
+    subgroup: bool = True,
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
-    """Constructs basis elements for Lorentz-equivariant linear maps between multivectors.
-
-    This function is cached.
-
-    Parameters
-    ----------
-    use_fully_connected_subgroup : bool
-        If True, model is only equivariant with respect to
-        the fully connected subgroup of the Lorentz group,
-        the proper orthochronous Lorentz group :math:`SO^+(1,3)`,
-        which does not include parity and time reversal.
-        This setting affects how the EquiLinear maps work:
-        For :math:`SO^+(1,3)`, they include transitions scalars/pseudoscalars
-        vectors/axialvectors and among bivectors, effectively
-        treating the pseudoscalar/axialvector representations
-        like another scalar/vector.
-        Defaults to False, because parity-odd representations
-        are usually not important in high-energy physics simulations.
-    device : torch.device
-        Device
-    dtype : torch.dtype
-        Dtype
-
-    Returns
-    -------
-    basis : torch.Tensor
-        Basis elements for equivariant linear maps with shape (NUM_PIN_LINEAR_BASIS_ELEMENTS, 16, 16),
-        with NUM_PIN_LINEAR_BASIS_ELEMENTS=5 for the full Lorentz group (including the discrete
-        operations of parity and time reversal) and 10 for the fully connected subgroup.
-    """
-
-    if device not in [DEFAULT_DEVICE, "cpu"] and dtype != DEFAULT_DTYPE:
-        basis = _compute_pin_equi_linear_basis(
-            use_fully_connected_subgroup=use_fully_connected_subgroup
-        )
-    else:
-        file = (
-            "linear_basis_subgroup.pt" if use_fully_connected_subgroup else "linear_basis_full.pt"
-        )
-        filename = Path(__file__).parent.resolve() / file
-        basis = torch.load(filename).to(DEFAULT_DTYPE).to_dense()
-    return basis.to(device=device, dtype=dtype)
+    # Lorentz-equivariant basis of shape (10, 16, 16) for the proper orthochronous subgroup,
+    # or (5, 16, 16) for the full Pin group.
+    src = _BASIS_SUBGROUP if subgroup else _BASIS_FULL
+    return src.to(device=device, dtype=dtype)
 
 
 @lru_cache
-def _compute_reversal(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
-    """Constructs a matrix that computes multivector reversal.
+def _compute_grade_projection_mask(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    # Mask of shape (5, 16) selecting positions belonging to grade g in row g.
+    mask = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
+    offset = 0
+    for k in range(5):
+        d = math.comb(4, k)
+        mask[k, offset : offset + d] = 1
+        offset += d
+    return mask.to(device=device, dtype=dtype)
 
-    Parameters
-    ----------
-    device : torch.device
-        Device
-    dtype : torch.dtype
-        Dtype
 
-    Returns
-    -------
-    reversal_diag : torch.Tensor
-        The diagonal of the reversal matrix with shape (16,), consisting of +1 and -1 entries.
-    """
+@lru_cache
+def _compute_reversal(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    # Diagonal of shape (16,) for the multivector reversal (+/-1 entries).
     reversal_flat = torch.ones(16, device=device, dtype=dtype)
     reversal_flat[5:15] = -1
     return reversal_flat
 
 
 @lru_cache
-def _compute_grade_involution(device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE) -> torch.Tensor:
-    """Constructs a matrix that computes multivector grade involution.
-
-    Parameters
-    ----------
-    device : torch.device
-        Device
-    dtype : torch.dtype
-        Dtype
-
-    Returns
-    -------
-    involution_diag : torch.Tensor
-        The diagonal of the involution matrix with shape (16,), consisting of +1 and -1 entries.
-    """
+def _compute_grade_involution(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    # Diagonal of shape (16,) for the multivector grade involution (+/-1 entries).
     involution_flat = torch.ones(16, device=device, dtype=dtype)
     involution_flat[1:5] = -1
     involution_flat[11:15] = -1
     return involution_flat
 
 
-def equi_linear(x: torch.Tensor, coeffs: torch.Tensor) -> torch.Tensor:
+@lru_cache
+def _compute_dual_sign(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> torch.Tensor:
+    # Per-position dual-basis signs of shape (16,), cast to (device, dtype).
+    return _DUAL_SIGN.to(device=device, dtype=dtype)
+
+
+def _equi_linear_dense(
+    x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig
+) -> torch.Tensor:
+    # Equation: out[..., y, i] = sum_{x, a, j} coeffs[y, x, a] * basis[a, i, j] * x[..., x, j]
+    # basis is ~1% nonzero, so this path spends most of its FLOPs on zero entries; the sparse
+    # path skips those at the cost of less optimized kernels (no fused BLAS GEMM).
+    basis = _compute_pin_equi_linear_basis(config.subgroup, device=x.device, dtype=x.dtype)
+    # Fold (coeffs, basis) into an effective (out_c, in_c, 16, 16) weight via one GEMM,
+    # then contract that weight with x.
+    weight = (coeffs @ basis.flatten(-2)).unflatten(-1, (16, 16))
+    return torch.einsum("y x i j, ... x j -> ... y i", weight, x)
+
+
+def _equi_linear_sparse(
+    x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig
+) -> torch.Tensor:
+    # Per-grade matmul on contiguous slices of x: avoids materializing the (10, 16, 16) basis
+    # and the multi-axis einsum.
+    batch_shape = x.shape[:-2]
+    in_c = x.shape[-2]
+
+    def grade_mm(W: torch.Tensor, x_g: torch.Tensor) -> torch.Tensor:
+        # (out_c, in_c) @ (..., in_c, dim_g) -> (..., out_c, dim_g) as one 2-D GEMM via
+        # F.linear; the natural per-batch BMM is several times slower for small in_c.
+        dim_g = x_g.shape[-1]
+        x_flat = x_g.transpose(-1, -2).reshape(-1, in_c)
+        y_flat = torch.nn.functional.linear(x_flat, W)
+        return y_flat.unflatten(0, (*batch_shape, dim_g)).transpose(-1, -2)
+
+    # Contiguous grade slices of widths 1, 4, 6, 4, 1.
+    x0 = x[..., 0:1]
+    x1 = x[..., 1:5]
+    x2 = x[..., 5:11]
+    x3 = x[..., 11:15]
+    x4 = x[..., 15:16]
+
+    if config.subgroup:
+        # 10 basis elements: indices 0..4 are grade-preserving, 5..9 are the Hodge dual mapping
+        # grade g -> grade 4-g. The dual reduces to a sign-flip + per-grade reverse view, so each
+        # term stays a single GEMM (no full 16-wide gather).
+        s = _compute_dual_sign(device=x.device, dtype=x.dtype)
+        y0 = grade_mm(coeffs[..., 0], x0) + grade_mm(coeffs[..., 9], s[0:1] * x4.flip(-1))
+        y1 = grade_mm(coeffs[..., 1], x1) + grade_mm(coeffs[..., 8], s[1:5] * x3.flip(-1))
+        y2 = grade_mm(coeffs[..., 2], x2) + grade_mm(coeffs[..., 7], s[5:11] * x2.flip(-1))
+        y3 = grade_mm(coeffs[..., 3], x3) + grade_mm(coeffs[..., 6], s[11:15] * x1.flip(-1))
+        y4 = grade_mm(coeffs[..., 4], x4) + grade_mm(coeffs[..., 5], s[15:16] * x0.flip(-1))
+    else:
+        # Full Pin group: only the 5 grade-preserving basis elements.
+        y0 = grade_mm(coeffs[..., 0], x0)
+        y1 = grade_mm(coeffs[..., 1], x1)
+        y2 = grade_mm(coeffs[..., 2], x2)
+        y3 = grade_mm(coeffs[..., 3], x3)
+        y4 = grade_mm(coeffs[..., 4], x4)
+
+    return torch.cat((y0, y1, y2, y3, y4), dim=-1)
+
+
+def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tensor:
     """Pin-equivariant linear map ``f(x) = sum_{a,j} coeffs_a W^a_ij x_j``.
 
-    The W^a are seven pre-defined basis elements.
+    The :math:`W^a` are 5 or 10 pre-defined basis elements (see :func:`_compute_pin_equi_linear_basis`).
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input multivector with shape (..., in_channels, 16).
-        Batch dimensions must be broadcastable between x and coeffs.
-    coeffs : torch.Tensor
-        Coefficients for the basis elements with shape (out_channels, in_channels, 10).
-        Batch dimensions must be broadcastable between x and coeffs.
+    x
+        Input multivector of shape ``(..., in_channels, 16)``.
+    coeffs
+        Coefficients for the basis elements of shape ``(out_channels, in_channels, num_basis_elements)``,
+        where ``num_basis_elements`` is 10 (fully connected subgroup) or 5 (full Lorentz group).
+    config
+        LGATr primitives configuration.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Result with shape (..., 16).
-        Batch dimensions are result of broadcasting between x and coeffs.
+    outputs
+        Result of shape ``(..., out_channels, 16)``.
     """
-    basis = _compute_pin_equi_linear_basis(
-        gatr_config.use_fully_connected_subgroup, device=x.device, dtype=x.dtype
-    )
-    return custom_einsum("y x a, a i j, ... x j -> ... y i", coeffs, basis, x, path=[0, 1, 0, 1])
+    if config.sparse:
+        return _equi_linear_sparse(x, coeffs, config=config)
+    return _equi_linear_dense(x, coeffs, config=config)
 
 
 def grade_project(x: torch.Tensor) -> torch.Tensor:
-    """Projects an input tensor to the individual grades.
+    """Project a multivector onto its individual grades.
 
-    The return value is a single tensor with a new grade dimension.
+    The result is a single tensor with a new grade dimension.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
+    x
+        Input multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Output multivector with shape (..., 5, 16).
-        The second-to-last dimension indexes the grades.
+    outputs
+        Output multivector of shape ``(..., 5, 16)``. The second-to-last dimension indexes grades.
     """
-
-    # Select kernel on correct device
-    basis = _compute_pin_equi_linear_basis(
-        gatr_config.use_fully_connected_subgroup,
-        device=x.device,
-        dtype=x.dtype,
-    )
-
-    # First five basis elements are grade projections
-    basis = basis[:5]
-
-    # Project to grades
-    projections = cached_einsum("g i j, ... j -> ... g i", basis, x)
-
-    return projections
+    # Equivalent to ``einsum("g i j, ... j -> ... g i", basis[:5], x)``: the first five basis
+    # elements are pure-diagonal grade projectors, so the (5, 16, 16) operand collapses to a
+    # (5, 16) mask of their diagonals.
+    mask = _compute_grade_projection_mask(device=x.device, dtype=x.dtype)
+    return x.unsqueeze(-2) * mask
 
 
 def reverse(x: torch.Tensor) -> torch.Tensor:
-    """Computes the reversal of a multivector.
+    """Compute the reversal of a multivector.
 
-    The reversal has the same scalar, vector, and pseudoscalar components, but flips sign in the
-    bivector and trivector components.
+    The reversal preserves the scalar, vector, and pseudoscalar components and flips the sign of
+    the bivector and axialvector components.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
+    x
+        Input multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Output multivector with shape (..., 16).
+    outputs
+        Output multivector of shape ``(..., 16)``.
     """
     return _compute_reversal(device=x.device, dtype=x.dtype) * x
 
 
 def grade_involute(x: torch.Tensor) -> torch.Tensor:
-    """Computes the grade involution of a multivector.
+    """Compute the grade involution of a multivector.
 
-    The reversal has the same scalar, bivector, and pseudoscalar components, but flips sign in the
-    vector and trivector components.
+    The grade involution preserves the scalar, bivector, and pseudoscalar components and flips the
+    sign of the vector and axialvector components.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input multivector with shape (..., 16).
+    x
+        Input multivector of shape ``(..., 16)``.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Output multivector with shape (..., 16).
+    outputs
+        Output multivector of shape ``(..., 16)``.
     """
 
     return _compute_grade_involution(device=x.device, dtype=x.dtype) * x

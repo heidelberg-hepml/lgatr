@@ -56,7 +56,6 @@ The L-GATr primitives implement the core equivariant operations and are called b
    lgatr.primitives.dropout
    lgatr.primitives.invariants
    lgatr.primitives.linear
-   lgatr.primitives.nonlinearities
    lgatr.primitives.normalization
 
 
@@ -64,14 +63,13 @@ L-GATr Configuration Classes
 ----------------------------
 
 L-GATr uses ``dataclass`` objects to organize less relevant hyperparameters like number of heads or the MLP nonlinearity.
-The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig` and :class:`~lgatr.layers.attention.config.CrossAttentionConfig` are arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules,
-whereas the :class:`~lgatr.primitives.config.LGATrConfig` is a global object that is accessed within the L-GATr primitives.
+The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig`, :class:`~lgatr.layers.attention.config.CrossAttentionConfig`, and :class:`~lgatr.primitives.config.PrimitivesConfig` are all arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules.
 
 .. autosummary::
    :toctree: generated/
    :recursive:
 
-   lgatr.primitives.config.LGATrConfig
+   lgatr.primitives.config.PrimitivesConfig
    lgatr.layers.attention.config.SelfAttentionConfig
    lgatr.layers.attention.config.CrossAttentionConfig
    lgatr.layers.mlp.config.MLPConfig
@@ -93,6 +91,22 @@ which can be added as extra items or channels to break equivariance at the input
    lgatr.interface.pseudoscalar
    lgatr.interface.axialvector
    lgatr.interface.spurions
+
+L-GATr Utilities
+----------------
+
+Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
+constructor path, a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates the
+primitive caches for a given ``(device, dtype)``, and an autocast decorator that pins inputs to a
+minimum precision.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.utils.compile
+   lgatr.primitives.compile
+   lgatr.utils.autocast
 
 L-GATr-slim Layers
 ------------------

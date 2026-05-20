@@ -11,28 +11,36 @@ except ModuleNotFoundError as err:
 
 
 @torch.compiler.disable()
-def attention(query, key, value, dtype=None, **kwargs):
-    """Pass to xformers memory-efficient attention.
-    Note that this xformers expects the shape (batch, head, items, channel).
+def attention(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    dtype: torch.dtype | None = None,
+    **kwargs,
+) -> torch.Tensor:
+    """Forward to xformers' ``memory_efficient_attention``.
+
+    xformers expects shape ``(batch, item, head, channel)`` internally; this wrapper transposes
+    between the L-GATr layout and that.
 
     Parameters
     ----------
-    query : torch.Tensor
-        Queries with shape (batch, head, items_out, channel)
-    key : torch.Tensor
-        Keys with shape (batch, head, items_in, channel)
-    value : torch.Tensor
-        Values with shape (batch, head, items_in, channel)
-    dtype : torch.dtype, optional
-        If specified, cast input tensors to this dtype before passing to attention.
-        This can be useful to trigger flash-attention.
+    query
+        Queries of shape ``(batch, head, items_out, channel)``.
+    key
+        Keys of shape ``(batch, head, items_in, channel)``.
+    value
+        Values of shape ``(batch, head, items_in, channel)``.
+    dtype
+        If specified, cast input tensors to this dtype before passing to attention. Useful to
+        trigger flash-attention.
     **kwargs
-        Additional keyword arguments passed to memory_efficient_attention.
+        Additional keyword arguments forwarded to ``memory_efficient_attention``.
 
     Returns
     -------
-    out : torch.Tensor
-        Result with shape (batch, head, items_out, channel)
+    out
+        Result of shape ``(batch, head, items_out, channel)``.
     """
     assert len(query.shape) == 4, (
         "xformers constrains attention input shape to (batch, head, items, channel)."

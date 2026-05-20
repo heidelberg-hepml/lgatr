@@ -61,7 +61,7 @@ Reference vectors can be included as extra tokens or as extra channels.
 The ``lgatr`` package provides functions to create the most common reference multivectors.
 Note that the beam direction can be either encoded as a vector along the z-axis :math:`(0,0,0,1)`,
 or as the plane orthogonal to the z-axis, which can be represented as a
-bivector :math:`(0,0,1,0,0,0,)` in the geometric algebra. Common choices for reference vectors
+bivector :math:`(0,0,1,0,0,0)` in the geometric algebra. Common choices for reference vectors
 that break :math:`SO(1,3) \to SO(2)` are
 
 .. code-block:: python

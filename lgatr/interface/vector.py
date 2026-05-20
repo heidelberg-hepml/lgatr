@@ -3,44 +3,39 @@
 import torch
 
 
-def embed_vector(vector: torch.Tensor) -> torch.Tensor:
-    """Embeds Lorentz vectors in multivectors.
+def embed_vector(vectors: torch.Tensor) -> torch.Tensor:
+    """Embed Lorentz vectors into multivectors.
 
     Parameters
     ----------
-    vector : torch.Tensor
-        Lorentz vector with shape (..., 4)
+    vectors
+        Lorentz vectors of shape ``(..., 4)``.
 
     Returns
     -------
-    multivector : torch.Tensor
-        Embedding into multivector with shape (..., 16).
+    multivectors
+        Multivectors of shape ``(..., 16)``.
     """
 
-    # Create multivector tensor with same batch shape, same device, same dtype as input
-    batch_shape = vector.shape[:-1]
-    multivector = torch.zeros(*batch_shape, 16, dtype=vector.dtype, device=vector.device)
-
-    # Embedding into Lorentz vectors
-    multivector[..., 1:5] = vector
-
-    return multivector
+    # F.pad(x, (1, 11)) zero-pads 1 entry on the left and 11 on the right of the last dim,
+    # placing the input at indices 1..5 (the Lorentz-vector slots) with zeros elsewhere.
+    return torch.nn.functional.pad(vectors, (1, 11))
 
 
-def extract_vector(multivector: torch.Tensor) -> torch.Tensor:
-    """Given a multivector, extract a Lorentz vector.
+def extract_vector(multivectors: torch.Tensor) -> torch.Tensor:
+    """Extract Lorentz vectors from multivectors.
 
     Parameters
     ----------
-    multivector : torch.Tensor
-        Multivector with shape (..., 16).
+    multivectors
+        Multivectors of shape ``(..., 16)``.
 
     Returns
     -------
-    vector : torch.Tensor
-        Lorentz vector with shape (..., 4)
+    vectors
+        Lorentz vectors of shape ``(..., 4)``.
     """
 
-    vector = multivector[..., 1:5]
+    vectors = multivectors[..., 1:5]
 
-    return vector
+    return vectors

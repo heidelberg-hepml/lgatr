@@ -28,7 +28,7 @@ geometric algebra can be written as
 .. math::
     x = x_0 + x_\mu^V \gamma^\mu + x_{\mu\nu}^B \sigma^{\mu\nu} + x_\mu^A \gamma^\mu\gamma^5 + x^P \gamma^5.
 
-The 5 terms in this equation represent the 5 `grades` scalar, vector, antisymmetric tensor, axialvector,
+The 5 terms in this equation represent the 5 `grades` scalar, vector, bivector, axialvector,
 and pseudoscalar, which form subrepresentations of the Lorentz group.
 L-GATr internally performs operations on the 16-dimensional object
 :math:`(x^S, x_\mu^V, x_{\mu\nu}^B, x_\mu^A, x^P)`, which fully characterizes a multivector.
@@ -66,3 +66,35 @@ non-zero entries in all other representations. For example:
 L-GATr follows the convention of the
 `clifford package <https://clifford.readthedocs.io/en/latest/>`_
 for how multivectors are represented.
+
+.. _tensor-conventions:
+
+Tensor conventions
+------------------
+
+L-GATr uses a small set of consistent tensor layouts. Docstrings throughout the package refer to
+shapes using these conventions:
+
+- **Multivectors** carry a fixed last dimension of 16. Typical layouts:
+
+  - ``(..., 16)`` — a single multivector (no channel dimension).
+  - ``(..., channels, 16)`` — a stack of multivector channels.
+  - ``(..., items, channels, 16)`` — a sequence of multivector channels (transformer input).
+
+- **Scalars** carry no trailing 16. Typical layouts:
+
+  - ``(..., 1)`` — a single scalar embedded for use as a multivector argument.
+  - ``(..., channels)`` — a stack of scalar channels.
+  - ``(..., items, channels)`` — a sequence of scalar channels (transformer input).
+
+- **Lorentz vectors** (used by the slim variants :class:`~lgatr.nets.lgatr_slim.LGATrSlim` and
+  :class:`~lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim`) carry a fixed last dimension
+  of 4: ``(..., channels, 4)`` or ``(..., items, channels, 4)``.
+
+- Leading batch dimensions ``...`` are arbitrary and broadcast as in standard PyTorch ops.
+
+The 16 multivector slots index the geometric-algebra basis as defined above:
+``[scalar, vector(4), bivector(6), axialvector(4), pseudoscalar]``. Use the helpers in
+:mod:`lgatr.interface.scalar`, :mod:`lgatr.interface.vector`,
+:mod:`lgatr.interface.axialvector`, and :mod:`lgatr.interface.pseudoscalar` to embed and extract
+individual grades.

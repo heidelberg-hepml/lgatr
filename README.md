@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg)](https://codecov.io/gh/heidelberg-hepml/lgatr)
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/lgatr.svg)](https://anaconda.org/conda-forge/lgatr)
-[![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
+[![pytorch](https://img.shields.io/badge/PyTorch_2.4+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
@@ -48,7 +48,7 @@ Overview of features in L-GATr:
 ` because extra imports require modern versions of `pip, setuptools, wheel`.
 - Support for torch's automatic mixed precision; critical operations are performed in `float32`
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
-- Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `LGATRConfig` objects
+- Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `PrimitivesConfig` objects
 - `LGATrSlim` and `ConditionalLGATrSlim` as more efficient variants that use only scalar and vector representations
 
 ## Examples
@@ -59,6 +59,8 @@ Overview of features in L-GATr:
 - https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](arxiv.org/abs/2510.19906))
 - https://github.com/gregorkrz/jetcluster: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
+- https://github.com/gregorkrz/jetclustering: Jet clustering with IRC-safety via a penalty loss term, using a L-GATr backbone.
+- https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 

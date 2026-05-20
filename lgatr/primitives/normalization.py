@@ -2,38 +2,42 @@
 
 import torch
 
-from ..utils.misc import minimum_autocast_precision
+from ..utils.autocast import minimum_autocast_precision
 from .invariants import abs_squared_norm
 
 
 @minimum_autocast_precision(torch.float32)
 def equi_layer_norm(
-    x: torch.Tensor, channel_dim: int = -2, gain: float = 1.0, epsilon: float = 0.01
+    x: torch.Tensor,
+    channel_dim: int = -2,
+    gain: float = 1.0,
+    epsilon: float = 0.01,
 ) -> torch.Tensor:
     """Equivariant LayerNorm for multivectors.
 
-    Rescales input such that ``mean_channels |inputs|^2 = 1``, where the norm is the GA norm and the
-    mean goes over the channel dimensions.
+    Rescales the input such that ``mean_channels |x|^2 = 1``, where the norm is the GA norm and
+    the mean is taken over the channel dimension.
 
-    Using a factor ``gain > 1`` makes up for the fact that the GP norm overestimates the actual
+    Using a factor ``gain > 1`` makes up for the fact that the GA norm overestimates the actual
     standard deviation of the input data.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Multivectors with shape (..., 16).
-    channel_dim : int
-        Channel dimension index. Defaults to the second-last entry (last are the multivector components).
-    gain : float
+    x
+        Input multivectors of shape ``(..., 16)``.
+    channel_dim
+        Channel-dimension index. Defaults to the second-to-last entry (the last is the multivector
+        component dimension).
+    gain
         Target output scale.
-    epsilon : float
-        Small numerical factor to avoid instabilities. By default, we use a reasonably large number
-        to balance issues that arise from some multivector components not contributing to the norm.
+    epsilon
+        Small numerical offset to avoid instabilities. The default is intentionally larger than
+        usual to balance the fact that some multivector components do not contribute to the norm.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Normalized multivectors with shape (..., 16).
+    outputs
+        Normalized multivectors of shape ``(..., 16)``.
     """
 
     # Compute mean_channels |inputs|^2
@@ -44,7 +48,7 @@ def equi_layer_norm(
     # entries don't contribute to the inner product / GP norm!)
     abs_squared_norms = torch.clamp(abs_squared_norms, epsilon)
 
-    # Rescale inputs
-    outputs = gain * x * torch.rsqrt(abs_squared_norms)
-
-    return outputs
+    # ``gain * rsqrt(...)`` collapses to a small (..., 1, 16) tensor first, so the final
+    # broadcast multiply touches ``x`` only once (rather than ``gain * x * rsqrt`` which
+    # would allocate an intermediate the size of ``x``).
+    return x * (gain * torch.rsqrt(abs_squared_norms))

@@ -1,5 +1,6 @@
 """Equivariant transformer for multivector data."""
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 import torch
@@ -10,47 +11,60 @@ from ..layers.attention.config import SelfAttentionConfig
 from ..layers.lgatr_block import LGATrBlock
 from ..layers.linear import EquiLinear
 from ..layers.mlp.config import MLPConfig
+from ..primitives.config import PrimitivesConfig
+from ..utils.compile import compile_model, warmup_after_apply
 
 
 class LGATr(nn.Module):
     """L-GATr network.
 
-    It combines num_blocks L-GATr transformer blocks, each consisting of geometric self-attention
-    layers, a geometric MLP, residual connections, and normalization layers. In addition, there
-    are initial and final equivariant linear layers.
+    Combines ``num_blocks`` :class:`~lgatr.layers.lgatr_block.LGATrBlock` modules (geometric
+    self-attention, geometric MLP, residual connections, normalization) with initial and final
+    equivariant linear layers.
 
-    Assumes input has shape (..., items, in_mv_channels, 16), output has shape
-    (..., items, out_mv_channels, 16), will create hidden representations with shape
-    (..., items, hidden_mv_channels, 16). Similar for extra scalar channels.
+    Inputs have shape ``(..., items, in_mv_channels, 16)``; outputs have shape
+    ``(..., items, out_mv_channels, 16)``; hidden representations have shape
+    ``(..., items, hidden_mv_channels, 16)`` (and similar for the optional scalar stream).
 
     Parameters
     ----------
-    num_blocks : int
+    num_blocks
         Number of transformer blocks.
-    in_mv_channels : int
+    in_mv_channels
         Number of input multivector channels.
-    out_mv_channels : int
+    out_mv_channels
         Number of output multivector channels.
-    hidden_mv_channels : int
+    hidden_mv_channels
         Number of hidden multivector channels.
-    in_s_channels : None or int
-        If not None, sets the number of scalar input channels.
-    out_s_channels : None or int
-        If not None, sets the number of scalar output channels.
-    hidden_s_channels : None or int
-        If not None, sets the number of scalar hidden channels.
-    attention: Dict
-        Data for SelfAttentionConfig
-    mlp: Dict
-        Data for MLPConfig
-    reinsert_mv_channels : None or Tuple[int]
+    in_s_channels
+        Number of scalar input channels. Use 0 for no scalar inputs.
+    out_s_channels
+        Number of scalar output channels. Use 0 for no scalar outputs.
+    hidden_s_channels
+        Number of scalar hidden channels. Use 0 for no scalar stream in the hidden layers.
+    attention
+        Self-attention configuration (see :class:`~lgatr.layers.attention.config.SelfAttentionConfig`).
+    mlp
+        MLP configuration (see :class:`~lgatr.layers.mlp.config.MLPConfig`).
+    primitives
+        LGATr primitives configuration. Accepts a :class:`PrimitivesConfig` instance, a dict,
+        or ``None`` (uses defaults).
+    reinsert_mv_channels
         If not None, specifies multivector channels that will be reinserted in every attention layer.
-    reinsert_s_channels : None or Tuple[int]
+    reinsert_s_channels
         If not None, specifies scalar channels that will be reinserted in every attention layer.
-    dropout_prob : float or None
-        Dropout probability
-    checkpoint_blocks : bool
-        Whether to use checkpointing for the blocks. If True, will save memory at the cost of speed.
+    dropout_prob
+        Dropout probability.
+    checkpoint_blocks
+        Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
+    compile
+        Whether to wrap the model with :func:`torch.compile`. Primitive caches are warmed
+        automatically whenever the model is moved or cast (``.to()``, ``.cuda()``, ``.float()``,
+        etc.), so the captured graph is free of host-to-device copies.
+    **compile_kwargs
+        Forwarded to :func:`lgatr.utils.compile.compile_model` when ``compile=True``;
+        see there for the supported keys (``compile_mode``, ``compile_dynamic``,
+        ``compile_fullgraph``) and their defaults.
     """
 
     def __init__(
@@ -59,20 +73,26 @@ class LGATr(nn.Module):
         in_mv_channels: int,
         out_mv_channels: int,
         hidden_mv_channels: int,
-        in_s_channels: int | None,
-        out_s_channels: int | None,
-        hidden_s_channels: int | None,
+        in_s_channels: int,
+        out_s_channels: int,
+        hidden_s_channels: int,
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
+        primitives: PrimitivesConfig | Mapping | None = None,
         reinsert_mv_channels: tuple[int] | None = None,
         reinsert_s_channels: tuple[int] | None = None,
         dropout_prob: float | None = None,
         checkpoint_blocks: bool = False,
+        compile: bool = False,
+        **compile_kwargs,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
+        self.primitives = primitives
         self.linear_in = EquiLinear(
             in_mv_channels,
             hidden_mv_channels,
+            primitives,
             in_s_channels=in_s_channels,
             out_s_channels=hidden_s_channels,
         )
@@ -91,6 +111,7 @@ class LGATr(nn.Module):
                     s_channels=hidden_s_channels,
                     attention=attention,
                     mlp=mlp,
+                    primitives=primitives,
                     dropout_prob=dropout_prob,
                 )
                 for _ in range(num_blocks)
@@ -99,6 +120,7 @@ class LGATr(nn.Module):
         self.linear_out = EquiLinear(
             hidden_mv_channels,
             out_mv_channels,
+            primitives,
             in_s_channels=hidden_s_channels,
             out_s_channels=out_s_channels,
         )
@@ -106,29 +128,39 @@ class LGATr(nn.Module):
         self._reinsert_mv_channels = reinsert_mv_channels
         self._checkpoint_blocks = checkpoint_blocks
 
+        if compile:
+            compile_model(self, **compile_kwargs)
+
+    def _apply(self, fn, recurse=True):
+        """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""
+        super()._apply(fn, recurse=recurse)
+        warmup_after_apply(self)
+        return self
+
     def forward(
         self,
         multivectors: torch.Tensor,
         scalars: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass of the network.
+        """Forward pass.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors with shape (..., items, in_mv_channels, 16).
-        scalars : None or torch.Tensor
-            Optional input scalars with shape (..., items, in_s_channels).
+        multivectors
+            Input multivectors of shape ``(..., items, in_mv_channels, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, in_s_channels)``.
         **attn_kwargs
-            Optional keyword arguments passed to attention.
+            Optional keyword arguments forwarded to attention.
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items, out_mv_channels, 16).
-        outputs_s : None or torch.Tensor
-            Output scalars with shape (..., items, out_s_channels). None if out_s_channels=None.
+        outputs_mv
+            Output multivectors of shape ``(..., items, out_mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, out_s_channels)``, or None if
+            ``out_s_channels == 0``.
         """
 
         # Channels that will be re-inserted in any query / key computation
@@ -163,8 +195,14 @@ class LGATr(nn.Module):
 
         return outputs_mv, outputs_s
 
-    def _construct_reinserted_channels(self, multivectors, scalars):
-        """Constructs input features that will be reinserted in every attention layer."""
+    def _construct_reinserted_channels(
+        self,
+        multivectors: torch.Tensor,
+        scalars: torch.Tensor | None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        """Construct input features that will be reinserted in every attention layer.
+        This can be useful to enhance the sensitivity to specific input features, similar to a residual connection.
+        """
 
         if self._reinsert_mv_channels is None:
             additional_qk_features_mv = None
