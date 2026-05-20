@@ -35,9 +35,10 @@ class minimum_autocast_precision:
         Minimum dtype.
     output
         Decorator-only. Specifies which dtype the outputs should be cast to. Only floating-point
-        tensor outputs are affected. If None, outputs are not modified. If ``"low"``, the
-        lowest-precision input dtype is used. If ``"high"``, ``min_dtype`` or the highest-precision
-        input dtype is used (whichever is higher). If a ``torch.dtype``, that dtype is used.
+        tensor outputs are affected. If ``"low"`` (default), the lowest-precision input dtype is
+        used. If ``None``, outputs are not modified. If ``"high"``, ``min_dtype`` or the
+        highest-precision input dtype is used (whichever is higher). If a ``torch.dtype``, that
+        dtype is used.
     which_args
         Decorator-only. Positional argument indices to modify. If None, all positional arguments
         are modified (subject to the type / dtype filter above).
@@ -49,7 +50,7 @@ class minimum_autocast_precision:
     def __init__(
         self,
         min_dtype: torch.dtype = torch.float32,
-        output: Literal["low", "high"] | torch.dtype | None = None,
+        output: Literal["low", "high"] | torch.dtype | None = "low",
         which_args: list[int] | None = None,
         which_kwargs: list[str] | None = None,
     ) -> None:
@@ -114,7 +115,9 @@ class minimum_autocast_precision:
                 for arg in chain(args, kwargs.values())
                 if isinstance(arg, torch.Tensor) and arg.dtype.is_floating_point
             ]
-            assert len(in_dtypes)
+            if not in_dtypes:
+                # No floating-point inputs to derive "low"/"high" from; nothing to cast back to.
+                return outputs
             if self.output == "low":
                 out_dtype = min([self.min_dtype] + in_dtypes, key=lambda dt: torch.finfo(dt).bits)
             else:
@@ -122,7 +125,7 @@ class minimum_autocast_precision:
         else:
             out_dtype = self.output
         if isinstance(outputs, tuple):
-            return (self._cast_out(val, out_dtype) for val in outputs)
+            return tuple(self._cast_out(val, out_dtype) for val in outputs)
         return self._cast_out(outputs, out_dtype)
 
     def __enter__(self) -> "minimum_autocast_precision":
