@@ -113,8 +113,9 @@ class CrossAttention(nn.Module):
         )  # (*B, H, Nc, Cs)
 
         q_v, q_s = self.norm(q_v, q_s)
-        k_v, k_s = self.norm(kv_v[0], kv_s[0])
-        v_v, v_s = kv_v[1], kv_s[1]
+        kv_v, kv_s = self.norm(kv_v, kv_s)
+        k_v, v_v = kv_v.unbind(0)
+        k_s, v_s = kv_s.unbind(0)
 
         q_v = q_v * self.metric.to(q_v.dtype)
 

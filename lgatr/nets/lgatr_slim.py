@@ -393,10 +393,10 @@ class SelfAttention(nn.Module):
         )
 
         # norm QK to avoid attention logit blowup (standard in LLMs)
-        qk_v, qk_s = self.norm(qkv_v[:2], qkv_s[:2])
-        q_v, k_v = qk_v.unbind(0)
-        q_s, k_s = qk_s.unbind(0)
-        v_v, v_s = qkv_v[2], qkv_s[2]
+        # we find that normalizing V as well helps with stability+performance
+        qkv_v, qkv_s = self.norm(qkv_v, qkv_s)
+        q_v, k_v, v_v = qkv_v.unbind(0)
+        q_s, k_s, v_s = qkv_s.unbind(0)
 
         q_v = q_v * self.metric.to(q_v.dtype)
 
