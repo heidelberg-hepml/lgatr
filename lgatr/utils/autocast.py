@@ -118,10 +118,18 @@ class minimum_autocast_precision:
             if not in_dtypes:
                 # No floating-point inputs to derive "low"/"high" from; nothing to cast back to.
                 return outputs
+            # Plain loop instead of min/max(..., key=lambda) to avoid graph breaks in torch.compile
             if self.output == "low":
-                out_dtype = min([self.min_dtype] + in_dtypes, key=lambda dt: torch.finfo(dt).bits)
+                candidates = [self.min_dtype] + in_dtypes
+                out_dtype = candidates[0]
+                for dt in candidates[1:]:
+                    if torch.finfo(dt).bits < torch.finfo(out_dtype).bits:
+                        out_dtype = dt
             else:
-                out_dtype = max(in_dtypes, key=lambda dt: torch.finfo(dt).bits)
+                out_dtype = in_dtypes[0]
+                for dt in in_dtypes[1:]:
+                    if torch.finfo(dt).bits > torch.finfo(out_dtype).bits:
+                        out_dtype = dt
         else:
             out_dtype = self.output
         if isinstance(outputs, tuple):
