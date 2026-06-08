@@ -12,6 +12,7 @@ from .lgatr_slim import (
     RMSNorm,
     SelfAttention,
     _call_attention,
+    _freeze_dead_tail,
     _post_attention_reshape,
 )
 
@@ -430,6 +431,12 @@ class ConditionalLGATrSlim(nn.Module):
             out_s_channels=out_s_channels,
         )
         self._checkpoint_blocks = checkpoint_blocks
+
+        # norm3 is the pre-MLP norm; norm2 (cross-attention) stays alive
+        if num_blocks:
+            _freeze_dead_tail(
+                self.blocks[-1].norm3, self.blocks[-1].mlp, out_v_channels, out_s_channels
+            )
 
         if compile:
             compile_model(self, **compile_kwargs)

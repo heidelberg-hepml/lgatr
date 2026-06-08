@@ -28,6 +28,24 @@ def _call_attention(*args, **kwargs):
     return scaled_dot_product_attention(*args, **kwargs)
 
 
+def _freeze_dead_tail(
+    norm: nn.Module, mlp: nn.Module, out_v_channels: int, out_s_channels: int
+) -> None:
+    """Freeze last-block params that cannot receive grads when an output stream is empty."""
+    if out_v_channels == 0:
+        if norm.weight_v is not None:
+            norm.weight_v.requires_grad_(False)
+        for name, p in mlp.named_parameters():
+            if name.endswith("weight_v"):
+                p.requires_grad_(False)
+    if out_s_channels == 0:
+        if norm.weight_s is not None:
+            norm.weight_s.requires_grad_(False)
+        for name, p in mlp.named_parameters():
+            if "linear_s" in name:
+                p.requires_grad_(False)
+
+
 class Dropout(nn.Module):
     """Dropout for vector and scalar features.
 
@@ -98,6 +116,10 @@ class RMSNorm(nn.Module):
         if elementwise_affine:
             self.weight_v = nn.Parameter(torch.ones(v_channels))
             self.weight_s = nn.Parameter(torch.ones(s_channels))
+            # zero-size params get grads only sometimes under compile, breaking DDP
+            for weight in (self.weight_v, self.weight_s):
+                if weight.numel() == 0:
+                    weight.requires_grad_(False)
         else:
             self.register_parameter("weight_v", None)
             self.register_parameter("weight_s", None)
@@ -189,6 +211,10 @@ class Linear(nn.Module):
             self.linear_s = None
 
         self.reset_parameters(initialization)
+
+        # zero-size params get grads only sometimes under compile, breaking DDP
+        if self.weight_v.numel() == 0:
+            self.weight_v.requires_grad_(False)
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
@@ -738,6 +764,11 @@ class LGATrSlim(nn.Module):
             out_s_channels=out_s_channels,
         )
         self._checkpoint_blocks = checkpoint_blocks
+
+        if num_blocks:
+            _freeze_dead_tail(
+                self.blocks[-1].norm2, self.blocks[-1].mlp, out_v_channels, out_s_channels
+            )
 
         if compile:
             compile_model(self, **compile_kwargs)

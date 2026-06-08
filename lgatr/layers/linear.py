@@ -132,6 +132,11 @@ class EquiLinear(nn.Module):
         # Initialization
         self.reset_parameters(initialization)
 
+        # zero-size params get grads only sometimes under compile, breaking DDP
+        for p in self.parameters():
+            if p.numel() == 0:
+                p.requires_grad_(False)
+
     def forward(
         self, multivectors: torch.Tensor, scalars: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -305,7 +310,7 @@ class EquiLinear(nn.Module):
         # Since the variance of a uniform distribution between -a and a is given by
         # `Var[Uniform(-a, a)] = a^2/3`, we should set `a = gain * sqrt(3 / mv_in_channels)`.
         # In theory (see docstring).
-        fan_in = self._in_mv_channels
+        fan_in = max(self._in_mv_channels, 1)
         bound = mv_factor / math.sqrt(fan_in)
         for i, factor in enumerate(mv_component_factors):
             nn.init.uniform_(self.weight[..., i], a=-factor * bound, b=factor * bound)
