@@ -55,6 +55,8 @@ class LGATr(nn.Module):
         If not None, specifies scalar channels that will be reinserted in every attention layer.
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
     compile
@@ -82,6 +84,7 @@ class LGATr(nn.Module):
         reinsert_mv_channels: tuple[int] | None = None,
         reinsert_s_channels: tuple[int] | None = None,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -113,6 +116,7 @@ class LGATr(nn.Module):
                     mlp=mlp,
                     primitives=primitives,
                     dropout_prob=dropout_prob,
+                    norm_elementwise_affine=norm_elementwise_affine,
                 )
                 for _ in range(num_blocks)
             ]

@@ -1,5 +1,6 @@
 import pytest
 import torch
+from torch import nn
 
 from lgatr.layers.layer_norm import EquiLayerNorm
 from lgatr.primitives import abs_squared_norm
@@ -21,9 +22,17 @@ def test_equi_layer_norm_layer_correctness(batch_dims: tuple[int, ...], num_scal
 
 @pytest.mark.parametrize("batch_dims", [(7, 9)])
 @pytest.mark.parametrize("num_scalars", [9])
-def test_equi_layer_norm_layer_equivariance(batch_dims: tuple[int, ...], num_scalars: int) -> None:
-    # EquiLayerNorm is Pin-equivariant.
-    layer = EquiLayerNorm()
+@pytest.mark.parametrize("elementwise_affine", [False, True])
+def test_equi_layer_norm_layer_equivariance(
+    batch_dims: tuple[int, ...], num_scalars: int, elementwise_affine: bool
+) -> None:
+    # EquiLayerNorm is Pin-equivariant, including with a non-trivial per-grade affine gain.
+    mv_channels = batch_dims[-1]
+    layer = EquiLayerNorm(mv_channels, num_scalars, elementwise_affine=elementwise_affine)
+    if elementwise_affine:
+        # default init is all-ones, which is indistinguishable from off, so randomize
+        nn.init.normal_(layer.weight_mv)
+        nn.init.normal_(layer.weight_s)
     scalars = torch.randn(*batch_dims, num_scalars)
     check_pin_equivariance(
         layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=scalars), **TOLERANCES

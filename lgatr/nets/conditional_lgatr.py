@@ -56,6 +56,8 @@ class ConditionalLGATr(nn.Module):
         or ``None`` (uses defaults).
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the transformer blocks.
     compile
@@ -84,6 +86,7 @@ class ConditionalLGATr(nn.Module):
         mlp: MLPConfig,
         primitives: PrimitivesConfig | Mapping | None = None,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
         **compile_kwargs,
@@ -116,6 +119,7 @@ class ConditionalLGATr(nn.Module):
                     mlp=mlp,
                     primitives=primitives,
                     dropout_prob=dropout_prob,
+                    norm_elementwise_affine=norm_elementwise_affine,
                 )
                 for _ in range(num_blocks)
             ]

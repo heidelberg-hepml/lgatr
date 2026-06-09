@@ -34,6 +34,8 @@ class LGATrBlock(nn.Module):
         LGATr primitives configuration.
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the :class:`EquiLayerNorm` instances learn an affine gain.
     """
 
     def __init__(
@@ -44,12 +46,18 @@ class LGATrBlock(nn.Module):
         mlp: MLPConfig,
         primitives: PrimitivesConfig,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
         self.primitives = primitives
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
-        self.norm = EquiLayerNorm()
+        # Normalization layers
+        self.norm1 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm2 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
 
         # Self-attention layer
         attention = replace(
@@ -105,7 +113,7 @@ class LGATrBlock(nn.Module):
         """
 
         # Attention block: pre layer norm
-        h_mv, h_s = self.norm(multivectors, scalars=scalars)
+        h_mv, h_s = self.norm1(multivectors, scalars=scalars)
 
         # Attention block: self attention
         h_mv, h_s = self.attention(
@@ -121,7 +129,7 @@ class LGATrBlock(nn.Module):
         outputs_s = residual_add(scalars, h_s)
 
         # MLP block: pre layer norm
-        h_mv, h_s = self.norm(outputs_mv, scalars=outputs_s)
+        h_mv, h_s = self.norm2(outputs_mv, scalars=outputs_s)
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)

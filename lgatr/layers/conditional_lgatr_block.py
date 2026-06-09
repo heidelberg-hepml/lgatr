@@ -46,6 +46,8 @@ class ConditionalLGATrBlock(nn.Module):
         LGATr primitives configuration.
     dropout_prob
         Dropout probability.
+    norm_elementwise_affine
+        Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     """
 
     def __init__(
@@ -59,12 +61,26 @@ class ConditionalLGATrBlock(nn.Module):
         mlp: MLPConfig,
         primitives: PrimitivesConfig,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
         self.primitives = primitives
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
-        self.norm = EquiLayerNorm()
+        # Pre-norms: norm1 (self-attn), norm2 (cross-attn query), norm_cond (cross-attn condition),
+        # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the
+        # query and condition normalizations and both follow norm_elementwise_affine.
+        self.norm1 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm2 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm3 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm_cond = EquiLayerNorm(
+            mv_channels_cond, s_channels_cond, elementwise_affine=norm_elementwise_affine
+        )
 
         # Self-attention layer
         attention = replace(
@@ -139,7 +155,7 @@ class ConditionalLGATrBlock(nn.Module):
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
         # Self-attention block: pre layer norm
-        h_mv, h_s = self.norm(multivectors, scalars=scalars)
+        h_mv, h_s = self.norm1(multivectors, scalars=scalars)
 
         # Self-attention block: self attention
         h_mv, h_s = self.attention(
@@ -153,8 +169,8 @@ class ConditionalLGATrBlock(nn.Module):
         scalars = residual_add(scalars, h_s)
 
         # Cross-attention block: pre layer norm
-        h_mv, h_s = self.norm(multivectors, scalars=scalars)
-        mv_cond, s_cond = self.norm(multivectors_cond, scalars=scalars_cond)
+        h_mv, h_s = self.norm2(multivectors, scalars=scalars)
+        mv_cond, s_cond = self.norm_cond(multivectors_cond, scalars=scalars_cond)
 
         # Cross-attention block: cross attention
         h_mv, h_s = self.crossattention(
@@ -170,7 +186,7 @@ class ConditionalLGATrBlock(nn.Module):
         outputs_s = residual_add(scalars, h_s)
 
         # MLP block: pre layer norm
-        h_mv, h_s = self.norm(outputs_mv, scalars=outputs_s)
+        h_mv, h_s = self.norm3(outputs_mv, scalars=outputs_s)
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)

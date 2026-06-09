@@ -95,6 +95,7 @@ def test_conditional_gatr_shape(
 @pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
 @pytest.mark.parametrize("dropout_prob", [None])
 @pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_conditional_gatr_equivariance(
     batch_dims: list[int],
     num_items: int,
@@ -111,6 +112,7 @@ def test_conditional_gatr_equivariance(
     out_s_channels: int,
     multi_query_attention: bool,
     dropout_prob: float | None,
+    norm_elementwise_affine: bool,
 ) -> None:
     # ConditionalLGATr (full network) is Pin-equivariant in both inputs and condition.
     try:
@@ -134,6 +136,7 @@ def test_conditional_gatr_equivariance(
             mlp=MLPConfig(),
             num_blocks=num_blocks,
             dropout_prob=dropout_prob,
+            norm_elementwise_affine=norm_elementwise_affine,
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine

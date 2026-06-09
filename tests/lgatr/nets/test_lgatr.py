@@ -76,6 +76,7 @@ def test_lgatr_shape(
 @pytest.mark.parametrize("num_heads,num_blocks", [(4, 1)])
 @pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", S_CHANNELS)
 @pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_lgatr_equivariance(
     batch_dims: tuple[int, ...],
     num_items: int,
@@ -88,6 +89,7 @@ def test_lgatr_equivariance(
     out_s_channels: int,
     hidden_s_channels: int,
     multi_query_attention: bool,
+    norm_elementwise_affine: bool,
 ) -> None:
     # LGATr (full network) is Pin-equivariant.
     try:
@@ -104,6 +106,7 @@ def test_lgatr_equivariance(
             ),
             num_blocks=num_blocks,
             mlp=MLPConfig(),
+            norm_elementwise_affine=norm_elementwise_affine,
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine

@@ -78,6 +78,7 @@ def test_conditional_gatr_block_shape(
 @pytest.mark.parametrize("num_heads,multi_query_attention", [(1, False), (4, True)])
 @pytest.mark.parametrize("s_channels,s_channels_cond", S_CHANNELS)
 @pytest.mark.parametrize("dropout_prob", [None])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_conditional_gatr_block_equivariance(
     batch_dims: list[int],
     num_items: int,
@@ -89,6 +90,7 @@ def test_conditional_gatr_block_equivariance(
     s_channels_cond: int,
     multi_query_attention: bool,
     dropout_prob: float | None,
+    norm_elementwise_affine: bool,
 ) -> None:
     # ConditionalLGATrBlock is Pin-equivariant in both query and condition multivector inputs.
     try:
@@ -108,6 +110,7 @@ def test_conditional_gatr_block_equivariance(
             mlp=MLPConfig(),
             primitives=PrimitivesConfig(),
             dropout_prob=dropout_prob,
+            norm_elementwise_affine=norm_elementwise_affine,
         )
     except NotImplementedError:
         # Some features require scalar inputs, and failing without them is fine
