@@ -38,15 +38,15 @@ class EquiLayerNorm(nn.Module):
         multivectors
             Multivector inputs of shape ``(..., 16)``.
         scalars
-            Optional scalar inputs of shape ``(...)``. If None, no scalar normalization is
-            performed and ``outputs_s`` is None.
+            Optional scalar inputs of shape ``(..., s_channels)``. If None, no scalar normalization
+            is performed and ``outputs_s`` is None.
 
         Returns
         -------
         outputs_mv
             Normalized multivectors of shape ``(..., 16)``.
         outputs_s
-            Normalized scalars of shape ``(...)``, or None if ``scalars`` is None.
+            Normalized scalars of shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
         outputs_mv = equi_layer_norm(

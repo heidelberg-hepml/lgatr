@@ -29,15 +29,15 @@ class GradeDropout(nn.Module):
         multivectors
             Multivector inputs of shape ``(..., 16)``.
         scalars
-            Optional scalar inputs of shape ``(...)``. If None, scalar dropout is skipped and
-            ``outputs_s`` is None.
+            Optional scalar inputs of shape ``(..., s_channels)``. If None, scalar dropout is
+            skipped and ``outputs_s`` is None.
 
         Returns
         -------
         outputs_mv
             Multivectors after dropout, shape ``(..., 16)``.
         outputs_s
-            Scalars after dropout, shape ``(...)``, or None if ``scalars`` is None.
+            Scalars after dropout, shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
         outputs_mv = grade_dropout(multivectors, p=self._dropout_prob, training=self.training)

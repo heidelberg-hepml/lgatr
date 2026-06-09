@@ -74,7 +74,7 @@ class GeoMLP(nn.Module):
                 mv_channels_list[2:],
                 s_channels_list[1:-1],
                 s_channels_list[2:],
-                strict=False,
+                strict=True,
             ):
                 layers.append(ScalarGatedNonlinearity(config.activation))
                 layers.append(
