@@ -65,6 +65,7 @@ def sdp_attention(
         k = torch.cat([k, k_s], -1)
         v = torch.cat([v, v_s], -1)
 
+    q, k, v = q.contiguous(), k.contiguous(), v.contiguous()
     outputs = scaled_dot_product_attention(q, k, v, **attn_kwargs)
 
     outputs_mv = outputs[..., : num_channels_out * 16].unflatten(-1, (-1, 16))
