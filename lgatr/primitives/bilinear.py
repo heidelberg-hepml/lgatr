@@ -128,6 +128,6 @@ def geometric_product(
     outputs
         Result of shape ``(..., 16)``. Batch dimensions are the broadcast of ``x`` and ``y``.
     """
-    if config.sparse:
+    if config.sparse_gp:
         return _geometric_product_sparse(x, y)
     return _geometric_product_dense(x, y)

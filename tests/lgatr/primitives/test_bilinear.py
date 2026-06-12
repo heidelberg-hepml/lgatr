@@ -40,8 +40,8 @@ def test_geometric_product_sparse_dense_equivalence(batch_dims: list[int]) -> No
     # The sparse path agrees with the dense path within TOLERANCES on shared inputs.
     x = torch.randn(*batch_dims, 16)
     y = torch.randn(*batch_dims, 16)
-    out_dense = geometric_product(x, y, config=PrimitivesConfig(sparse=False))
-    out_sparse = geometric_product(x, y, config=PrimitivesConfig(sparse=True))
+    out_dense = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=False))
+    out_sparse = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=True))
     torch.testing.assert_close(out_sparse, out_dense, **TOLERANCES)
 
 
@@ -60,15 +60,15 @@ def test_geometric_product_sparse_dense_equivalence_broadcasting(
     # The sparse path must preserve the broadcasting semantics of the dense path.
     x = torch.randn(*x_batch)
     y = torch.randn(*y_batch)
-    out_dense = geometric_product(x, y, config=PrimitivesConfig(sparse=False))
-    out_sparse = geometric_product(x, y, config=PrimitivesConfig(sparse=True))
+    out_dense = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=False))
+    out_sparse = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=True))
     torch.testing.assert_close(out_sparse, out_dense, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 def test_geometric_product_sparse_correctness(batch_dims: list[int]) -> None:
     # The sparse path matches the clifford-library reference implementation.
-    config = PrimitivesConfig(sparse=True)
+    config = PrimitivesConfig(sparse_gp=True)
     check_consistence_with_geometric_product(
         lambda x, y: geometric_product(x, y, config=config), batch_dims, **TOLERANCES
     )
@@ -77,7 +77,7 @@ def test_geometric_product_sparse_correctness(batch_dims: list[int]) -> None:
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 def test_geometric_product_sparse_equivariance(batch_dims: list[int]) -> None:
     # The sparse path is Pin-equivariant in both arguments.
-    config = PrimitivesConfig(sparse=True)
+    config = PrimitivesConfig(sparse_gp=True)
     check_pin_equivariance(
         geometric_product,
         2,

@@ -294,7 +294,7 @@ def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConf
     outputs
         Result of shape ``(..., out_channels, 16)``.
     """
-    if config.sparse:
+    if config.sparse_linear:
         return _equi_linear_sparse(x, coeffs, config=config)
     return _equi_linear_dense(x, coeffs, config=config)
 
