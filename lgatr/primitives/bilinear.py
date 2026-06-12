@@ -68,9 +68,10 @@ class _GeometricProductSparse(torch.autograd.Function):
     @staticmethod
     def forward(x, y):
         indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
-        m = y[..., indices]  # (..., 16, 16); fold signs in-place (autograd is off in forward)
-        m.mul_(signs)
-        return torch.matmul(m, x.unsqueeze(-1)).squeeze(-1)
+        # Fused gather-multiply-sum rather than a batched (..., 16, 16) @ (..., 16, 1) matmul: the
+        # matmul must materialize the 16x16 operand, while this fuses to a single kernel under
+        # torch.compile (no 16x16 buffer), which is both faster and far lighter on GPU.
+        return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
 
     @staticmethod
     def setup_context(ctx, inputs, output):
@@ -87,9 +88,8 @@ class _GeometricProductSparse(torch.autograd.Function):
         grad_x = grad_y = None
         if ctx.needs_input_grad[0]:
             # grad_x[..., j] = sum_i grad_out[..., i] * signs[i, j] * y[..., indices[i, j]]
-            m = y[..., indices]
-            m.mul_(signs)
-            grad_x = _unbroadcast(torch.matmul(grad_out.unsqueeze(-2), m).squeeze(-2), x.shape)
+            m = signs * y[..., indices]
+            grad_x = _unbroadcast((grad_out.unsqueeze(-1) * m).sum(-2), x.shape)
             del m  # free the (..., 16, 16) temp before grad_y allocates its own
         if ctx.needs_input_grad[1]:
             # grad_y[..., k] = sum_{i, j : indices[i, j] = k} grad_out[..., i] * signs[i, j] * x[..., j]
