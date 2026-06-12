@@ -235,7 +235,7 @@ class Linear(nn.Module):
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
-        outputs_v = self.weight_v @ vectors
+        outputs_v = nn.functional.linear(vectors.mT, self.weight_v).mT
         if self.linear_s is not None:
             outputs_s = self.linear_s(scalars)
         else:
