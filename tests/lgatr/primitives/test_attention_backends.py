@@ -5,7 +5,7 @@ import torch
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
 from lgatr.primitives.attention_backends import get_attention_backend
-from tests.helpers.constants import STRICT_TOLERANCES
+from tests.helpers.constants import MILD_TOLERANCES, STRICT_TOLERANCES, TOLERANCES
 
 SHAPES = [
     (32, 8, 5, 32),
@@ -143,11 +143,48 @@ def test_flash_backend_selection(shape: tuple[int, ...]) -> None:
     out = backend_fn(*qkv_sparse, **kwargs)
     assert out.shape == shape_sparse
 
-    # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa)
+    # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa);
+    # flash-attn runs in fp16/bf16, so use low precision against the fp32 reference
     default_backend_fn = get_attention_backend()
     out_default = default_backend_fn(*qkv_dense)
     out_dense = _sparse_to_dense(out, shape)
-    torch.testing.assert_close(out_dense, out_default, **STRICT_TOLERANCES)
+    torch.testing.assert_close(out_dense, out_default, **MILD_TOLERANCES)
+
+
+@pytest.mark.skipif(
+    not _xformers_available or not torch.cuda.is_available(),
+    reason="xformers compiled path requires xformers and CUDA",
+)
+@pytest.mark.parametrize("shape", SHAPES)
+def test_xformers_compiled_path(shape: tuple[int, ...]) -> None:
+    # Under torch.compile the fp32 BlockDiagonalMask case routes through the traceable custom ops
+    # (fullgraph=True asserts no graph break); head_dim=13 exercises the head-dim zero-padding and
+    # corrected scale in both forward and backward.
+    from xformers.ops.fmha.attn_bias import BlockDiagonalMask
+
+    from lgatr.primitives.attention_backends.xformers import attention
+
+    device = torch.device("cuda")
+    b, _, t, _ = shape
+    shape_sparse, _, _ = _sparsify_shape(shape, device=device)
+    qkv_dense = _random_qkv(shape, device=device)
+    qkv_sparse = [_dense_to_sparse(x, shape).requires_grad_() for x in qkv_dense]
+    qkv_ref = [x.detach().requires_grad_() for x in qkv_dense]
+    attn_bias = BlockDiagonalMask.from_seqlens([t] * b, [t] * b)
+
+    # forward: compiled block-diagonal attention matches per-segment dense sdpa
+    out = torch.compile(attention, fullgraph=True)(*qkv_sparse, attn_bias=attn_bias)
+    assert out.shape == shape_sparse
+    out_dense = _sparse_to_dense(out, shape)
+    out_ref = torch_sdpa(*qkv_ref)
+    torch.testing.assert_close(out_dense, out_ref, **STRICT_TOLERANCES)
+
+    # backward: the corrected scale must also reach the backward custom op (a missing scale
+    # would rescale every gradient by sqrt(padded_dim / head_dim), a gross error)
+    out_dense.sum().backward()
+    out_ref.sum().backward()
+    for got, ref in zip(qkv_sparse, qkv_ref, strict=False):
+        torch.testing.assert_close(_sparse_to_dense(got.grad, shape), ref.grad, **TOLERANCES)
 
 
 @pytest.mark.skipif(
@@ -173,8 +210,9 @@ def test_varlen_backend_selection(shape: tuple[int, ...]) -> None:
     out = backend_fn(*qkv_sparse, **kwargs)
     assert out.shape == shape_sparse
 
-    # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa)
+    # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa);
+    # varlen_attn runs in fp16/bf16, so use low precision against the fp32 reference
     default_backend_fn = get_attention_backend()
     out_default = default_backend_fn(*qkv_dense)
     out_dense = _sparse_to_dense(out, shape)
-    torch.testing.assert_close(out_dense, out_default, **STRICT_TOLERANCES)
+    torch.testing.assert_close(out_dense, out_default, **MILD_TOLERANCES)

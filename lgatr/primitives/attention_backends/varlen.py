@@ -60,7 +60,17 @@ def attention(
         return x.squeeze(0).transpose(0, 1).contiguous()
 
     query, key, value = reshape(query), reshape(key), reshape(value)
+
+    head_dim = query.shape[-1]
+    pad = -head_dim % 8
+    if pad:
+        kwargs.setdefault("scale", head_dim**-0.5)
+        query = torch.nn.functional.pad(query, (0, pad))
+        key = torch.nn.functional.pad(key, (0, pad))
+        value = torch.nn.functional.pad(value, (0, pad))
     out = varlen_attn(query, key, value, **kwargs)
+    if pad:
+        out = out[..., :head_dim]
     out = out.transpose(0, 1).unsqueeze(0).contiguous()
 
     if in_dtype is not None:

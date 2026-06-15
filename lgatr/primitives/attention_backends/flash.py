@@ -61,6 +61,8 @@ def attention(
         return x.squeeze(0).transpose(0, 1).contiguous()
 
     query, key, value = reshape(query), reshape(key), reshape(value)
+    # no head_dim padding here (unlike varlen.py): flash-attn pads head_dim to a multiple of 8
+    # internally, computing the scale from the original dim and slicing the output back.
     out = flash_attn_varlen_func(query, key, value, **kwargs)
     out = out.transpose(0, 1).unsqueeze(0).contiguous()
 
