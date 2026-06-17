@@ -70,26 +70,33 @@ def attention(
     if pad:
         query, key, value = (torch.nn.functional.pad(t, (0, pad)) for t in (query, key, value))
 
-    # custom ops exist only to be torch.compile-traceable in fp32
-    # (xformers does not yet support torch.compile on the cutlass kernels used for fp32)
-    if torch.compiler.is_compiling() and _compiled_path_supported(query, dtype, attn_bias, kwargs):
+    if torch.compiler.is_compiling() and _fp32_custom_op_supported(query, dtype, attn_bias, kwargs):
+        # fp32 uses xformers' cutlass kernel, which torch.compile cannot trace; route it
+        # through the custom ops below instead.
         out = _attention_compiled(
             query, key, value, attn_bias, scale=head_dim**-0.5 if pad else None
         )
     else:
         if pad:
             kwargs.setdefault("scale", head_dim**-0.5)
-        out = _attention_eager(query, key, value, dtype=dtype, attn_bias=attn_bias, **kwargs)
+        # fp16/bf16 kernels are torch.compile-traceable, so trace straight through
+        # memory_efficient_attention; only the untraceable fp32 cutlass fallback is run under
+        # torch.compiler.disable() (a clean graph break rather than a trace failure).
+        compute_dtype = dtype if dtype is not None else query.dtype
+        traceable = compute_dtype in (torch.float16, torch.bfloat16)
+        forward = _attention_xformers if traceable else _attention_disabled
+        out = forward(query, key, value, dtype=dtype, attn_bias=attn_bias, **kwargs)
 
     if pad:
         out = out[..., :head_dim]
     return out.transpose(1, 2).contiguous()
 
 
-def _compiled_path_supported(query, dtype, attn_bias, kwargs) -> bool:
-    """Whether the torch.compile-traceable custom ops reproduce ``memory_efficient_attention`` exactly.
+def _fp32_custom_op_supported(query, dtype, attn_bias, kwargs) -> bool:
+    """Whether the fp32 custom-op path reproduces ``memory_efficient_attention`` exactly.
 
-    Covers only fp32 (fp16 kernels are already compilable) and a basic set of attn_bias, without extra kwargs.
+    Only fp32 needs it (fp16/bf16 kernels are torch.compile-traceable directly); also requires a
+    basic ``attn_bias`` type and no extra kwargs.
     """
     return (
         dtype is None
@@ -133,8 +140,7 @@ def _attention_compiled(
     return out
 
 
-@torch.compiler.disable()
-def _attention_eager(
+def _attention_xformers(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
@@ -142,7 +148,7 @@ def _attention_eager(
     attn_bias=None,
     **kwargs,
 ) -> torch.Tensor:
-    """Forward to xformers' ``memory_efficient_attention``, outside of any compiled graph."""
+    """Forward to xformers' ``memory_efficient_attention`` (torch.compile-traceable for fp16/bf16)."""
     if dtype is not None:
         in_dtype = query.dtype
         query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
@@ -156,6 +162,11 @@ def _attention_eager(
     )
 
     return out.to(in_dtype) if dtype is not None else out
+
+
+# fp32 cutlass attention is not torch.compile-traceable; this disabled variant turns it into a
+# clean graph break instead of a dynamo trace failure.
+_attention_disabled = torch.compiler.disable()(_attention_xformers)
 
 
 @torch.library.custom_op("lgatr::compiled_varlen_fwd", mutates_args=())
