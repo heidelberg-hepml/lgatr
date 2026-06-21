@@ -30,6 +30,7 @@ class QKVModule(nn.Module):
             primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=3 * config.hidden_s_channels * config.num_heads,
+            bias=False,
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
@@ -137,6 +138,7 @@ class MultiQueryQKVModule(nn.Module):
             primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=config.hidden_s_channels * config.num_heads,
+            bias=False,
         )
 
         # Key and value projections (shared between heads)
@@ -146,6 +148,7 @@ class MultiQueryQKVModule(nn.Module):
             primitives=primitives,
             in_s_channels=config.in_s_channels + config.additional_qk_s_channels,
             out_s_channels=config.hidden_s_channels,
+            bias=False,
         )
         self.v_linear = EquiLinear(
             in_mv_channels=config.in_mv_channels,
@@ -153,6 +156,7 @@ class MultiQueryQKVModule(nn.Module):
             primitives=primitives,
             in_s_channels=config.in_s_channels,
             out_s_channels=config.hidden_s_channels,
+            bias=False,
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config

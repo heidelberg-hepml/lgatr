@@ -49,6 +49,7 @@ class CrossAttention(nn.Module):
             primitives=primitives,
             in_s_channels=config.q_s_channels,
             out_s_channels=config.hidden_s_channels * config.num_heads,
+            bias=False,
         )
         self.kv_linear = EquiLinear(
             in_mv_channels=config.kv_mv_channels,
@@ -60,6 +61,7 @@ class CrossAttention(nn.Module):
             out_s_channels=2
             * config.hidden_s_channels
             * (1 if config.multi_query else config.num_heads),
+            bias=False,
         )
 
         # Output projection
