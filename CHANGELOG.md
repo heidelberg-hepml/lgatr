@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Planned July 2026
+
+### Added
+
+- `norm_elementwise_affine=True` option for `LGATr`, `ConditionalLGATr`, `LGATrSlim`, `ConditionalLGATrSlim` (changed default behavior)
+- `sparse_gp=True` and `sparse_linear=True` options in `PrimitivesConfig` (changed default to `sparse_gp=True` because always faster)
+- `nonlinearity_v` option for `LGATrSlim`/`ConditionalLGATrSlim` (changed default to `nonlinearity_v="sigmoid"` because more stable)
+- `torch.compile` support for `LGATr`/`ConditionalLGATr`
+- `warmup_caches` helper to prepropulate primitive caches for `torch.compile` with `mode="reduce-overhead"`
+- Extended unit tests to cover new options
+- Unit tests for all supported torch versions `torch>=2.4`
+
+### Fixed
+
+- Consistently support `scalars=None`
+- Set `requires_grad_(False)` for unused params to avoid `DDP` issues
+- Unified docstrings, and format equations for sphinx readability
+- Micro-optimizations for `LGATr`/`LGATrSlim` primitives
+- `varlen` and `xformers` attention backends now support head dims that are not a multiple of 8 via zero-padding
+- Custom access to `xformers` kernels to allow `torch.compile` `xformers` attention backend without graph breaks
+
+### Changed
+
+- Unify `get_nonlinearity()` between `LGATr`/`LGATrSlim`
+- Enforce `torch>=2.4` autocast syntax, drop support for low-torch-2 versions
+- Unify variable naming across the code; affects public API for conditional networks
+- `PrimitivesConfig` is now a model input like `MLPConfig`, no global `gatr_config` anymore
+- Renamed `PrimitivesConfig` flags: `use_fully_connected_subgroup`→`subgroup`, `use_bivector`→`bivector`, `use_geometric_product`→`geometric_product`
+- `minimum_autocast_precision` return outputs as tuple and downcast to low dtype automatically, now also usable as context manager
+- Removed scalar bias from qkv linear layers in all models
+- Slim stability refinements: initialize `linear_s` to 0, scale GLU inner product by 1/sqrt(4)
+
+### Removed
+
+- `einops`/`opt_einsum`/`numpy`/`lloca` requirements, now simply `torch>=2.4`
+
 ## [1.4.4] - 27.04.2026
 
 ### Added
