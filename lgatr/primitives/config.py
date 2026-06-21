@@ -54,7 +54,7 @@ class PrimitivesConfig:
     bivector: bool = True
     geometric_product: bool = True
 
-    sparse_gp: bool = False
+    sparse_gp: bool = True
     sparse_linear: bool = False
 
     @property
