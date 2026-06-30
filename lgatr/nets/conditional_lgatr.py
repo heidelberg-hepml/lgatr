@@ -64,10 +64,10 @@ class ConditionalLGATr(nn.Module):
         Whether to wrap the model with :func:`torch.compile`. Primitive caches are warmed
         automatically whenever the model is moved or cast (``.to()``, ``.cuda()``, ``.float()``,
         etc.), so the captured graph is free of host-to-device copies.
-    **compile_kwargs
-        Forwarded to :func:`lgatr.utils.compile.compile_model` when ``compile=True``;
-        see there for the supported keys (``compile_mode``, ``compile_dynamic``,
-        ``compile_fullgraph``) and their defaults.
+    compile_kwargs
+        Dict forwarded verbatim to :func:`torch.compile` (via
+        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
+        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
     """
 
     def __init__(
@@ -89,7 +89,7 @@ class ConditionalLGATr(nn.Module):
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
-        **compile_kwargs,
+        compile_kwargs: Mapping | None = None,
     ) -> None:
         super().__init__()
         primitives = PrimitivesConfig.cast(primitives)
@@ -134,7 +134,7 @@ class ConditionalLGATr(nn.Module):
         self._checkpoint_blocks = checkpoint_blocks
 
         if compile:
-            compile_model(self, **compile_kwargs)
+            compile_model(self, compile_kwargs=compile_kwargs)
 
     def _apply(self, fn, recurse=True):
         """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""

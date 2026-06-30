@@ -1,6 +1,7 @@
 """Equivariant transformer for vector and scalar data."""
 
 import math
+from collections.abc import Mapping
 
 import torch
 from torch import nn
@@ -703,10 +704,18 @@ class LGATrSlim(nn.Module):
         Whether to use gradient checkpointing for the blocks.
     compile
         Whether to wrap the model with :func:`torch.compile`.
-    **compile_kwargs
-        Forwarded to :func:`lgatr.utils.compile.compile_model` when ``compile=True``;
-        see there for the supported keys (``compile_mode``, ``compile_dynamic``,
-        ``compile_fullgraph``) and their defaults.
+    compile_kwargs
+        Dict forwarded verbatim to :func:`torch.compile` (via
+        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
+        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
+    activation_memory_budget
+        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
+        ``compile=True``. ``1.0`` recomputes only cheap pointwise/reduction ops in the backward
+        pass (torch default); lower values let the partitioner also recompute compute-intensive
+        ops, ranked by memory-saved-per-FLOP, trading backward FLOPs for a smaller activation
+        memory peak. At the default ``0.5`` the recomputed ops are typically the linear/GLU
+        projections, while attention outputs stay saved, reducing memory by ~30% at ~4% GPU
+        slowdown compared to ``1.0``. ``None`` leaves torch's global setting untouched.
     """
 
     def __init__(
@@ -728,7 +737,8 @@ class LGATrSlim(nn.Module):
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         compile: bool = False,
-        **compile_kwargs,
+        compile_kwargs: Mapping | None = None,
+        activation_memory_budget: float | None = 0.5,
     ) -> None:
         super().__init__()
 
@@ -771,7 +781,11 @@ class LGATrSlim(nn.Module):
             )
 
         if compile:
-            compile_model(self, **compile_kwargs)
+            compile_model(
+                self,
+                compile_kwargs=compile_kwargs,
+                activation_memory_budget=activation_memory_budget,
+            )
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, **attn_kwargs
