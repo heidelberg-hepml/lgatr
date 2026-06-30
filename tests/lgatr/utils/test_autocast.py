@@ -1,7 +1,8 @@
 import pytest
 import torch
 
-from lgatr.utils.autocast import minimum_autocast_precision
+import lgatr.utils.autocast as autocast_mod
+from lgatr.utils.autocast import minimum_autocast_precision, naive_amp
 
 
 # Choose dtypes to work on most devices -- torch.bfloat16 is not available on some GPUs
@@ -86,51 +87,43 @@ def test_minimum_autocast_precision_outputs(
 
 
 @pytest.mark.parametrize("device,amp_dtype", [("cpu", torch.bfloat16)])
-def test_minimum_autocast_precision_context_manager(device: str, amp_dtype: torch.dtype) -> None:
-    # Inside the `with`: autocast disabled; `cast()` upcasts low-precision floats only.
-    bf16_tensor = torch.empty(3, 5, device=device, dtype=amp_dtype)
-    fp64_tensor = torch.empty(3, 5, device=device, dtype=torch.float64)
-    int_tensor = torch.empty(3, 5, device=device, dtype=torch.int32)
+def test_naive_amp_disables_islands(device: str, amp_dtype: torch.dtype) -> None:
+    # Inside `with naive_amp()`, the decorator is a no-op so a low-precision input stays low.
+    @minimum_autocast_precision(torch.float32)
+    def input_dtype(x):
+        return x.dtype
 
+    x = torch.empty(3, 5, device=device, dtype=amp_dtype)
     with torch.autocast(device, amp_dtype, enabled=True):
-        assert torch.is_autocast_enabled(device)
-        with minimum_autocast_precision(torch.float32) as mp:
-            assert not torch.is_autocast_enabled(device)
-            assert mp.cast(bf16_tensor).dtype == torch.float32
-            assert mp.cast(fp64_tensor).dtype == torch.float64
-            assert mp.cast(int_tensor).dtype == torch.int32
-            assert mp.cast("not a tensor") == "not a tensor"
-        assert torch.is_autocast_enabled(device)
+        assert input_dtype(x) == torch.float32  # island on: upcast to fp32
+        with naive_amp():
+            assert input_dtype(x) == amp_dtype  # island bypassed: stays low precision
+            assert torch.is_autocast_enabled(device)  # autocast left enabled (unlike the decorator)
+        assert input_dtype(x) == torch.float32  # restored after the block
 
 
-def test_minimum_autocast_precision_context_manager_outside_autocast() -> None:
-    # Without outer autocast: CM still safe; `cast()` still upcasts unconditionally.
-    bf16_tensor = torch.empty(3, 5, dtype=torch.bfloat16)
-
-    assert not torch.is_autocast_enabled("cpu")
-    with minimum_autocast_precision(torch.float32) as mp:
-        assert not torch.is_autocast_enabled("cpu")
-        assert mp.cast(bf16_tensor).dtype == torch.float32
-    assert not torch.is_autocast_enabled("cpu")
-
-
-def test_minimum_autocast_precision_context_manager_exception_propagates() -> None:
-    # Exceptions raised inside the `with` block propagate, and outer autocast state is restored.
-    with torch.autocast("cpu", torch.bfloat16, enabled=True):
-        with pytest.raises(RuntimeError, match="boom"):
-            with minimum_autocast_precision(torch.float32):
-                assert not torch.is_autocast_enabled("cpu")
-                raise RuntimeError("boom")
-        assert torch.is_autocast_enabled("cpu")
+def test_naive_amp_false_is_noop() -> None:
+    # naive_amp(False) leaves the global state untouched (never overrides an outer naive_amp).
+    assert autocast_mod._NAIVE_AMP is False
+    with naive_amp(False):
+        assert autocast_mod._NAIVE_AMP is False
+    with naive_amp():
+        with naive_amp(False):
+            assert autocast_mod._NAIVE_AMP is True
+        assert autocast_mod._NAIVE_AMP is True
+    assert autocast_mod._NAIVE_AMP is False
 
 
-def test_minimum_autocast_precision_context_manager_nested_same_instance() -> None:
-    # Nesting `with mp: with mp:` on the same instance works (stack-based __enter__/__exit__).
-    mp = minimum_autocast_precision(torch.float32)
-    with torch.autocast("cpu", torch.bfloat16, enabled=True):
-        with mp:
-            assert not torch.is_autocast_enabled("cpu")
-            with mp:
-                assert not torch.is_autocast_enabled("cpu")
-            assert not torch.is_autocast_enabled("cpu")
-        assert torch.is_autocast_enabled("cpu")
+def test_naive_amp_nesting_and_exception_restore() -> None:
+    # Nesting restores the prior value at each level; an exception still restores it.
+    with naive_amp():
+        assert autocast_mod._NAIVE_AMP is True
+        with naive_amp():
+            assert autocast_mod._NAIVE_AMP is True
+        assert autocast_mod._NAIVE_AMP is True
+    assert autocast_mod._NAIVE_AMP is False
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with naive_amp():
+            raise RuntimeError("boom")
+    assert autocast_mod._NAIVE_AMP is False

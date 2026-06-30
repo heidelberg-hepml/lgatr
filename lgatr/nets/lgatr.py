@@ -12,6 +12,7 @@ from ..layers.lgatr_block import LGATrBlock
 from ..layers.linear import EquiLinear
 from ..layers.mlp.config import MLPConfig
 from ..primitives.config import PrimitivesConfig
+from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model, warmup_after_apply
 
 
@@ -59,6 +60,10 @@ class LGATr(nn.Module):
         Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
+    naive_amp
+        Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
+        autocast dtype (full bf16). When ``False`` (default), under autocast the multivector stream
+        and metric contractions stay fp32 while the scalar GEMMs run in bf16.
     compile
         Whether to wrap the model with :func:`torch.compile`. Primitive caches are warmed
         automatically whenever the model is moved or cast (``.to()``, ``.cuda()``, ``.float()``,
@@ -86,6 +91,7 @@ class LGATr(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
+        naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
     ) -> None:
@@ -131,6 +137,7 @@ class LGATr(nn.Module):
         self._reinsert_s_channels = reinsert_s_channels
         self._reinsert_mv_channels = reinsert_mv_channels
         self._checkpoint_blocks = checkpoint_blocks
+        self._naive_amp = naive_amp
 
         if compile:
             compile_model(self, compile_kwargs=compile_kwargs)
@@ -166,7 +173,15 @@ class LGATr(nn.Module):
             Output scalars of shape ``(..., items, out_s_channels)``, or None if
             ``out_s_channels == 0``.
         """
+        with naive_amp(self._naive_amp):
+            return self._forward(multivectors, scalars, **attn_kwargs)
 
+    def _forward(
+        self,
+        multivectors: torch.Tensor,
+        scalars: torch.Tensor | None = None,
+        **attn_kwargs,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         # Channels that will be re-inserted in any query / key computation
         (
             additional_qk_features_mv,

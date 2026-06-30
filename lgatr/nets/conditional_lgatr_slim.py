@@ -6,6 +6,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
+from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
 from .lgatr_slim import (
     MLP,
@@ -366,6 +367,10 @@ class ConditionalLGATrSlim(nn.Module):
         Whether the :class:`RMSNorm` instances learn per-channel gains.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
+    naive_amp
+        If ``True``, disable the fp32 ``minimum_autocast_precision`` islands so the whole forward
+        runs in the surrounding autocast dtype (e.g. bf16) instead of pinning the norms, inner
+        products, attention, and vector linears to fp32.
     compile
         Whether to wrap the model with :func:`torch.compile`.
     compile_kwargs
@@ -402,11 +407,13 @@ class ConditionalLGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
+        naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
         activation_memory_budget: float | None = 0.5,
     ) -> None:
         super().__init__()
+        self._naive_amp = naive_amp
 
         self.linear_in = Linear(
             in_v_channels=in_v_channels,
@@ -489,6 +496,25 @@ class ConditionalLGATrSlim(nn.Module):
         outputs_s
             Scalar features of shape ``(..., items, out_s_channels)``.
         """
+        with naive_amp(self._naive_amp):
+            return self._forward(
+                vectors,
+                vectors_cond,
+                scalars,
+                scalars_cond,
+                attn_kwargs=attn_kwargs,
+                crossattn_kwargs=crossattn_kwargs,
+            )
+
+    def _forward(
+        self,
+        vectors: torch.Tensor,
+        vectors_cond: torch.Tensor,
+        scalars: torch.Tensor,
+        scalars_cond: torch.Tensor,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 

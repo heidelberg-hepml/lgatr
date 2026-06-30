@@ -1,26 +1,59 @@
-"""Pin inputs to a minimum autocast precision; usable as decorator or context manager."""
+"""Pin inputs to a minimum autocast precision; usable as a decorator."""
 
 from collections.abc import Callable
-from contextlib import ExitStack
 from functools import wraps
 from itertools import chain
 from typing import Any, Literal
 
 import torch
 
+# Toggled by the naive_amp context manager; read at call time so torch.compile constant-folds it.
+_NAIVE_AMP = False
+
+
+class naive_amp:
+    """Disable all :class:`minimum_autocast_precision` pinning inside the block.
+
+    While active, the fp32 precision islands created by the :class:`minimum_autocast_precision`
+    decorator are bypassed and the wrapped ops run in the surrounding autocast dtype (e.g. bf16).
+    Restores the previous state on exit; safe to nest.
+
+    Parameters
+    ----------
+    enabled
+        Whether to enable naive-AMP mode. ``False`` leaves the current state untouched, making
+        ``naive_amp(False)`` a no-op that still nests cleanly (it never overrides an outer
+        ``naive_amp``).
+    """
+
+    def __init__(self, enabled: bool = True) -> None:
+        self.enabled = enabled
+        self._prev: list[bool] = []
+
+    def __enter__(self) -> "naive_amp":
+        global _NAIVE_AMP
+        if self.enabled:
+            self._prev.append(_NAIVE_AMP)
+            _NAIVE_AMP = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        global _NAIVE_AMP
+        if self.enabled:
+            _NAIVE_AMP = self._prev.pop()
+        return False
+
 
 class minimum_autocast_precision:
     """Pin tensors to a minimum precision inside autocast regions.
 
-    Usable in two forms:
+    Used as a decorator: ``@minimum_autocast_precision(torch.float32)`` on a function definition.
+    Inside autocast-enabled regions, floating-point inputs below ``min_dtype`` are cast up to
+    ``min_dtype``, autocast is disabled for the call, and outputs are optionally cast per the
+    ``output`` argument. Outside autocast regions the decorator is a no-op.
 
-    - As a decorator: ``@minimum_autocast_precision(torch.float32)`` on a function definition.
-      Inside autocast-enabled regions, floating-point inputs below ``min_dtype`` are cast up to
-      ``min_dtype``, autocast is disabled for the call, and outputs are optionally cast per the
-      ``output`` argument. Outside autocast regions the decorator is a no-op.
-    - As a context manager: ``with minimum_autocast_precision(torch.float32) as mp:`` disables
-      both CUDA and CPU autocast inside the block. Use ``mp.cast(tensor)`` to upcast individual
-      tensors to at least ``min_dtype``.
+    The :class:`naive_amp` context manager turns the decorator into a no-op, letting the wrapped
+    ops run in the surrounding autocast dtype instead.
 
     Only floating-point tensors are modified — non-tensors, integer tensors, and boolean tensors
     are left alone.
@@ -34,17 +67,16 @@ class minimum_autocast_precision:
     min_dtype
         Minimum dtype.
     output
-        Decorator-only. Specifies which dtype the outputs should be cast to. Only floating-point
-        tensor outputs are affected. If ``"low"`` (default), the lowest-precision input dtype is
-        used. If ``None``, outputs are not modified. If ``"high"``, ``min_dtype`` or the
-        highest-precision input dtype is used (whichever is higher). If a ``torch.dtype``, that
-        dtype is used.
+        Specifies which dtype the outputs should be cast to. Only floating-point tensor outputs
+        are affected. If ``"low"`` (default), the lowest-precision input dtype is used. If
+        ``None``, outputs are not modified. If ``"high"``, ``min_dtype`` or the highest-precision
+        input dtype is used (whichever is higher). If a ``torch.dtype``, that dtype is used.
     which_args
-        Decorator-only. Positional argument indices to modify. If None, all positional arguments
-        are modified (subject to the type / dtype filter above).
+        Positional argument indices to modify. If None, all positional arguments are modified
+        (subject to the type / dtype filter above).
     which_kwargs
-        Decorator-only. Keyword argument names to modify. If None, all keyword arguments are
-        modified (subject to the type / dtype filter above).
+        Keyword argument names to modify. If None, all keyword arguments are modified (subject to
+        the type / dtype filter above).
     """
 
     def __init__(
@@ -58,10 +90,9 @@ class minimum_autocast_precision:
         self.output = output
         self.which_args = which_args
         self.which_kwargs = which_kwargs
-        self._stack: list[ExitStack] = []
 
     def cast(self, var: Any) -> Any:
-        """Upcast a floating-point tensor to ``min_dtype`` (regardless of autocast state)."""
+        """Upcast a floating-point tensor to at least ``min_dtype``."""
         if not isinstance(var, torch.Tensor):
             return var
         if not var.dtype.is_floating_point:
@@ -81,8 +112,10 @@ class minimum_autocast_precision:
     def __call__(self, func: Callable) -> Callable:
         @wraps(func)
         def decorated_func(*args: Any, **kwargs: Any):
-            # Only change dtypes in autocast-enabled regions
-            if not (torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")):
+            # Skip in naive-AMP mode (run in the autocast dtype), or outside autocast regions.
+            if _NAIVE_AMP or not (
+                torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")
+            ):
                 return func(*args, **kwargs)
             # Cast inputs to at least min_dtype
             mod_args = [
@@ -135,15 +168,3 @@ class minimum_autocast_precision:
         if isinstance(outputs, tuple):
             return tuple(self._cast_out(val, out_dtype) for val in outputs)
         return self._cast_out(outputs, out_dtype)
-
-    def __enter__(self) -> "minimum_autocast_precision":
-        # Stacked so the same instance can be re-entered (nested `with`); pop_all transfers
-        # ownership only after both inner contexts entered cleanly.
-        with ExitStack() as guard:
-            guard.enter_context(torch.autocast(device_type="cuda", enabled=False))
-            guard.enter_context(torch.autocast(device_type="cpu", enabled=False))
-            self._stack.append(guard.pop_all())
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        return self._stack.pop().__exit__(exc_type, exc_val, exc_tb)
