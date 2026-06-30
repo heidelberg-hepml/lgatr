@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 
+from ..utils.autocast import minimum_autocast_precision
 from .config import PrimitivesConfig
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
@@ -81,8 +82,6 @@ class _GeometricProductSparse(torch.autograd.Function):
     def backward(ctx, grad_out):
         x, y = ctx.saved_tensors
         indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
-        # Under autocast the forward matmul emits low precision while (x, y) were saved as-is.
-        grad_out = grad_out.to(x.dtype)
         # The sign folds below are in-place on freshly gathered tensors, which is safe under
         # double backward (no other node saves them).
         grad_x = grad_y = None
@@ -107,6 +106,7 @@ def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return _GeometricProductSparse.apply(x, y)
 
 
+@minimum_autocast_precision(torch.float32, output="high")
 def geometric_product(
     x: torch.Tensor, y: torch.Tensor, *, config: PrimitivesConfig
 ) -> torch.Tensor:

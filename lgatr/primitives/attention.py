@@ -2,10 +2,12 @@
 
 import torch
 
+from ..utils.autocast import minimum_autocast_precision
 from .attention_backends import get_attention_backend
 from .invariants import _load_inner_product_factors
 
 
+@minimum_autocast_precision(torch.float32, output="high")
 def sdp_attention(
     q_mv: torch.Tensor,
     k_mv: torch.Tensor,

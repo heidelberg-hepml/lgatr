@@ -25,6 +25,7 @@ def _post_attention_reshape(
     return h_v, h_s
 
 
+@minimum_autocast_precision(torch.float32, output="high")
 def _call_attention(*args, **kwargs):
     return scaled_dot_product_attention(*args, **kwargs)
 
@@ -125,7 +126,7 @@ class RMSNorm(nn.Module):
             self.register_parameter("weight_v", None)
             self.register_parameter("weight_s", None)
 
-    @minimum_autocast_precision(torch.float32)
+    @minimum_autocast_precision(torch.float32, output="high")
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -217,6 +218,10 @@ class Linear(nn.Module):
         if self.weight_v.numel() == 0:
             self.weight_v.requires_grad_(False)
 
+    @minimum_autocast_precision(torch.float32, output="high")
+    def _linear_v(self, vectors: torch.Tensor) -> torch.Tensor:
+        return nn.functional.linear(vectors.mT, self.weight_v).mT
+
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -236,7 +241,7 @@ class Linear(nn.Module):
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
-        outputs_v = nn.functional.linear(vectors.mT, self.weight_v).mT
+        outputs_v = self._linear_v(vectors)
         if self.linear_s is not None:
             outputs_s = self.linear_s(scalars)
         else:

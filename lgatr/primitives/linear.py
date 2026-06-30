@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 
+from ..utils.autocast import minimum_autocast_precision
 from .config import PrimitivesConfig
 
 DEFAULT_DEVICE = torch.device("cpu")
@@ -190,7 +191,9 @@ class _EquiLinearSparse(torch.autograd.Function):
         batch_shape = x.shape[:-2]
         in_c = x.shape[-2]
         out_c = coeffs.shape[0]
-        # Under autocast the forward GEMMs emit low precision while (x, coeffs) were saved as-is.
+        # Under naive_amp the forward GEMMs run in the autocast dtype while (x, coeffs) were saved
+        # as-is, so grad_out comes back low precision and coeffs stays fp32. Reconcile both streams
+        # to the saved x dtype; all three casts are no-ops in the fp32 path (islands on or no amp).
         grad_out = grad_out.to(x.dtype)
         grad_x = grad_coeffs = None
 
@@ -274,6 +277,7 @@ def _equi_linear_sparse(
     return _EquiLinearSparse.apply(x, coeffs, config.subgroup)
 
 
+@minimum_autocast_precision(torch.float32, output="high")
 def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tensor:
     """Pin-equivariant linear map ``f(x) = sum_{a,j} coeffs_a W^a_ij x_j``.
 
