@@ -719,12 +719,10 @@ class LGATrSlim(nn.Module):
         ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
     activation_memory_budget
         Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
-        ``compile=True``. ``1.0`` recomputes only cheap pointwise/reduction ops in the backward
-        pass (torch default); lower values let the partitioner also recompute compute-intensive
-        ops, ranked by memory-saved-per-FLOP, trading backward FLOPs for a smaller activation
-        memory peak. At the default ``0.5`` the recomputed ops are typically the linear/GLU
-        projections, while attention outputs stay saved, reducing memory by ~30% at ~4% GPU
-        slowdown compared to ``1.0``. ``None`` leaves torch's global setting untouched.
+        ``compile=True``. The default ``1.0`` recomputes only cheap pointwise/reduction ops in
+        the backward pass (torch default); lower values let the partitioner also recompute
+        compute-intensive ops, ranked by memory-saved-per-FLOP, trading backward FLOPs for a
+        smaller activation memory peak. ``None`` leaves torch's global setting untouched. Smaller values down to ``0.3`` can help to reduce training memory usage.
     """
 
     def __init__(
@@ -748,7 +746,7 @@ class LGATrSlim(nn.Module):
         naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
-        activation_memory_budget: float | None = 0.5,
+        activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
         self._naive_amp = naive_amp
