@@ -25,6 +25,30 @@ def squared_norm(x: torch.Tensor) -> torch.Tensor:
     return inner_product(x, x)
 
 
+def _det3x3(m: torch.Tensor) -> torch.Tensor:
+    """Determinant of a batch of 3x3 matrices ``(..., 3, 3)`` via the rule of Sarrus."""
+    return (
+        m[..., 0, 0] * (m[..., 1, 1] * m[..., 2, 2] - m[..., 1, 2] * m[..., 2, 1])
+        - m[..., 0, 1] * (m[..., 1, 0] * m[..., 2, 2] - m[..., 1, 2] * m[..., 2, 0])
+        + m[..., 0, 2] * (m[..., 1, 0] * m[..., 2, 1] - m[..., 1, 1] * m[..., 2, 0])
+    )
+
+
+def det4x4(m: torch.Tensor) -> torch.Tensor:
+    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion.
+
+    Unlike :func:`torch.linalg.det`, whose backward is ``det(A) * inv(A).mT`` and therefore
+    diverges to ``inf``/``nan`` when ``A`` is singular (e.g. linearly dependent four-vectors), this
+    explicit polynomial expansion has a smooth, bounded gradient everywhere -- including at exactly
+    singular configurations -- which is essential for training stability.
+    """
+    det = m.new_zeros(m.shape[:-2])
+    for j in range(4):
+        minor = torch.cat([m[..., 1:, :j], m[..., 1:, j + 1 :]], dim=-1)
+        det = det + ((-1.0) ** j) * m[..., 0, j] * _det3x3(minor)
+    return det
+
+
 def _post_attention_reshape(
     out: torch.Tensor, hidden_v_channels: int, hidden_s_channels: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -78,6 +102,7 @@ class VectorToPseudoscalar(nn.Module):
         bound = factor / math.sqrt(fan_in)
         nn.init.uniform_(self.weight, a=-bound, b=bound)
 
+    @minimum_autocast_precision(torch.float32)
     def forward(self, vectors: torch.Tensor) -> torch.Tensor:
         """Compute pseudoscalars from vector inputs.
 
@@ -92,7 +117,83 @@ class VectorToPseudoscalar(nn.Module):
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
         projected = torch.einsum("...cM,pac->...paM", vectors, self.weight)
-        return torch.linalg.det(projected)
+        # det4x4 (explicit cofactor expansion) instead of torch.linalg.det: the latter's backward
+        # is det(A) * inv(A).mT, which blows up to nan when the four projected vectors are linearly
+        # dependent (a common occurrence that silently poisons the weights, since AMP is off).
+        return det4x4(projected)
+
+
+class VectorToTripleProduct(nn.Module):
+    """Map vectors to pseudoscalars through a triple product against a fixed reference.
+
+    Projects the input channels to *three* learned Lorentz vectors per output channel and contracts
+    them with a learnable reference four-vector through the 4D Levi-Civita symbol -- equivalently the
+    determinant of ``[ref, a, b, c]``. Like :class:`VectorToPseudoscalar` the result is parity-odd,
+    but it is only *rank-3* in the data (one determinant row is the fixed reference), so it is far
+    less dominated by the product-of-magnitudes tail that makes the full four-vector determinant a
+    high-variance / low-SNR observable. It is the four-volume analogue of a spatial triple product
+    ``n_a . (n_b x n_c)`` -- the CP-odd observable that actually carries the ttH(->gamma gamma)
+    signal.
+
+    The reference is a learnable *parameter* four-vector rather than a data vector: this deliberately
+    singles out a preferred frame (initialized to the time/lab direction), exactly as the beam/time
+    spurions injected in the data embedding already do. With a covariant (data-derived) reference the
+    contraction would collapse back to a plain four-vector determinant and add nothing over
+    :class:`VectorToPseudoscalar`; breaking the reference covariance is what makes this a genuinely
+    new, lower-rank CP-odd primitive.
+
+    Parameters
+    ----------
+    in_v_channels
+        Number of input vector channels.
+    out_p_channels
+        Number of output pseudoscalar channels.
+    """
+
+    def __init__(self, in_v_channels: int, out_p_channels: int) -> None:
+        super().__init__()
+        self._in_v_channels = in_v_channels
+        self._out_p_channels = out_p_channels
+        self.weight = nn.Parameter(torch.empty(out_p_channels, 3, in_v_channels))
+        self.reference = nn.Parameter(torch.empty(out_p_channels, 4))
+        self.reset_parameters()
+
+        # zero-size params get grads only sometimes under compile, breaking DDP
+        if self.weight.numel() == 0:
+            self.weight.requires_grad_(False)
+            self.reference.requires_grad_(False)
+
+    def reset_parameters(self, factor: float = 1.0) -> None:
+        """Re-initialize the projection weights and the reference vector."""
+        fan_in = max(self._in_v_channels, 1)
+        bound = factor / math.sqrt(fan_in)
+        nn.init.uniform_(self.weight, a=-bound, b=bound)
+        # reference initialized near the time direction (the natural lab-frame reference), with a
+        # small random tilt so the out_p channels are not degenerate.
+        with torch.no_grad():
+            self.reference.zero_()
+            if self.reference.numel() > 0:
+                self.reference[:, 0] = 1.0
+                self.reference.add_(torch.randn_like(self.reference) * 0.1)
+
+    @minimum_autocast_precision(torch.float32)
+    def forward(self, vectors: torch.Tensor) -> torch.Tensor:
+        """Compute pseudoscalars from vector inputs.
+
+        Parameters
+        ----------
+        vectors
+            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+
+        Returns
+        -------
+        pseudoscalars
+            Pseudoscalar features of shape ``(..., out_p_channels)``.
+        """
+        projected = torch.einsum("...cM,pac->...paM", vectors, self.weight)  # (..., p, 3, 4)
+        ref = self.reference[..., None, :].expand(*projected.shape[:-3], -1, -1, -1)  # (..., p, 1, 4)
+        stacked = torch.cat([ref, projected], dim=-2)  # (..., p, 4, 4)
+        return det4x4(stacked)
 
 
 class Dropout(nn.Module):
@@ -262,6 +363,15 @@ class Linear(nn.Module):
     initialization
         Initialization scheme for the weights. ``"default"`` or ``"small"`` (smaller weights, used
         for attention projections to improve stability).
+    cp_triple_product
+        If ``True``, add a :class:`VectorToTripleProduct` contribution to the pseudoscalar output --
+        a lower-rank, lower-variance CP-odd primitive (lab-frame triple product) alongside the full
+        four-vector determinant of :class:`VectorToPseudoscalar`. Defaults to ``False`` (no extra
+        parameters), so the default model is byte-for-byte unchanged.
+    cp_scalar_pseudo_mixing
+        If ``True``, modulate the pseudoscalar linear path by a parity-even gate derived from the
+        scalar features (``even x odd = odd``), letting event context shape the CP-odd observable.
+        The gate is zero-initialized so it starts as the identity; defaults to ``False``.
     """
 
     def __init__(
@@ -274,6 +384,8 @@ class Linear(nn.Module):
         out_p_channels: int,
         bias: bool = True,
         initialization: str = "default",
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
     ) -> None:
         super().__init__()
         self._in_v_channels = in_v_channels
@@ -283,12 +395,22 @@ class Linear(nn.Module):
         self._in_p_channels = in_p_channels
         self._out_p_channels = out_p_channels
         self._bias = bias
+        self._cp_triple_product = cp_triple_product
+        self._cp_scalar_pseudo_mixing = cp_scalar_pseudo_mixing
 
         self.weight_v = nn.Parameter(torch.empty((out_v_channels, in_v_channels)))
         self.linear_s = nn.Linear(in_s_channels, out_s_channels, bias=bias)
         self.p_to_s = nn.Linear(in_p_channels, out_s_channels, bias=False)
         self.linear_p = nn.Linear(in_p_channels, out_p_channels, bias=False)
         self.vector_to_p = VectorToPseudoscalar(in_v_channels, out_p_channels)
+        # (1) lower-rank CP-odd primitive: spurion/lab-referenced triple product
+        self.vector_to_p_triple = (
+            VectorToTripleProduct(in_v_channels, out_p_channels) if cp_triple_product else None
+        )
+        # (2) scalar-context modulation of the CP-odd (pseudoscalar) path
+        self.s_to_p_gate = (
+            nn.Linear(in_s_channels, out_p_channels, bias=True) if cp_scalar_pseudo_mixing else None
+        )
 
         self.reset_parameters(initialization)
 
@@ -321,7 +443,14 @@ class Linear(nn.Module):
         """
         outputs_v = nn.functional.linear(vectors.mT, self.weight_v).mT
         outputs_s = self.linear_s(scalars) + self.p_to_s(pseudoscalars.square())
-        outputs_p = self.linear_p(pseudoscalars) + self.vector_to_p(vectors)
+
+        p_lin = self.linear_p(pseudoscalars)
+        if self.s_to_p_gate is not None:
+            # even x odd = odd; gate zero-initialized so this starts as the identity
+            p_lin = p_lin * (1.0 + self.s_to_p_gate(scalars))
+        outputs_p = p_lin + self.vector_to_p(vectors)
+        if self.vector_to_p_triple is not None:
+            outputs_p = outputs_p + self.vector_to_p_triple(vectors)
         return outputs_v, outputs_s, outputs_p
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
@@ -353,6 +482,12 @@ class Linear(nn.Module):
         nn.init.uniform_(self.linear_p.weight, a=-bound, b=bound)
         nn.init.uniform_(self.p_to_s.weight, a=-bound, b=bound)
         self.vector_to_p.reset_parameters(p_factor)
+        if self.vector_to_p_triple is not None:
+            self.vector_to_p_triple.reset_parameters(p_factor)
+        if self.s_to_p_gate is not None:
+            # start as the identity modulation: gate(s) = 0 -> factor (1 + 0) = 1
+            nn.init.zeros_(self.s_to_p_gate.weight)
+            nn.init.zeros_(self.s_to_p_gate.bias)
 
 
 class GatedLinearUnit(nn.Module):
@@ -395,6 +530,8 @@ class GatedLinearUnit(nn.Module):
         out_p_channels: int,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
     ) -> None:
         super().__init__()
         self._out_s_channels = out_s_channels
@@ -406,6 +543,8 @@ class GatedLinearUnit(nn.Module):
             out_s_channels=2 * out_s_channels + out_p_channels,
             in_p_channels=in_p_channels,
             out_p_channels=out_p_channels,
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
@@ -481,6 +620,8 @@ class SelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -499,6 +640,8 @@ class SelfAttention(nn.Module):
             out_p_channels=3 * self.hidden_p_channels * self.num_heads,
             bias=False,
             initialization="small",
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
         self.linear_out = Linear(
             in_v_channels=self.hidden_v_channels * self.num_heads,
@@ -508,6 +651,8 @@ class SelfAttention(nn.Module):
             in_p_channels=self.hidden_p_channels * self.num_heads,
             out_p_channels=p_channels,
             initialization="small",
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
         self.norm = RMSNorm(
             self.hidden_v_channels,
@@ -629,6 +774,8 @@ class MLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
     ) -> None:
         super().__init__()
         assert num_layers >= 2
@@ -649,6 +796,8 @@ class MLP(nn.Module):
                     out_p_channels=p_channels_list[i + 1],
                     nonlinearity=nonlinearity,
                     nonlinearity_v=nonlinearity_v,
+                    cp_triple_product=cp_triple_product,
+                    cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
                 )
             )
             if dropout_prob is not None:
@@ -661,6 +810,8 @@ class MLP(nn.Module):
                 out_s_channels=s_channels_list[-1],
                 in_p_channels=p_channels_list[-2],
                 out_p_channels=p_channels_list[-1],
+                cp_triple_product=cp_triple_product,
+                cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
             )
         )
 
@@ -741,6 +892,8 @@ class LGATrSlimPseudoBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
     ) -> None:
         super().__init__()
 
@@ -758,6 +911,8 @@ class LGATrSlimPseudoBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
 
         self.mlp = MLP(
@@ -769,6 +924,8 @@ class LGATrSlimPseudoBlock(nn.Module):
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
 
     def forward(
@@ -868,6 +1025,12 @@ class LGATrSlimPseudo(nn.Module):
         Whether the block pre-norms use a learnable per-channel gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
+    cp_triple_product
+        Enable the lower-rank lab-frame triple-product CP-odd primitive in every linear layer (see
+        :class:`VectorToTripleProduct`). Defaults to ``False``.
+    cp_scalar_pseudo_mixing
+        Enable scalar-context modulation of the pseudoscalar path in every linear layer. Defaults to
+        ``False``.
     compile
         Whether to wrap the model with :func:`torch.compile`.
     **compile_kwargs
@@ -897,6 +1060,8 @@ class LGATrSlimPseudo(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
+        cp_triple_product: bool = False,
+        cp_scalar_pseudo_mixing: bool = False,
         compile: bool = False,
         **compile_kwargs,
     ) -> None:
@@ -910,6 +1075,8 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=hidden_v_channels,
             out_s_channels=hidden_s_channels,
             out_p_channels=hidden_p_channels,
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
 
         self.blocks = nn.ModuleList(
@@ -926,6 +1093,8 @@ class LGATrSlimPseudo(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
+                    cp_triple_product=cp_triple_product,
+                    cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
                 )
                 for _ in range(num_blocks)
             ]
@@ -938,6 +1107,8 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=out_v_channels,
             out_s_channels=out_s_channels,
             out_p_channels=out_p_channels,
+            cp_triple_product=cp_triple_product,
+            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
         self._checkpoint_blocks = checkpoint_blocks
 
