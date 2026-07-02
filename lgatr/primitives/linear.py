@@ -103,27 +103,39 @@ def _equi_linear_dense(
     return torch.einsum("y x i j, ... x j -> ... y i", weight, x)
 
 
-def _grade_flat(t: torch.Tensor, channels: int) -> torch.Tensor:
-    # (..., channels, dim_g) -> (batch*dim_g, channels) so each grade contraction is a single
-    # 2-D GEMM; the natural per-batch BMM is several times slower for small channel counts.
-    return t.transpose(-1, -2).reshape(-1, channels)
+# Grade slice offsets and widths (1, 4, 6, 4, 1) in the 16-component multivector.
+_GRADE_SLICES = ((0, 1), (1, 5), (5, 11), (11, 15), (15, 16))
+
+
+def _component_flat(t: torch.Tensor, channels: int) -> torch.Tensor:
+    # (..., channels, 16) -> (batch, 16, channels) with one transpose copy; the five grade
+    # slices along dim -2 are then cheap row-block views, and each grade contraction is a
+    # single 2-D GEMM (the natural per-batch BMM is several times slower for small channels).
+    return t.transpose(-1, -2).reshape(-1, 16, channels)
 
 
 def _grade_unflat(t: torch.Tensor, batch_shape: torch.Size, dim_g: int) -> torch.Tensor:
-    # (batch*dim_g, channels) -> (..., channels, dim_g), inverse of _grade_flat.
+    # (batch*dim_g, channels) -> (..., channels, dim_g).
     return t.unflatten(0, (*batch_shape, dim_g)).transpose(-1, -2)
 
 
-def _paired_coeffs(coeffs: torch.Tensor, g: int) -> torch.Tensor:
-    # Stack the grade-preserving weight of grade g and the Hodge-dual weight consuming grade g
-    # into one (2*out_c, in_c) GEMM operand.
-    return torch.cat((coeffs[..., g], coeffs[..., 5 + g]), dim=0)
+def _pair_coeffs(coeffs: torch.Tensor, subgroup: bool) -> torch.Tensor:
+    # (out_c, in_c, 10) -> (5, 2*out_c, in_c): the grade-preserving weight of grade g stacked on
+    # the Hodge-dual weight consuming grade g, one GEMM operand per grade. Built once per call
+    # (a single cat) instead of five cats inside the autograd.Function, where it would also be
+    # rebuilt in backward.
+    cp = coeffs.permute(2, 0, 1)
+    if subgroup:
+        return torch.cat((cp[:5], cp[5:]), dim=1)
+    return cp.contiguous()
 
 
 class _EquiLinearSparse(torch.autograd.Function):
-    # Per-grade GEMMs on contiguous slices of x: avoids materializing the (10, 16, 16) basis
-    # and the multi-axis einsum. Saving only (x, coeffs) and recomputing the flattened grade
-    # slices in backward holds 1x of x; autograd through the per-grade GEMMs holds 3x.
+    # Per-grade GEMMs on grade slices of x: avoids materializing the (10, 16, 16) basis
+    # and the multi-axis einsum. Takes the weights pre-paired as (5, 2*out_c, in_c) (see
+    # _pair_coeffs), so forward and backward index grade weights as views instead of
+    # re-assembling them with cats. Saving only (x, weights) and recomputing the flattened
+    # grade slices in backward holds 1x of x; autograd through the per-grade GEMMs holds 3x.
     #
     # Subgroup mode: basis indices 0..4 are grade-preserving, 5..9 are the Hodge dual mapping
     # grade g -> grade 4-g via a sign + position reversal. Sign and reversal act on the position
@@ -138,24 +150,21 @@ class _EquiLinearSparse(torch.autograd.Function):
     generate_vmap_rule = True
 
     @staticmethod
-    def forward(x, coeffs, subgroup):
+    def forward(x, weights, subgroup):
         batch_shape = x.shape[:-2]
         in_c = x.shape[-2]
-        out_c = coeffs.shape[0]
+        out_c = weights.shape[-2] // 2 if subgroup else weights.shape[-2]
 
-        # Contiguous grade slices of widths 1, 4, 6, 4, 1, flattened for 2-D GEMMs.
-        x0 = _grade_flat(x[..., 0:1], in_c)
-        x1 = _grade_flat(x[..., 1:5], in_c)
-        x2 = _grade_flat(x[..., 5:11], in_c)
-        x3 = _grade_flat(x[..., 11:15], in_c)
-        x4 = _grade_flat(x[..., 15:16], in_c)
+        xt = _component_flat(x, in_c)
+        x0, x1, x2, x3, x4 = (xt[:, a:b].reshape(-1, in_c) for a, b in _GRADE_SLICES)
+
+        z0 = torch.nn.functional.linear(x0, weights[0])
+        z1 = torch.nn.functional.linear(x1, weights[1])
+        z2 = torch.nn.functional.linear(x2, weights[2])
+        z3 = torch.nn.functional.linear(x3, weights[3])
+        z4 = torch.nn.functional.linear(x4, weights[4])
 
         if subgroup:
-            z0 = torch.nn.functional.linear(x0, _paired_coeffs(coeffs, 0))
-            z1 = torch.nn.functional.linear(x1, _paired_coeffs(coeffs, 1))
-            z2 = torch.nn.functional.linear(x2, _paired_coeffs(coeffs, 2))
-            z3 = torch.nn.functional.linear(x3, _paired_coeffs(coeffs, 3))
-            z4 = torch.nn.functional.linear(x4, _paired_coeffs(coeffs, 4))
 
             def direct(z, dim_g):
                 return _grade_unflat(z[:, :out_c], batch_shape, dim_g)
@@ -171,110 +180,85 @@ class _EquiLinearSparse(torch.autograd.Function):
             y4 = direct(z4, 1) + s[15:16] * dual(z0, 1)
         else:
             # Full Pin group: only the 5 grade-preserving basis elements.
-            y0 = _grade_unflat(torch.nn.functional.linear(x0, coeffs[..., 0]), batch_shape, 1)
-            y1 = _grade_unflat(torch.nn.functional.linear(x1, coeffs[..., 1]), batch_shape, 4)
-            y2 = _grade_unflat(torch.nn.functional.linear(x2, coeffs[..., 2]), batch_shape, 6)
-            y3 = _grade_unflat(torch.nn.functional.linear(x3, coeffs[..., 3]), batch_shape, 4)
-            y4 = _grade_unflat(torch.nn.functional.linear(x4, coeffs[..., 4]), batch_shape, 1)
+            y0 = _grade_unflat(z0, batch_shape, 1)
+            y1 = _grade_unflat(z1, batch_shape, 4)
+            y2 = _grade_unflat(z2, batch_shape, 6)
+            y3 = _grade_unflat(z3, batch_shape, 4)
+            y4 = _grade_unflat(z4, batch_shape, 1)
 
         return torch.cat((y0, y1, y2, y3, y4), dim=-1)
 
     @staticmethod
     def setup_context(ctx, inputs, output):
-        x, coeffs, subgroup = inputs
-        ctx.save_for_backward(x, coeffs)
+        x, weights, subgroup = inputs
+        ctx.save_for_backward(x, weights)
         ctx.subgroup = subgroup
 
     @staticmethod
     def backward(ctx, grad_out):
-        x, coeffs = ctx.saved_tensors
+        x, weights = ctx.saved_tensors
         batch_shape = x.shape[:-2]
         in_c = x.shape[-2]
-        out_c = coeffs.shape[0]
-        # Under naive_amp the forward GEMMs run in the autocast dtype while (x, coeffs) were saved
-        # as-is, so grad_out comes back low precision and coeffs stays fp32. Reconcile both streams
-        # to the saved x dtype; all three casts are no-ops in the fp32 path (islands on or no amp).
+        out_c = weights.shape[-2] // 2 if ctx.subgroup else weights.shape[-2]
+        # Under naive_amp the forward GEMMs run in the autocast dtype while (x, weights) were
+        # saved as-is, so grad_out comes back low precision and weights stays fp32. Reconcile both
+        # streams to the saved x dtype; the casts are no-ops in the fp32 path (islands on or no amp).
         grad_out = grad_out.to(x.dtype)
-        grad_x = grad_coeffs = None
+        grad_x = grad_weights = None
 
-        go0 = grad_out[..., 0:1]
-        go1 = grad_out[..., 1:5]
-        go2 = grad_out[..., 5:11]
-        go3 = grad_out[..., 11:15]
-        go4 = grad_out[..., 15:16]
+        got = _component_flat(grad_out, out_c)
+
+        def flat(a, b):
+            return got[:, a:b].reshape(-1, out_c)
 
         if ctx.subgroup:
             # Per grade g, pair the direct gradient with the dual gradient routed back from
             # output grade 4-g (the sign + reversal are their own transpose), matching the
             # paired forward weights.
             s = _compute_dual_sign(device=x.device, dtype=grad_out.dtype)
-            g0 = torch.cat(
-                (_grade_flat(go0, out_c), _grade_flat((s[15:16] * go4).flip(-1), out_c)), dim=-1
-            )
-            g1 = torch.cat(
-                (_grade_flat(go1, out_c), _grade_flat((s[11:15] * go3).flip(-1), out_c)), dim=-1
-            )
-            g2 = torch.cat(
-                (_grade_flat(go2, out_c), _grade_flat((s[5:11] * go2).flip(-1), out_c)), dim=-1
-            )
-            g3 = torch.cat(
-                (_grade_flat(go3, out_c), _grade_flat((s[1:5] * go1).flip(-1), out_c)), dim=-1
-            )
-            g4 = torch.cat(
-                (_grade_flat(go4, out_c), _grade_flat((s[0:1] * go0).flip(-1), out_c)), dim=-1
-            )
-            weights = (_paired_coeffs(coeffs, g) for g in range(5))
+
+            def dual_flat(a, b):
+                return (s[a:b, None] * got[:, a:b]).flip(1).reshape(-1, out_c)
+
+            g0 = torch.cat((flat(0, 1), dual_flat(15, 16)), dim=-1)
+            g1 = torch.cat((flat(1, 5), dual_flat(11, 15)), dim=-1)
+            g2 = torch.cat((flat(5, 11), dual_flat(5, 11)), dim=-1)
+            g3 = torch.cat((flat(11, 15), dual_flat(1, 5)), dim=-1)
+            g4 = torch.cat((flat(15, 16), dual_flat(0, 1)), dim=-1)
         else:
-            g0 = _grade_flat(go0, out_c)
-            g1 = _grade_flat(go1, out_c)
-            g2 = _grade_flat(go2, out_c)
-            g3 = _grade_flat(go3, out_c)
-            g4 = _grade_flat(go4, out_c)
-            weights = (coeffs[..., g] for g in range(5))
+            g0, g1, g2, g3, g4 = (flat(a, b) for a, b in _GRADE_SLICES)
 
         if ctx.needs_input_grad[0]:
-            W0, W1, W2, W3, W4 = (W.to(grad_out.dtype) for W in weights)
+            W = weights.to(grad_out.dtype)
             grad_x = torch.cat(
                 (
-                    _grade_unflat(torch.matmul(g0, W0), batch_shape, 1),
-                    _grade_unflat(torch.matmul(g1, W1), batch_shape, 4),
-                    _grade_unflat(torch.matmul(g2, W2), batch_shape, 6),
-                    _grade_unflat(torch.matmul(g3, W3), batch_shape, 4),
-                    _grade_unflat(torch.matmul(g4, W4), batch_shape, 1),
+                    _grade_unflat(torch.matmul(g0, W[0]), batch_shape, 1),
+                    _grade_unflat(torch.matmul(g1, W[1]), batch_shape, 4),
+                    _grade_unflat(torch.matmul(g2, W[2]), batch_shape, 6),
+                    _grade_unflat(torch.matmul(g3, W[3]), batch_shape, 4),
+                    _grade_unflat(torch.matmul(g4, W[4]), batch_shape, 1),
                 ),
                 dim=-1,
             )
 
         if ctx.needs_input_grad[1]:
-            gW0 = torch.matmul(g0.transpose(0, 1), _grade_flat(x[..., 0:1], in_c))
-            gW1 = torch.matmul(g1.transpose(0, 1), _grade_flat(x[..., 1:5], in_c))
-            gW2 = torch.matmul(g2.transpose(0, 1), _grade_flat(x[..., 5:11], in_c))
-            gW3 = torch.matmul(g3.transpose(0, 1), _grade_flat(x[..., 11:15], in_c))
-            gW4 = torch.matmul(g4.transpose(0, 1), _grade_flat(x[..., 15:16], in_c))
-            if ctx.subgroup:
-                parts = (
-                    gW0[:out_c],
-                    gW1[:out_c],
-                    gW2[:out_c],
-                    gW3[:out_c],
-                    gW4[:out_c],
-                    gW0[out_c:],
-                    gW1[out_c:],
-                    gW2[out_c:],
-                    gW3[out_c:],
-                    gW4[out_c:],
-                )
-            else:
-                parts = (gW0, gW1, gW2, gW3, gW4)
-            grad_coeffs = torch.stack(parts, dim=-1).to(coeffs.dtype)
+            xt = _component_flat(x, in_c)
+            grad_weights = torch.stack(
+                [
+                    torch.matmul(g.transpose(0, 1), xt[:, a:b].reshape(-1, in_c))
+                    for g, (a, b) in zip((g0, g1, g2, g3, g4), _GRADE_SLICES, strict=True)
+                ],
+                dim=0,
+            ).to(weights.dtype)
 
-        return grad_x, grad_coeffs, None
+        return grad_x, grad_weights, None
 
 
 def _equi_linear_sparse(
     x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig
 ) -> torch.Tensor:
-    return _EquiLinearSparse.apply(x, coeffs, config.subgroup)
+    weights = _pair_coeffs(coeffs, config.subgroup)
+    return _EquiLinearSparse.apply(x, weights, config.subgroup)
 
 
 @minimum_autocast_precision(torch.float32, output="high")
