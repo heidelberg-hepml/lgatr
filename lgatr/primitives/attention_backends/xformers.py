@@ -125,6 +125,7 @@ def _attention_compiled(
     compute_lse = torch.is_grad_enabled() and (
         query.requires_grad or key.requires_grad or value.requires_grad
     )
+    query, key, value = query.contiguous(), key.contiguous(), value.contiguous()
     out, _ = _compiled_varlen_fwd(
         query,
         key,
@@ -304,7 +305,7 @@ def _compiled_varlen_setup(ctx, inputs, output):
 def _compiled_varlen_backward(ctx, grad_out, grad_lse):
     query, key, value, seqstart_q, seqstart_k, out, lse = ctx.saved_tensors
     grad_q, grad_k, grad_v = _compiled_varlen_bwd(
-        grad_out,
+        grad_out.contiguous(),
         query,
         key,
         value,
