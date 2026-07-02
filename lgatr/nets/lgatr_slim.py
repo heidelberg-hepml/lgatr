@@ -17,10 +17,10 @@ from ..utils.misc import get_nonlinearity
 def _post_attention_reshape(
     out: torch.Tensor, hidden_v_channels: int
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    h_v = out[..., : hidden_v_channels * 4].unflatten(-1, (hidden_v_channels, 4))
+    h_v = out[..., : hidden_v_channels * 4].unflatten(-1, (4, hidden_v_channels))
     h_s = out[..., hidden_v_channels * 4 :]
 
-    h_v = h_v.movedim(-3, -4).flatten(-3, -2)
+    h_v = h_v.movedim(-4, -2).flatten(-2, -1)
     h_s = h_s.movedim(-2, -3).flatten(-2, -1)
     return h_v, h_s
 
@@ -71,7 +71,7 @@ class Dropout(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
 
@@ -86,8 +86,12 @@ class Dropout(nn.Module):
             return vectors, scalars
 
         # have to reshape vectors because dropout1d constrains input shape
-        flat_v = vectors.reshape(-1, 4)
-        outputs_v = dropout1d(flat_v, p=self._dropout_prob, training=True).reshape(vectors.shape)
+        flat_v = vectors.transpose(-1, -2).reshape(-1, 4)
+        outputs_v = (
+            dropout1d(flat_v, p=self._dropout_prob, training=True)
+            .reshape(*vectors.shape[:-2], vectors.shape[-1], 4)
+            .transpose(-1, -2)
+        )
         outputs_s = dropout(scalars, p=self._dropout_prob, training=True)
         return outputs_v, outputs_s
 
@@ -135,7 +139,7 @@ class RMSNorm(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
 
@@ -146,7 +150,7 @@ class RMSNorm(nn.Module):
         outputs_s
             Normalized scalar features, same shape as ``scalars``.
         """
-        v_squared_norm = (vectors.square() * self.metric).sum(-1).abs()
+        v_squared_norm = (vectors.square() * self.metric[..., None]).sum(-2).abs()
         s_squared_norm = scalars.square()
         total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
         mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
@@ -155,7 +159,7 @@ class RMSNorm(nn.Module):
         outputs_v = vectors * norm[..., None, None]
         outputs_s = scalars * norm[..., None]
         if self.elementwise_affine:
-            outputs_v = outputs_v * self.weight_v[..., None]
+            outputs_v = outputs_v * self.weight_v
             outputs_s = outputs_s * self.weight_s
         return outputs_v, outputs_s
 
@@ -220,7 +224,7 @@ class Linear(nn.Module):
 
     @minimum_autocast_precision(torch.float32, output="high")
     def _linear_v(self, vectors: torch.Tensor) -> torch.Tensor:
-        return nn.functional.linear(vectors.mT, self.weight_v).mT
+        return nn.functional.linear(vectors, self.weight_v)
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
@@ -230,14 +234,14 @@ class Linear(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, in_v_channels)``.
         scalars
             Scalar features of shape ``(..., in_s_channels)``.
 
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., out_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, out_v_channels)``.
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
@@ -326,19 +330,19 @@ class GatedLinearUnit(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, in_v_channels)``.
         scalars
             Scalar features of shape ``(..., in_s_channels)``.
 
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., out_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, out_v_channels)``.
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
         v_full, s_full = self.linear(vectors, scalars)
-        v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-2)
+        v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-1)
         s_pre, s_gates = s_full.chunk(2, dim=-1)
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
@@ -350,7 +354,7 @@ class GatedLinearUnit(nn.Module):
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
-        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric).sum(dim=-1, keepdim=True)
+        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric[..., None]).sum(dim=-2, keepdim=True)
 
 
 class SelfAttention(nn.Module):
@@ -414,9 +418,9 @@ class SelfAttention(nn.Module):
         self, qkv_v: torch.Tensor, qkv_s: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         qkv_v = (
-            qkv_v.unflatten(-2, (3, self.hidden_v_channels, self.num_heads))
-            .movedim(-4, 0)
-            .movedim(-2, -4)
+            qkv_v.unflatten(-1, (3, self.hidden_v_channels, self.num_heads))
+            .movedim(-3, 0)
+            .movedim(-1, -4)
         )
         qkv_s = (
             qkv_s.unflatten(-1, (3, self.hidden_s_channels, self.num_heads))
@@ -430,7 +434,7 @@ class SelfAttention(nn.Module):
         q_v, k_v, v_v = qkv_v.unbind(0)
         q_s, k_s, v_s = qkv_s.unbind(0)
 
-        q_v = q_v * self.metric.to(q_v.dtype)
+        q_v = q_v * self.metric.to(q_v.dtype)[..., None]
 
         q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
@@ -445,7 +449,7 @@ class SelfAttention(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
         **attn_kwargs
@@ -454,7 +458,7 @@ class SelfAttention(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
@@ -542,14 +546,14 @@ class MLP(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
 
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., s_channels)``.
         """
@@ -633,7 +637,7 @@ class LGATrSlimBlock(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
         **attn_kwargs
@@ -642,7 +646,7 @@ class LGATrSlimBlock(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
@@ -823,7 +827,9 @@ class LGATrSlim(nn.Module):
     def _forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, **attn_kwargs
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        h_v, h_s = self.linear_in(vectors, scalars)
+        # hidden layers keep vectors channel-last (..., 4, channels) so the vector linears run
+        # as flat GEMMs; only the public interface uses (..., channels, 4)
+        h_v, h_s = self.linear_in(vectors.transpose(-2, -1), scalars)
 
         for block in self.blocks:
             if self._checkpoint_blocks:
@@ -832,4 +838,4 @@ class LGATrSlim(nn.Module):
                 h_v, h_s = block(h_v, h_s, **attn_kwargs)
 
         outputs_v, outputs_s = self.linear_out(h_v, h_s)
-        return outputs_v, outputs_s
+        return outputs_v.transpose(-2, -1), outputs_s

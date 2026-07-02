@@ -34,14 +34,16 @@ def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> Non
     layer.eval()
 
     # shape
-    v = torch.randn(*batch_dims, 4)
+    v = torch.randn(*batch_dims[:-1], 4, batch_dims[-1])
     s = torch.randn(*batch_dims)
     outputs_v, outputs_s = layer(v, scalars=s)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
 
     # equivariance
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -50,14 +52,16 @@ def test_RMSNorm_equivariance(batch_dims: list[int]) -> None:
     layer = RMSNorm(batch_dims[-1], batch_dims[-1])
 
     # shape
-    v = torch.randn(*batch_dims, 4)
+    v = torch.randn(*batch_dims[:-1], 4, batch_dims[-1])
     s = torch.randn(*batch_dims)
     outputs_v, outputs_s = layer(v, scalars=s)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
 
     # equivariance
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -80,14 +84,16 @@ def test_GatedLinearUnit_equivariance(
         nonlinearity=nonlinearity,
     )
     s = torch.randn(*batch_dims, in_s_channels)
-    v = torch.randn(*batch_dims, in_v_channels, 4)
+    v = torch.randn(*batch_dims, 4, in_v_channels)
     outputs_v, outputs_s = layer(v, s)
-    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_v.shape == v.shape[:-2] + (4, out_v_channels)
     assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -110,14 +116,16 @@ def test_Linear_equivariance(
         initialization=initialization,
     )
     s = torch.randn(*batch_dims, in_s_channels)
-    v = torch.randn(*batch_dims, in_v_channels, 4)
+    v = torch.randn(*batch_dims, 4, in_v_channels)
     outputs_v, outputs_s = layer(v, s)
-    assert outputs_v.shape == v.shape[:-2] + (out_v_channels, 4)
+    assert outputs_v.shape == v.shape[:-2] + (4, out_v_channels)
     assert outputs_s.shape == s.shape[:-1] + (out_s_channels,)
 
     # equivariance
     batch_dims = batch_dims + [in_v_channels]
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", [(100,)])
@@ -138,12 +146,12 @@ def test_Linear_initialization(
         out_s_channels=out_s_channels,
     )
 
-    inputs_v = torch.randn(*batch_dims, in_v_channels, 4)
+    inputs_v = torch.randn(*batch_dims, 4, in_v_channels)
     inputs_s = torch.randn(*batch_dims, in_s_channels)
     outputs_v, outputs_s = layer(inputs_v, inputs_s)
 
-    v_mean = outputs_v.cpu().detach().to(torch.float64).mean(dim=(0, 1))
-    v_var = outputs_v.cpu().detach().to(torch.float64).var(dim=(0, 1))
+    v_mean = outputs_v.cpu().detach().to(torch.float64).mean(dim=(0, -1))
+    v_var = outputs_v.cpu().detach().to(torch.float64).var(dim=(0, -1))
     target_mean = torch.zeros_like(v_mean)
     target_var = torch.ones_like(v_var) / 3.0
     assert torch.all(v_mean > target_mean - 0.3)
@@ -178,13 +186,15 @@ def test_SelfAttention_equivariance(
     )
     s = torch.randn(*batch_dims, s_channels)
 
-    v = torch.randn(*batch_dims, v_channels, 4)
+    v = torch.randn(*batch_dims, 4, v_channels)
     outputs_v, outputs_s = layer(v, s)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
 
     batch_dims = batch_dims + [v_channels]
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -208,7 +218,9 @@ def test_MLP_equivariance(
     batch_dims = batch_dims + [v_channels]
 
     # equivariance
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -236,7 +248,9 @@ def test_LGATrSlimBlock_equivariance(
     batch_dims = batch_dims + [v_channels]
 
     # equivariance
-    check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
+    check_equivariance(
+        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+    )
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)

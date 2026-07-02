@@ -100,18 +100,18 @@ class CrossAttention(nn.Module):
         kv_s: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         kv_v = (
-            kv_v.unflatten(-2, (2, self.hidden_v_channels, self.num_heads))
-            .movedim(-4, 0)
-            .movedim(-2, -4)
-        )  # (2, *B, H, N, Cv, 4)
+            kv_v.unflatten(-1, (2, self.hidden_v_channels, self.num_heads))
+            .movedim(-3, 0)
+            .movedim(-1, -4)
+        )  # (2, *B, H, N, 4, Cv)
         kv_s = (
             kv_s.unflatten(-1, (2, self.hidden_s_channels, self.num_heads))
             .movedim(-3, 0)
             .movedim(-1, -3)
         )  # (2, *B, H, N, Cs)
-        q_v = q_v.unflatten(-2, (self.hidden_v_channels, self.num_heads)).movedim(
-            -2, -4
-        )  # (*B, H, Nc, Cv, 4)
+        q_v = q_v.unflatten(-1, (self.hidden_v_channels, self.num_heads)).movedim(
+            -1, -4
+        )  # (*B, H, Nc, 4, Cv)
         q_s = q_s.unflatten(-1, (self.hidden_s_channels, self.num_heads)).movedim(
             -1, -3
         )  # (*B, H, Nc, Cs)
@@ -121,7 +121,7 @@ class CrossAttention(nn.Module):
         k_v, v_v = kv_v.unbind(0)
         k_s, v_s = kv_s.unbind(0)
 
-        q_v = q_v * self.metric.to(q_v.dtype)
+        q_v = q_v * self.metric.to(q_v.dtype)[..., None]
 
         q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
@@ -141,9 +141,9 @@ class CrossAttention(nn.Module):
         Parameters
         ----------
         vectors_q
-            Query Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
+            Query Lorentz vectors of shape ``(..., items_q, 4, q_v_channels)``.
         vectors_kv
-            Key/value Lorentz vectors of shape ``(..., items_kv, kv_v_channels, 4)``.
+            Key/value Lorentz vectors of shape ``(..., items_kv, 4, kv_v_channels)``.
         scalars_q
             Query scalar features of shape ``(..., items_q, q_s_channels)``.
         scalars_kv
@@ -154,7 +154,7 @@ class CrossAttention(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items_q, q_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items_q, 4, q_v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items_q, q_s_channels)``.
         """
@@ -269,9 +269,9 @@ class ConditionalLGATrSlimBlock(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         vectors_cond
-            Condition Lorentz vectors of shape ``(..., items_cond, v_channels_cond, 4)``.
+            Condition Lorentz vectors of shape ``(..., items_cond, 4, v_channels_cond)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
         scalars_cond
@@ -284,7 +284,7 @@ class ConditionalLGATrSlimBlock(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         """
@@ -518,7 +518,10 @@ class ConditionalLGATrSlim(nn.Module):
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
-        h_v, h_s = self.linear_in(vectors, scalars)
+        # hidden layers keep vectors channel-last (..., 4, channels) so the vector linears run
+        # as flat GEMMs; only the public interface uses (..., channels, 4)
+        h_v, h_s = self.linear_in(vectors.transpose(-2, -1), scalars)
+        vectors_cond = vectors_cond.transpose(-2, -1)
 
         for block in self.blocks:
             if self._checkpoint_blocks:
@@ -543,4 +546,4 @@ class ConditionalLGATrSlim(nn.Module):
                 )
 
         outputs_v, outputs_s = self.linear_out(h_v, h_s)
-        return outputs_v, outputs_s
+        return outputs_v.transpose(-2, -1), outputs_s

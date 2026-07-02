@@ -40,8 +40,8 @@ def test_CrossAttention_equivariance(
     s = torch.randn(*batch_dims, N, s_channels)
     s_cond = torch.randn(*batch_dims, N_cond, s_channels_cond)
 
-    v = torch.randn(*batch_dims, N, v_channels, 4)
-    v_cond = torch.randn(*batch_dims, N_cond, v_channels_cond, 4)
+    v = torch.randn(*batch_dims, N, 4, v_channels)
+    v_cond = torch.randn(*batch_dims, N_cond, 4, v_channels_cond)
     outputs_v, outputs_s = layer(v, v_cond, s, s_cond)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
@@ -52,6 +52,7 @@ def test_CrossAttention_equivariance(
         batch_dims=batch_dims,
         num_args=2,
         fn_kwargs=dict(scalars_q=s, scalars_kv=s_cond),
+        vector_dim=-2,
         **TOLERANCES,
     )
 
@@ -97,6 +98,7 @@ def test_ConditionalLGATrSlimBlock_equivariance(
         batch_dims=batch_dims,
         num_args=2,
         fn_kwargs=dict(scalars=s, scalars_cond=s_cond),
+        vector_dim=-2,
         **TOLERANCES,
     )
 
