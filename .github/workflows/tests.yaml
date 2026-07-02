@@ -20,7 +20,7 @@ jobs:
           - { python-version: '3.13', torch-version: 'latest', extra: '' }
 
           # Torch coverage at common python version
-          # torch<=2.4 are probably also supported, but require care with numpy install, torch.compile etc
+          # torch<2.4 are probably also supported, but require care with numpy install, torch.compile etc
           - { python-version: '3.11', torch-version: '2.4', extra: '' }
           - { python-version: '3.11', torch-version: '2.5', extra: '' }
           - { python-version: '3.11', torch-version: '2.6', extra: '' }
