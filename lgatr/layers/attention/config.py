@@ -95,7 +95,7 @@ class CrossAttentionConfig:
         and parameter count by using a single set of keys and values for all heads.
     increase_hidden_channels
         Factor by which to increase the number of hidden channels (both multivectors and scalars).
-        Vanilla transformers use 1; we use 2 for backward compatibility.
+        Vanilla transformers use 1; for multi-query 2 is more natural.
     head_scale
         Whether to use HeadScaleMHA following the NormFormer
         (https://arxiv.org/pdf/2110.09456). Each head is scaled by a learnable parameter before

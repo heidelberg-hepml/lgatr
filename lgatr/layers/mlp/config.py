@@ -18,7 +18,6 @@ class MLPConfig:
         ``"silu"``.
     increase_hidden_channels
         Factor by which to increase the number of hidden channels (both multivectors and scalars).
-        Vanilla transformers use 4; we use 2 for backward compatibility.
     num_hidden_layers
         Number of hidden layers to create.
 
