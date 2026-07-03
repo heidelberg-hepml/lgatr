@@ -159,6 +159,32 @@ def test_lgatr_equivariance_compiled(
     )
 
 
+@pytest.mark.parametrize("multi_query", [False, True])
+def test_lgatr_reinsert_channels(multi_query: bool) -> None:
+    # reinsert_mv_channels/reinsert_s_channels reinsert input channels as additional query/key
+    # features in every attention layer (multi-head and multi-query variants).
+    net = LGATr(
+        num_blocks=2,
+        in_mv_channels=3,
+        out_mv_channels=2,
+        hidden_mv_channels=4,
+        in_s_channels=5,
+        out_s_channels=2,
+        hidden_s_channels=4,
+        attention=SelfAttentionConfig(num_heads=2, multi_query=multi_query),
+        mlp=MLPConfig(),
+        reinsert_mv_channels=(0, 2),
+        reinsert_s_channels=(1, 3, 4),
+    )
+
+    inputs = torch.randn(2, 7, 3, 16)
+    scalars = torch.randn(2, 7, 5)
+    outputs, output_scalars = net(inputs, scalars=scalars)
+
+    assert outputs.shape == (2, 7, 2, 16)
+    assert output_scalars.shape == (2, 7, 2)
+
+
 def test_two_lgatr_configs_coexist() -> None:
     # Two LGATr models with different PrimitivesConfig instances must coexist in one process,
     # with parameter shapes and forward outputs reflecting their respective configs.

@@ -31,11 +31,24 @@ CHANNELS = [
 def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> None:
     # Slim Dropout preserves shapes and is SO(1, 3)-equivariant at eval time.
     layer = Dropout(dropout_prob)
-    layer.eval()
 
-    # shape
     v = torch.randn(*batch_dims[:-1], 4, batch_dims[-1])
     s = torch.randn(*batch_dims)
+
+    # shape and determinism in train mode (same seed -> same output; exercises the actual
+    # dropout path, which is skipped in eval mode)
+    layer.train()
+    torch.manual_seed(0)
+    train_v1, train_s1 = layer(v, scalars=s)
+    torch.manual_seed(0)
+    train_v2, train_s2 = layer(v, scalars=s)
+    assert train_v1.shape == v.shape
+    assert train_s1.shape == s.shape
+    torch.testing.assert_close(train_v1, train_v2, **TOLERANCES)
+    torch.testing.assert_close(train_s1, train_s2, **TOLERANCES)
+
+    # shape at eval time
+    layer.eval()
     outputs_v, outputs_s = layer(v, scalars=s)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
@@ -47,20 +60,32 @@ def test_Dropout_equivariance(batch_dims: list[int], dropout_prob: float) -> Non
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_RMSNorm_equivariance(batch_dims: list[int]) -> None:
-    # RMSNorm preserves shapes and is SO(1, 3)-equivariant.
-    layer = RMSNorm(batch_dims[-1], batch_dims[-1])
+@pytest.mark.parametrize("zero_channels", [None, "v", "s"])
+def test_RMSNorm_equivariance(batch_dims: list[int], zero_channels: str | None) -> None:
+    # RMSNorm preserves shapes and is SO(1, 3)-equivariant, including the zero-channel edge
+    # cases where the affine weight is frozen (weight.numel() == 0).
+    v_channels = 0 if zero_channels == "v" else batch_dims[-1]
+    s_channels = 0 if zero_channels == "s" else batch_dims[-1]
+    layer = RMSNorm(v_channels, s_channels)
+    if zero_channels == "v":
+        assert not layer.weight_v.requires_grad
+    if zero_channels == "s":
+        assert not layer.weight_s.requires_grad
 
     # shape
-    v = torch.randn(*batch_dims[:-1], 4, batch_dims[-1])
-    s = torch.randn(*batch_dims)
+    v = torch.randn(*batch_dims[:-1], 4, v_channels)
+    s = torch.randn(*batch_dims[:-1], s_channels)
     outputs_v, outputs_s = layer(v, scalars=s)
     assert outputs_v.shape == v.shape
     assert outputs_s.shape == s.shape
 
     # equivariance
     check_equivariance(
-        layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), vector_dim=-2, **TOLERANCES
+        layer,
+        batch_dims=[*batch_dims[:-1], v_channels],
+        fn_kwargs=dict(scalars=s),
+        vector_dim=-2,
+        **TOLERANCES,
     )
 
 

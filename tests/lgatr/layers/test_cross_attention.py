@@ -14,7 +14,7 @@ from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 )
 @pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
 @pytest.mark.parametrize("num_heads,increase_hidden_channels", [(3, 2)])
-@pytest.mark.parametrize("dropout_prob", [None])
+@pytest.mark.parametrize("dropout_prob", [None, 0.5])
 def test_crossattention_equivariance(
     batch_dims: list[int],
     items_q: int,
@@ -29,7 +29,8 @@ def test_crossattention_equivariance(
     increase_hidden_channels: int,
     dropout_prob: float | None,
 ) -> None:
-    # CrossAttention is Pin-equivariant in both query and key/value multivector inputs.
+    # CrossAttention is Pin-equivariant in both query and key/value multivector inputs. Eval mode is
+    # required: a train-mode dropout mask is random and not equivariant.
     config = CrossAttentionConfig(
         kv_mv_channels=kv_mv_channels,
         q_mv_channels=q_mv_channels,
@@ -44,6 +45,7 @@ def test_crossattention_equivariance(
         dropout_prob=dropout_prob,
     )
     layer = CrossAttention(config, PrimitivesConfig())
+    layer.eval()
 
     scalars_q = torch.randn(*batch_dims, items_q, q_s_channels)
     scalars_kv = torch.randn(*batch_dims, items_kv, kv_s_channels)
@@ -76,3 +78,21 @@ def test_cross_attention_none_scalars() -> None:
     mv_q = torch.randn(2, 3, 3, 16)
     mv_kv = torch.randn(2, 4, 2, 16)
     layer(mv_q, mv_kv, scalars_q=None, scalars_kv=None)
+
+
+def test_cross_attention_zero_scalar_channels() -> None:
+    # With no scalar stream (query and key/value scalar channels both 0), the scalar Q/K/V and the
+    # output scalars are all None.
+    config = CrossAttentionConfig(
+        kv_mv_channels=2,
+        q_mv_channels=3,
+        out_mv_channels=3,
+        kv_s_channels=0,
+        q_s_channels=0,
+        out_s_channels=0,
+        num_heads=2,
+    )
+    layer = CrossAttention(config, PrimitivesConfig())
+    outputs_mv, outputs_s = layer(torch.randn(2, 3, 3, 16), torch.randn(2, 4, 2, 16))
+    assert outputs_mv.shape == (2, 3, 3, 16)
+    assert outputs_s is None

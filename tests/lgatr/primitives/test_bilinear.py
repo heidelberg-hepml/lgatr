@@ -57,12 +57,23 @@ def test_geometric_product_sparse_dense_equivalence(batch_dims: list[int]) -> No
 def test_geometric_product_sparse_dense_equivalence_broadcasting(
     x_batch: tuple[int, ...], y_batch: tuple[int, ...]
 ) -> None:
-    # The sparse path must preserve the broadcasting semantics of the dense path.
+    # The sparse path must preserve the broadcasting semantics of the dense path, including in
+    # the backward pass (where the sparse path un-broadcasts gradients back to input shapes).
     x = torch.randn(*x_batch)
     y = torch.randn(*y_batch)
-    out_dense = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=False))
-    out_sparse = geometric_product(x, y, config=PrimitivesConfig(sparse_gp=True))
+    x_dense, y_dense = x.clone().requires_grad_(), y.clone().requires_grad_()
+    x_sparse, y_sparse = x.clone().requires_grad_(), y.clone().requires_grad_()
+
+    out_dense = geometric_product(x_dense, y_dense, config=PrimitivesConfig(sparse_gp=False))
+    out_sparse = geometric_product(x_sparse, y_sparse, config=PrimitivesConfig(sparse_gp=True))
     torch.testing.assert_close(out_sparse, out_dense, **TOLERANCES)
+
+    out_dense.sum().backward()
+    out_sparse.sum().backward()
+    assert x_sparse.grad.shape == x.shape
+    assert y_sparse.grad.shape == y.shape
+    torch.testing.assert_close(x_sparse.grad, x_dense.grad, **TOLERANCES)
+    torch.testing.assert_close(y_sparse.grad, y_dense.grad, **TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)

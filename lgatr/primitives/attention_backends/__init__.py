@@ -61,10 +61,5 @@ def get_attention_backend(**kwargs) -> Callable:
         if any(kwargs.get(k) is not None for k in backend_kwargs):
             return _REGISTRY[backend_name].attention
 
-    # fall-back to native torch attention
-    try:
-        return _REGISTRY["native"].attention
-    except KeyError as err:
-        raise RuntimeError(
-            f"No attention backend could be resolved. Available backends: {list(_REGISTRY)}"
-        ) from err
+    # fall-back to native torch attention (always registered)
+    return _REGISTRY["native"].attention

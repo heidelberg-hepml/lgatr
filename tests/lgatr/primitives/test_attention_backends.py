@@ -61,7 +61,10 @@ def test_default_backend_selection(shape: tuple[int, ...]) -> None:
     assert out.shape == shape
 
 
-@pytest.mark.skipif(not _xformers_available, reason="xformers not installed")
+@pytest.mark.skipif(
+    not _xformers_available or not torch.cuda.is_available(),
+    reason="xformers requires the xformers package and CUDA",
+)
 @pytest.mark.parametrize("shape", SHAPES)
 def test_xformers_backend_selection(shape: tuple[int, ...]) -> None:
     # Selecting backend="xformers" routes to the xformers wrapper and matches the default backend.
@@ -101,6 +104,15 @@ def test_flex_backend_selection(shape: tuple[int, ...]) -> None:
     default_backend_fn = get_attention_backend()
     out_default = default_backend_fn(*qkv)
     torch.testing.assert_close(out, out_default, **STRICT_TOLERANCES)
+
+
+@pytest.mark.skipif(not _flex_available, reason="flex requires torch>=2.7")
+def test_kwarg_based_backend_selection() -> None:
+    # Without an explicit backend=, a backend-specific kwarg selects it: score_mod routes to flex.
+    from lgatr.primitives.attention_backends.flex import attention
+
+    backend_fn = get_attention_backend(score_mod=lambda score, b, h, q, k: score)
+    assert backend_fn is attention
 
 
 def _dense_to_sparse(t: torch.Tensor, shape_dense: tuple[int, int, int, int]) -> torch.Tensor:
