@@ -34,5 +34,5 @@ def extract_scalar(multivectors: torch.Tensor) -> torch.Tensor:
     scalars
         Scalars of shape ``(..., 1)``.
     """
-
+    assert multivectors.shape[-1] == 16
     return multivectors[..., [0]]

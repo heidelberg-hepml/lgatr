@@ -3,10 +3,11 @@
 import torch
 from torch import nn
 
+from ...primitives.attention import sdp_attention
 from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
+from ..layer_norm import EquiLayerNorm
 from ..linear import EquiLinear
-from .attention import GeometricAttention
 from .config import CrossAttentionConfig
 
 
@@ -31,17 +32,8 @@ class CrossAttention(nn.Module):
     ) -> None:
         super().__init__()
 
-        if (
-            config.additional_q_mv_channels > 0
-            or config.additional_q_s_channels > 0
-            or config.additional_k_mv_channels > 0
-            or config.additional_k_s_channels > 0
-        ):
-            raise NotImplementedError("Cross attention is not implemented with additional channels")
-
         # Store settings
         self.config = config
-        self.primitives = primitives
 
         self.q_linear = EquiLinear(
             in_mv_channels=config.q_mv_channels,
@@ -74,8 +66,8 @@ class CrossAttention(nn.Module):
             initialization=config.output_init,
         )
 
-        # Attention
-        self.attention = GeometricAttention(config)
+        # QKV normalization (mirrors self-attention's QKVModule)
+        self.norm = EquiLayerNorm()
 
         # Dropout
         self.dropout: nn.Module | None
@@ -99,19 +91,9 @@ class CrossAttention(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Compute cross-attention.
 
-        The result is the following:
-
-        .. code-block::
-
-            # For each head
-            queries = linear_channels(multivectors_q)
-            keys = linear_channels(multivectors_kv)
-            values = linear_channels(multivectors_kv)
-            hidden = attention_items(queries, keys, values, biases=biases)
-            head_output = linear_channels(hidden)
-
-            # Combine results
-            output = concatenate_heads head_output
+        Queries come from ``multivectors_q`` and keys/values from ``multivectors_kv``; per head,
+        geometric attention is applied over items, the heads are concatenated, and a final linear
+        map produces the outputs.
 
         Parameters
         ----------
@@ -178,8 +160,13 @@ class CrossAttention(nn.Module):
         else:
             q_s, k_s, v_s = None, None, None
 
+        # Normalize queries, keys, and values per head (symmetric with self-attention)
+        q_mv, q_s = self.norm(q_mv, scalars=q_s)
+        k_mv, k_s = self.norm(k_mv, scalars=k_s)
+        v_mv, v_s = self.norm(v_mv, scalars=v_s)
+
         # Attention layer
-        h_mv, h_s = self.attention(
+        h_mv, h_s = sdp_attention(
             q_mv,
             k_mv,
             v_mv,

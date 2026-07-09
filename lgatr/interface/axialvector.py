@@ -17,8 +17,9 @@ def embed_axialvector(axialvectors: torch.Tensor) -> torch.Tensor:
         Multivectors of shape ``(..., 16)``.
     """
 
+    assert axialvectors.shape[-1] == 4
     # F.pad(x, (11, 1)) zero-pads 11 entries on the left and 1 on the right of the last dim,
-    # placing the (flipped) input at indices 11..15 (the axialvector slots) with zeros elsewhere.
+    # placing the (flipped) input at indices 11-14 (the axialvector slots) with zeros elsewhere.
     return torch.nn.functional.pad(axialvectors.flip(-1), (11, 1))
 
 
@@ -36,6 +37,7 @@ def extract_axialvector(multivectors: torch.Tensor) -> torch.Tensor:
         Axial vectors of shape ``(..., 4)``.
     """
 
+    assert multivectors.shape[-1] == 16
     axialvectors = multivectors[..., 11:15].flip(-1)
 
     return axialvectors

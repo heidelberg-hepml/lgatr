@@ -17,7 +17,7 @@ class GeoMLP(nn.Module):
     Similar to a regular MLP, except the first linear layer is replaced by a geometric bilinear
     (the geometric product). Inputs of shape ``(..., channels, 16)`` map to outputs of shape
     ``(..., channels, 16)``; hidden layers have shape
-    ``(..., increase_hidden_channels * channels, 16)``.
+    ``(..., mlp_ratio * channels, 16)``.
 
     Parameters
     ----------
@@ -34,54 +34,52 @@ class GeoMLP(nn.Module):
     ) -> None:
         super().__init__()
 
-        # Store settings
-        self.config = config
-        self.primitives = primitives
-
         assert config.mv_channels is not None
+        assert config.num_layers_mlp >= 1, (
+            f"num_layers_mlp must be >= 1, got {config.num_layers_mlp}"
+        )
         s_channels = config.s_channels
 
-        mv_channels_list = [config.mv_channels]
-        mv_channels_list.extend(
-            [config.increase_hidden_channels * config.mv_channels] * config.num_hidden_layers
+        mv_channels_list = (
+            [config.mv_channels]
+            + [config.mlp_ratio * config.mv_channels] * (config.num_layers_mlp - 1)
+            + [config.mv_channels]
         )
-        mv_channels_list.append(config.mv_channels)
-        s_channels_list = [s_channels]
-        s_channels_list.extend(
-            [config.increase_hidden_channels * s_channels] * config.num_hidden_layers
+        s_channels_list = (
+            [s_channels]
+            + [config.mlp_ratio * s_channels] * (config.num_layers_mlp - 1)
+            + [s_channels]
         )
-        s_channels_list.append(s_channels)
 
         layers: list[nn.Module] = []
 
-        if config.num_hidden_layers >= 0:
-            kwargs = dict(
-                in_mv_channels=mv_channels_list[0],
-                out_mv_channels=mv_channels_list[1],
-                in_s_channels=s_channels_list[0],
-                out_s_channels=s_channels_list[1],
+        kwargs = dict(
+            in_mv_channels=mv_channels_list[0],
+            out_mv_channels=mv_channels_list[1],
+            in_s_channels=s_channels_list[0],
+            out_s_channels=s_channels_list[1],
+        )
+        if primitives.geometric_product:
+            layers.append(GeometricBilinear(primitives=primitives, **kwargs))
+        else:
+            layers.append(ScalarGatedNonlinearity(config.nonlinearity))
+            layers.append(EquiLinear(primitives=primitives, **kwargs))
+        if config.dropout_prob is not None:
+            layers.append(GradeDropout(config.dropout_prob))
+
+        for in_, out, in_s, out_s in zip(
+            mv_channels_list[1:-1],
+            mv_channels_list[2:],
+            s_channels_list[1:-1],
+            s_channels_list[2:],
+            strict=True,
+        ):
+            layers.append(ScalarGatedNonlinearity(config.nonlinearity))
+            layers.append(
+                EquiLinear(in_, out, primitives, in_s_channels=in_s, out_s_channels=out_s)
             )
-            if primitives.geometric_product:
-                layers.append(GeometricBilinear(primitives=primitives, **kwargs))
-            else:
-                layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(EquiLinear(primitives=primitives, **kwargs))
             if config.dropout_prob is not None:
                 layers.append(GradeDropout(config.dropout_prob))
-
-            for in_, out, in_s, out_s in zip(
-                mv_channels_list[1:-1],
-                mv_channels_list[2:],
-                s_channels_list[1:-1],
-                s_channels_list[2:],
-                strict=True,
-            ):
-                layers.append(ScalarGatedNonlinearity(config.activation))
-                layers.append(
-                    EquiLinear(in_, out, primitives, in_s_channels=in_s, out_s_channels=out_s)
-                )
-                if config.dropout_prob is not None:
-                    layers.append(GradeDropout(config.dropout_prob))
 
         self.layers = nn.ModuleList(layers)
 

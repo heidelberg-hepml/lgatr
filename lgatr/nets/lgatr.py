@@ -62,7 +62,7 @@ class LGATr(nn.Module):
         Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
     naive_amp
         Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
-        autocast dtype (full bf16). When ``False`` (default), under autocast the multivector stream
+        autocast dtype (e.g. bf16). When ``False`` (default), under autocast the multivector stream
         and metric contractions stay fp32 while the scalar GEMMs run in bf16.
     compile
         Whether to wrap the model with :func:`torch.compile`. Primitive caches are warmed
@@ -72,6 +72,13 @@ class LGATr(nn.Module):
         Dict forwarded verbatim to :func:`torch.compile` (via
         :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
         ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
+    activation_memory_budget
+        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
+        ``compile=True``. ``None`` (the default) leaves torch's global setting untouched. Setting
+        ``1.0`` recomputes only cheap pointwise/reduction ops in the backward pass (torch default);
+        lower values let the partitioner also recompute compute-intensive ops, ranked by
+        memory-saved-per-FLOP, trading backward FLOPs for a smaller activation-memory peak. Smaller
+        values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.
     """
 
     def __init__(
@@ -86,17 +93,18 @@ class LGATr(nn.Module):
         attention: SelfAttentionConfig,
         mlp: MLPConfig,
         primitives: PrimitivesConfig | Mapping | None = None,
-        reinsert_mv_channels: tuple[int] | None = None,
-        reinsert_s_channels: tuple[int] | None = None,
+        reinsert_mv_channels: tuple[int, ...] | None = None,
+        reinsert_s_channels: tuple[int, ...] | None = None,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
+        activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
-        primitives = PrimitivesConfig.cast(primitives)
+        primitives = PrimitivesConfig() if primitives is None else PrimitivesConfig.cast(primitives)
         self.primitives = primitives
         self.linear_in = EquiLinear(
             in_mv_channels,
@@ -140,7 +148,11 @@ class LGATr(nn.Module):
         self._naive_amp = naive_amp
 
         if compile:
-            compile_model(self, compile_kwargs=compile_kwargs)
+            compile_model(
+                self,
+                compile_kwargs=compile_kwargs,
+                activation_memory_budget=activation_memory_budget,
+            )
 
     def _apply(self, fn, recurse=True):
         """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""

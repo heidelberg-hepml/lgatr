@@ -38,7 +38,7 @@ def _compute_pin_equi_linear_basis(
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
     # Lorentz-equivariant basis of shape (10, 16, 16) for the proper orthochronous subgroup,
-    # or (5, 16, 16) for the full Pin group.
+    # or (5, 16, 16) for the full Lorentz group.
     src = _BASIS_SUBGROUP if subgroup else _BASIS_FULL
     return src.to(device=device, dtype=dtype)
 
@@ -179,7 +179,7 @@ class _EquiLinearSparse(torch.autograd.Function):
             y3 = direct(z3, 4) + s[11:15] * dual(z1, 4)
             y4 = direct(z4, 1) + s[15:16] * dual(z0, 1)
         else:
-            # Full Pin group: only the 5 grade-preserving basis elements.
+            # Full Lorentz group: only the 5 grade-preserving basis elements.
             y0 = _grade_unflat(z0, batch_shape, 1)
             y1 = _grade_unflat(z1, batch_shape, 4)
             y2 = _grade_unflat(z2, batch_shape, 6)
@@ -265,7 +265,9 @@ def _equi_linear_sparse(
 def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tensor:
     """Pin-equivariant linear map ``f(x) = sum_{a,j} coeffs_a W^a_ij x_j``.
 
-    The :math:`W^a` are 5 or 10 pre-defined basis elements (see :func:`_compute_pin_equi_linear_basis`).
+    The :math:`W^a` are 5 or 10 pre-defined, Lorentz-equivariant basis elements (10 for the
+    connected subgroup, 5 for the full Lorentz group; selected via the ``subgroup`` option in
+    :class:`~lgatr.primitives.config.PrimitivesConfig`).
 
     Parameters
     ----------
@@ -273,7 +275,7 @@ def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConf
         Input multivector of shape ``(..., in_channels, 16)``.
     coeffs
         Coefficients for the basis elements of shape ``(out_channels, in_channels, num_basis_elements)``,
-        where ``num_basis_elements`` is 10 (fully connected subgroup) or 5 (full Lorentz group).
+        where ``num_basis_elements`` is 10 (connected subgroup) or 5 (full Lorentz group).
     config
         LGATr primitives configuration.
 
@@ -344,5 +346,4 @@ def grade_involute(x: torch.Tensor) -> torch.Tensor:
     outputs
         Output multivector of shape ``(..., 16)``.
     """
-
     return _compute_grade_involution(device=x.device, dtype=x.dtype) * x

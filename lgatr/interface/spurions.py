@@ -12,16 +12,8 @@ def get_num_spurions(
 ) -> int:
     """Compute how many reference multivectors / spurions a given configuration will have.
 
-    Parameters
-    ----------
-    beam_spurion
-        Beam-reference option. One of ``'lightlike'``, ``'spacelike'``, ``'timelike'``,
-        ``'xyplane'``, or ``None``.
-    add_time_spurion
-        Whether to add the time direction as a reference to the network.
-    beam_mirror
-        If True, include ``(x, 0, 0, -1)`` in addition to ``(x, 0, 0, 1)``. Only relevant for
-        ``beam_spurion`` in ``['lightlike', 'spacelike', 'timelike']`` (the xy-plane is symmetric).
+    See :func:`get_spurions` for the meaning of ``beam_spurion``, ``add_time_spurion``, and
+    ``beam_mirror``.
 
     Returns
     -------
@@ -59,6 +51,10 @@ def get_spurions(
     beam_mirror
         If True, include ``(x, 0, 0, -1)`` in addition to ``(x, 0, 0, 1)``. Only relevant for
         ``beam_spurion`` in ``['lightlike', 'spacelike', 'timelike']`` (the xy-plane is symmetric).
+    device
+        Device on which to construct the spurions.
+    dtype
+        Floating-point dtype of the spurions.
 
     Returns
     -------

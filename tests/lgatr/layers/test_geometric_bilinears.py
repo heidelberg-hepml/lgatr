@@ -42,12 +42,13 @@ def test_geometric_bilinears_equivariance(
     )
 
 
-def test_geometric_bilinears_none_scalars_at_runtime() -> None:
-    # GeometricBilinear accepts scalars=None at runtime.
+def test_geometric_bilinears_rejects_none_scalars() -> None:
+    # A GeometricBilinear built with scalar channels rejects scalars=None at runtime.
     layer = GeometricBilinear(
         in_mv_channels=8,
         out_mv_channels=10,
         primitives=PrimitivesConfig(),
         in_s_channels=3,
     )
-    layer(torch.randn(4, 8, 16), scalars=None)
+    with pytest.raises(ValueError):
+        layer(torch.randn(4, 8, 16), scalars=None)

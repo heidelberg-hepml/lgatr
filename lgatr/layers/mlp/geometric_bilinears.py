@@ -12,6 +12,8 @@ from ..linear import EquiLinear
 class GeometricBilinear(nn.Module):
     """Pin-equivariant bilinear map that constructs new geometric features via geometric products.
 
+    The geometric-product output is passed through an :class:`EquiLayerNorm` before it is returned.
+
     Parameters
     ----------
     in_mv_channels

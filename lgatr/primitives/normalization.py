@@ -24,7 +24,7 @@ def equi_layer_norm(
     Parameters
     ----------
     x
-        Input multivectors of shape ``(..., 16)``.
+        Input multivectors of shape ``(..., channels, 16)``.
     channel_dim
         Channel-dimension index. Defaults to the second-to-last entry (the last is the multivector
         component dimension).
@@ -37,18 +37,18 @@ def equi_layer_norm(
     Returns
     -------
     outputs
-        Normalized multivectors of shape ``(..., 16)``.
+        Normalized multivectors of shape ``(..., channels, 16)``.
     """
 
     # Compute mean_channels |inputs|^2
     abs_squared_norms = abs_squared_norm(x)
     abs_squared_norms = torch.mean(abs_squared_norms, dim=channel_dim, keepdim=True)
 
-    # Insure against low-norm tensors (which can arise even when `x.var(dim=-1)` is high b/c some
+    # Ensure against low-norm tensors (which can arise even when `x.var(dim=-1)` is high b/c some
     # entries don't contribute to the inner product / GP norm!)
     abs_squared_norms = torch.clamp(abs_squared_norms, epsilon)
 
-    # ``gain * rsqrt(...)`` collapses to a small (..., 1, 16) tensor first, so the final
+    # ``gain * rsqrt(...)`` collapses to a small (..., 1, 1) tensor first, so the final
     # broadcast multiply touches ``x`` only once (rather than ``gain * x * rsqrt`` which
     # would allocate an intermediate the size of ``x``).
     return x * (gain * torch.rsqrt(abs_squared_norms))

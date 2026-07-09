@@ -13,7 +13,7 @@ from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
     [(2, 3, 4, 5)],
 )
 @pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
-@pytest.mark.parametrize("num_heads,increase_hidden_channels", [(3, 2)])
+@pytest.mark.parametrize("num_heads,attn_ratio", [(3, 2)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.5])
 def test_crossattention_equivariance(
     batch_dims: list[int],
@@ -26,7 +26,7 @@ def test_crossattention_equivariance(
     multi_query: bool,
     head_scale: bool,
     num_heads: int,
-    increase_hidden_channels: int,
+    attn_ratio: int,
     dropout_prob: float | None,
 ) -> None:
     # CrossAttention is Pin-equivariant in both query and key/value multivector inputs. Eval mode is
@@ -40,7 +40,7 @@ def test_crossattention_equivariance(
         out_s_channels=q_s_channels,
         num_heads=num_heads,
         head_scale=head_scale,
-        increase_hidden_channels=increase_hidden_channels,
+        attn_ratio=attn_ratio,
         multi_query=multi_query,
         dropout_prob=dropout_prob,
     )
@@ -63,8 +63,8 @@ def test_crossattention_equivariance(
     )
 
 
-def test_cross_attention_none_scalars() -> None:
-    # CrossAttention accepts scalars_kv=None and scalars_q=None at runtime.
+def test_cross_attention_rejects_none_scalars() -> None:
+    # A CrossAttention built with scalar channels rejects scalars_q/scalars_kv=None at runtime.
     config = CrossAttentionConfig(
         kv_mv_channels=2,
         q_mv_channels=3,
@@ -77,7 +77,8 @@ def test_cross_attention_none_scalars() -> None:
     layer = CrossAttention(config, PrimitivesConfig())
     mv_q = torch.randn(2, 3, 3, 16)
     mv_kv = torch.randn(2, 4, 2, 16)
-    layer(mv_q, mv_kv, scalars_q=None, scalars_kv=None)
+    with pytest.raises(ValueError):
+        layer(mv_q, mv_kv, scalars_q=None, scalars_kv=None)
 
 
 def test_cross_attention_zero_scalar_channels() -> None:

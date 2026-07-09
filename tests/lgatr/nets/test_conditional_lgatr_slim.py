@@ -1,11 +1,8 @@
 import pytest
 import torch
 
-from lgatr.nets.conditional_lgatr_slim import (
-    ConditionalLGATrSlim,
-    ConditionalLGATrSlimBlock,
-    CrossAttention,
-)
+from lgatr.nets.conditional_slim import ConditionalLGATrSlim
+from lgatr.nets.slim_layers import ConditionalSlimBlock, SlimCrossAttention
 
 from ...helpers.constants import BATCH_DIMS, TOLERANCES
 from ...helpers.equivariance_noga import check_equivariance
@@ -17,7 +14,7 @@ BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 @pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
 @pytest.mark.parametrize("v_channels,v_channels_cond,s_channels,s_channels_cond", [(24, 6, 14, 20)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
-def test_CrossAttention_equivariance(
+def test_SlimCrossAttention_equivariance(
     batch_dims: list[int],
     N: int,
     N_cond: int,
@@ -28,8 +25,8 @@ def test_CrossAttention_equivariance(
     num_heads: int,
     attn_ratio: int,
 ) -> None:
-    # Slim CrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
-    layer = CrossAttention(
+    # Slim SlimCrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
+    layer = SlimCrossAttention(
         q_v_channels=v_channels,
         kv_v_channels=v_channels_cond,
         q_s_channels=s_channels,
@@ -64,7 +61,7 @@ def test_CrossAttention_equivariance(
 )
 @pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
 @pytest.mark.parametrize("norm_elementwise_affine", [False, True])
-def test_ConditionalLGATrSlimBlock_equivariance(
+def test_ConditionalSlimBlock_equivariance(
     batch_dims: list[int],
     N: int,
     N_cond: int,
@@ -76,8 +73,8 @@ def test_ConditionalLGATrSlimBlock_equivariance(
     dropout_prob: float | None,
     norm_elementwise_affine: bool,
 ) -> None:
-    # ConditionalLGATrSlimBlock is SO(1, 3)-equivariant at eval time.
-    layer = ConditionalLGATrSlimBlock(
+    # ConditionalSlimBlock is SO(1, 3)-equivariant at eval time.
+    layer = ConditionalSlimBlock(
         v_channels=v_channels,
         v_channels_cond=v_channels_cond,
         s_channels=s_channels,

@@ -9,9 +9,7 @@ from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize(
-    "num_items,in_channels,out_channels,increase_hidden_channels", [(2, 4, 4, 2)]
-)
+@pytest.mark.parametrize("num_items,in_channels,out_channels,attn_ratio", [(2, 4, 4, 2)])
 @pytest.mark.parametrize("in_s_channels,out_s_channels", [(17, 13), (11, 0)])
 @pytest.mark.parametrize("num_heads", [4, 1])
 @pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
@@ -25,7 +23,7 @@ def test_attention_equivariance(
     in_s_channels: int,
     out_s_channels: int,
     multi_query: bool,
-    increase_hidden_channels: int,
+    attn_ratio: int,
 ) -> None:
     # SelfAttention is Pin-equivariant when scalar inputs are provided.
     config = SelfAttentionConfig(
@@ -36,7 +34,7 @@ def test_attention_equivariance(
         num_heads=num_heads,
         head_scale=head_scale,
         multi_query=multi_query,
-        increase_hidden_channels=increase_hidden_channels,
+        attn_ratio=attn_ratio,
     )
     layer = SelfAttention(config, PrimitivesConfig())
 

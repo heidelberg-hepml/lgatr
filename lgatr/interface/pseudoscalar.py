@@ -34,5 +34,5 @@ def extract_pseudoscalar(multivectors: torch.Tensor) -> torch.Tensor:
     pseudoscalars
         Pseudoscalars of shape ``(..., 1)``.
     """
-
+    assert multivectors.shape[-1] == 16
     return multivectors[..., [15]]

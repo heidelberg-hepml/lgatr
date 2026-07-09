@@ -17,8 +17,9 @@ def embed_vector(vectors: torch.Tensor) -> torch.Tensor:
         Multivectors of shape ``(..., 16)``.
     """
 
+    assert vectors.shape[-1] == 4
     # F.pad(x, (1, 11)) zero-pads 1 entry on the left and 11 on the right of the last dim,
-    # placing the input at indices 1..5 (the Lorentz-vector slots) with zeros elsewhere.
+    # placing the input at indices 1-4 (the Lorentz-vector slots) with zeros elsewhere.
     return torch.nn.functional.pad(vectors, (1, 11))
 
 
@@ -36,6 +37,7 @@ def extract_vector(multivectors: torch.Tensor) -> torch.Tensor:
         Lorentz vectors of shape ``(..., 4)``.
     """
 
+    assert multivectors.shape[-1] == 16
     vectors = multivectors[..., 1:5]
 
     return vectors

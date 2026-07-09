@@ -34,7 +34,6 @@ class QKVModule(nn.Module):
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
-        self.primitives = primitives
 
     def forward(
         self,
@@ -52,8 +51,9 @@ class QKVModule(nn.Module):
     ]:
         """Compute head-wise queries, keys, and values.
 
-        The heads have size ``head_mv_channels = mv_channels * increase_hidden_channels // num_heads``
-        and ``head_s_channels = s_channels * increase_hidden_channels // num_heads``.
+        The heads have size ``head_mv_channels = max(mv_channels * attn_ratio // num_heads, 1)``
+        and ``head_s_channels = max(s_channels * attn_ratio // num_heads, 4)`` (0 if there is no
+        scalar stream).
 
         Parameters
         ----------
@@ -96,7 +96,6 @@ class QKVModule(nn.Module):
         qkv_mv = qkv_mv.unflatten(
             -2, (3, self.config.hidden_mv_channels, self.config.num_heads)
         ).movedim((-4, -2), (0, -4))
-        q_mv, k_mv, v_mv = qkv_mv.unbind(0)  # each: (..., num_heads, num_items, num_channels, 16)
 
         # Same, for optional scalar components
         if qkv_s is not None:
@@ -104,13 +103,16 @@ class QKVModule(nn.Module):
             qkv_s = qkv_s.unflatten(
                 -1, (3, self.config.hidden_s_channels, self.config.num_heads)
             ).movedim((-3, -1), (0, -3))
+
+        # One fused norm over the stacked qkv (the leading qkv axis is just another batch dim for
+        # the channel-wise norm, so this equals normalizing q, k, v separately).
+        qkv_mv, qkv_s = self.norm_qkv(qkv_mv, scalars=qkv_s)
+
+        q_mv, k_mv, v_mv = qkv_mv.unbind(0)  # each: (..., num_heads, num_items, num_channels, 16)
+        if qkv_s is not None:
             q_s, k_s, v_s = qkv_s.unbind(0)  # each: (..., num_heads, num_items, num_channels)
         else:
             q_s, k_s, v_s = None, None, None
-
-        q_mv, q_s = self.norm_qkv(q_mv, scalars=q_s)
-        k_mv, k_s = self.norm_qkv(k_mv, scalars=k_s)
-        v_mv, v_s = self.norm_qkv(v_mv, scalars=v_s)
 
         return q_mv, k_mv, v_mv, q_s, k_s, v_s
 
@@ -160,7 +162,6 @@ class MultiQueryQKVModule(nn.Module):
         )
         self.norm_qkv = EquiLayerNorm()
         self.config = config
-        self.primitives = primitives
 
     def forward(
         self,

@@ -25,7 +25,7 @@ Alternatively, if you're developing locally:
 Building L-GATr-slim
 --------------------
 
-You can construct a simple :class:`~lgatr.nets.lgatr_slim.LGATrSlim` model as follows:
+You can construct a simple :class:`~lgatr.nets.slim.LGATrSlim` model as follows:
 
 .. code-block:: python
 

@@ -27,8 +27,8 @@ def sdp_attention(
             ga_inner_product(q_mv[..., i, :, :], k_mv[..., j, :, :])
             + euclidean_inner_product(q_s[..., i, :], k_s[..., j, :])
         ]
-        outputs_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :] / norm
-        outputs_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c] / norm
+        outputs_mv[..., i, c, :] = sum_j attn_weights[..., i, j] v_mv[..., j, c, :]
+        outputs_s[..., i, c]     = sum_j attn_weights[..., i, j] v_s[..., j, c]
 
     Parameters
     ----------
@@ -55,6 +55,9 @@ def sdp_attention(
     outputs_s
         Scalar result of shape ``(..., items_out, s_channels)``, or None if ``q_s`` is None.
     """
+
+    if (k_s is None) != (q_s is None) or (v_s is None) != (q_s is None):
+        raise ValueError("q_s, k_s, and v_s must either all be None or all be provided.")
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
     q = (q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype)).flatten(-2, -1)
@@ -103,5 +106,6 @@ def scaled_dot_product_attention(
     outputs
         Tensor of shape ``(..., items_out, channels)``.
     """
-    attention_backend = get_attention_backend(**attn_kwargs)
+    backend = attn_kwargs.pop("backend", None)
+    attention_backend = get_attention_backend(backend=backend, **attn_kwargs)
     return attention_backend(query, key, value, **attn_kwargs)

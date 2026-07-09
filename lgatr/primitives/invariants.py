@@ -21,13 +21,7 @@ def _load_inner_product_factors(
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
-    """Construct the diagonal of the GA metric used by the inner product.
-
-    Returns
-    -------
-    ip_factors
-        Inner-product factors of shape ``(16,)`` (entries are +1 or -1).
-    """
+    # Diagonal of the GA metric used by the inner product, shape (16,) (+/-1 entries).
     return _INNER_PRODUCT_FACTORS.to(device=device, dtype=dtype)
 
 
@@ -36,14 +30,8 @@ def _load_metric_grades(
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
-    """Construct the GA metric diagonal combined with a grade projection.
-
-    Returns
-    -------
-    metric_grades
-        Tensor of shape ``(5, 16)``; row ``g`` holds the metric entries of grade ``g`` and zeros
-        elsewhere.
-    """
+    # GA metric diagonal combined with a grade projection, shape (5, 16): row g holds the metric
+    # entries of grade g and zeros elsewhere.
     m_grades = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
     offset = 0
     for k in range(5):

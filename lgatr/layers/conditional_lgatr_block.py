@@ -23,8 +23,8 @@ class ConditionalLGATrBlock(nn.Module):
 
     Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual
     connection. Then the conditions are mixed in via cross-attention with the same overhead as
-    self-attention. Finally the data goes through another LayerNorm, a two-layer geometric MLP
-    with GeLU activations, and another residual connection.
+    self-attention. Finally the data goes through another LayerNorm, an item-wise geometric MLP,
+    and another residual connection.
 
     Parameters
     ----------
@@ -64,7 +64,6 @@ class ConditionalLGATrBlock(nn.Module):
         norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
-        self.primitives = primitives
 
         # Pre-norms: norm1 (self-attn), norm2 (cross-attn query), norm_cond (cross-attn condition),
         # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the

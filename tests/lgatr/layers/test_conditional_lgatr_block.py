@@ -132,8 +132,8 @@ def test_conditional_gatr_block_equivariance(
     )
 
 
-def test_conditional_lgatr_block_none_scalars_at_runtime() -> None:
-    # ConditionalLGATrBlock accepts scalars=None and scalars_cond=None at runtime.
+def test_conditional_lgatr_block_rejects_none_scalars() -> None:
+    # A ConditionalLGATrBlock built with scalar channels rejects scalars=None at runtime.
     net = ConditionalLGATrBlock(
         mv_channels=4,
         s_channels=2,
@@ -145,4 +145,5 @@ def test_conditional_lgatr_block_none_scalars_at_runtime() -> None:
         primitives=PrimitivesConfig(),
     )
     mv = torch.randn(3, 5, 4, 16)
-    net(mv, multivectors_cond=mv, scalars=None, scalars_cond=None)
+    with pytest.raises(ValueError):
+        net(mv, multivectors_cond=mv, scalars=None, scalars_cond=None)

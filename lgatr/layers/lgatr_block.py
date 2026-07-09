@@ -17,8 +17,8 @@ class LGATrBlock(nn.Module):
     """L-GATr encoder block.
 
     Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual
-    connection. Then the data is processed by another LayerNorm, an item-wise two-layer geometric
-    MLP with GeLU activations, and another residual connection.
+    connection. Then the data is processed by another LayerNorm, an item-wise geometric MLP, and
+    another residual connection.
 
     Parameters
     ----------
@@ -49,7 +49,6 @@ class LGATrBlock(nn.Module):
         norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
-        self.primitives = primitives
 
         # Normalization layers
         self.norm1 = EquiLayerNorm(

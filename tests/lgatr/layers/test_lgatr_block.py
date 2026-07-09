@@ -89,8 +89,8 @@ def test_lgatr_block_equivariance(
     )
 
 
-def test_lgatr_block_none_scalars_at_runtime() -> None:
-    # LGATrBlock accepts scalars=None at runtime.
+def test_lgatr_block_rejects_none_scalars() -> None:
+    # An LGATrBlock built with scalar channels rejects scalars=None at runtime.
     net = LGATrBlock(
         mv_channels=4,
         s_channels=2,
@@ -98,4 +98,5 @@ def test_lgatr_block_none_scalars_at_runtime() -> None:
         mlp=MLPConfig(),
         primitives=PrimitivesConfig(),
     )
-    net(torch.randn(3, 5, 4, 16), scalars=None)
+    with pytest.raises(ValueError):
+        net(torch.randn(3, 5, 4, 16), scalars=None)

@@ -47,7 +47,7 @@ def attention(
     )
 
     if query.dtype not in [torch.float16, torch.bfloat16]:
-        # flash-attention only supports fp16 and bf16
+        # varlen_attn only supports fp16 and bf16
         if dtype is None:
             dtype = torch.get_autocast_gpu_dtype()
         in_dtype = query.dtype

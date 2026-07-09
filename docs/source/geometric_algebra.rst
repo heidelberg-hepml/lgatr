@@ -87,8 +87,8 @@ shapes using these conventions:
   - ``(..., channels)`` — a stack of scalar channels.
   - ``(..., items, channels)`` — a sequence of scalar channels (transformer input).
 
-- **Lorentz vectors** (used by the slim variants :class:`~lgatr.nets.lgatr_slim.LGATrSlim` and
-  :class:`~lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim`) carry a fixed last dimension
+- **Lorentz vectors** (used by the slim variants :class:`~lgatr.nets.slim.LGATrSlim` and
+  :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`) carry a fixed last dimension
   of 4: ``(..., channels, 4)`` or ``(..., items, channels, 4)``.
 
 - Leading batch dimensions ``...`` are arbitrary and broadcast as in standard PyTorch ops.

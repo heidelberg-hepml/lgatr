@@ -8,7 +8,7 @@ We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack
 and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders.
 For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr`
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
-In addition :class:`~lgatr.nets.lgatr_slim.LGATrSlim` and :class:`~lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim`
+In addition :class:`~lgatr.nets.slim.LGATrSlim` and :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`
 provide more efficient versions of the respective networks using only scalar and vector representations.
 
 .. autosummary::
@@ -17,8 +17,8 @@ provide more efficient versions of the respective networks using only scalar and
 
    lgatr.nets.lgatr.LGATr
    lgatr.nets.conditional_lgatr.ConditionalLGATr
-   lgatr.nets.lgatr_slim.LGATrSlim
-   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim
+   lgatr.nets.slim.LGATrSlim
+   lgatr.nets.conditional_slim.ConditionalLGATrSlim
 
 L-GATr Layers
 -------------
@@ -118,12 +118,12 @@ This approach allows a more efficient implementation while achieving similar per
    :toctree: generated/
    :recursive:
 
-   lgatr.nets.lgatr_slim.LGATrSlimBlock
-   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlimBlock
-   lgatr.nets.lgatr_slim.SelfAttention
-   lgatr.nets.conditional_lgatr_slim.CrossAttention
-   lgatr.nets.lgatr_slim.MLP
-   lgatr.nets.lgatr_slim.GatedLinearUnit
-   lgatr.nets.lgatr_slim.Linear
-   lgatr.nets.lgatr_slim.RMSNorm
-   lgatr.nets.lgatr_slim.Dropout
+   lgatr.nets.slim_layers.SlimBlock
+   lgatr.nets.slim_layers.ConditionalSlimBlock
+   lgatr.nets.slim_layers.SlimSelfAttention
+   lgatr.nets.slim_layers.SlimCrossAttention
+   lgatr.nets.slim_layers.SlimMLP
+   lgatr.nets.slim_layers.SlimGLU
+   lgatr.nets.slim_layers.SlimLinear
+   lgatr.nets.slim_layers.SlimRMSNorm
+   lgatr.nets.slim_layers.SlimDropout

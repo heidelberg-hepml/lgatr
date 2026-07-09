@@ -2,9 +2,9 @@ import torch
 
 from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.mlp.config import MLPConfig
-from lgatr.nets.conditional_lgatr_slim import ConditionalLGATrSlim
+from lgatr.nets.conditional_slim import ConditionalLGATrSlim
 from lgatr.nets.lgatr import LGATr
-from lgatr.nets.lgatr_slim import LGATrSlim
+from lgatr.nets.slim import LGATrSlim
 
 
 def assert_all_trainable_params_get_grads(net, *inputs):

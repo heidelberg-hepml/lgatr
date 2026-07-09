@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `norm_elementwise_affine=True` option for `LGATr`, `ConditionalLGATr`, `LGATrSlim`, `ConditionalLGATrSlim` (changed default behavior)
+- `norm_elementwise_affine=True` option for all networks (changed default behavior)
 - `sparse_gp=True` and `sparse_linear=True` options in `PrimitivesConfig` (changed default to `sparse_gp=True` because always faster)
 - `nonlinearity_v` option for `LGATrSlim`/`ConditionalLGATrSlim` (changed default to `nonlinearity_v="sigmoid"` because more stable)
 - `naive_amp=False` option and public `naive_amp` context manager to bypass `minimum_autocast_precision` and run the forward in the surrounding autocast dtype (e.g. bf16)
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `LGATrSlim`/`ConditionalLGATrSlim` hidden layers store vectors channel-last `(..., 4, channels)`
 - Unify `get_nonlinearity()` between `LGATr`/`LGATrSlim`
 - Enforce `torch>=2.4` autocast syntax, drop support for low-torch-2 versions
 - Unify variable naming across the code; affects public API for conditional networks
@@ -35,9 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `PrimitivesConfig` flags: `use_fully_connected_subgroup`→`subgroup`, `use_bivector`→`bivector`, `use_geometric_product`→`geometric_product`
 - `minimum_autocast_precision` return outputs as tuple and downcast to low dtype automatically
 - Removed scalar bias from qkv linear layers in all models
-- Slim stability refinements: initialize `linear_s` to 0, scale GLU inner product by 1/sqrt(4)
+- Slim stability refinements: initialize `linear_s` bias to 0, scale GLU inner product by 1/sqrt(4)
 - Replaced the separate `compile_mode`/`compile_dynamic`/`compile_fullgraph` arguments with a single `compile_kwargs` dict forwarded verbatim to `torch.compile` in `compile_model` and all nets.
 - Different amp strategy: vector/multivector path stays in fp32, only scalar path uses amp
+- Unified the `LGATr` config names:  `increase_hidden_channels`->`attn_ratio`,  `increase_hidden_channels`->`mlp_ratio`, `activation`->`nonlinearity`, `num_hidden_layers`->`num_layers_mlp`
+- Renamed slim building blocks with a `Slim` prefix (`SlimLinear` etc)
 
 ### Removed
 

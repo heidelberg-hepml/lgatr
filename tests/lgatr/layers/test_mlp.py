@@ -28,7 +28,7 @@ def test_geo_mlp_shape(
 
     try:
         net = GeoMLP(
-            MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation),
+            MLPConfig(mv_channels=mv_channels, s_channels=s_channels, nonlinearity=activation),
             primitives=primitives,
         )
     except NotImplementedError:
@@ -54,7 +54,7 @@ def test_geo_mlp_equivariance(
     # to the EquiLinear+nonlinearity path when there's no scalar stream.
     primitives = PrimitivesConfig(geometric_product=s_channels > 0)
     net = GeoMLP(
-        MLPConfig(mv_channels=mv_channels, s_channels=s_channels, activation=activation),
+        MLPConfig(mv_channels=mv_channels, s_channels=s_channels, nonlinearity=activation),
         primitives=primitives,
     )
     data_dims = tuple(list(batch_dims) + [mv_channels])

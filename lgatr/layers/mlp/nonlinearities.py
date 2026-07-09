@@ -10,7 +10,7 @@ class ScalarGatedNonlinearity(nn.Module):
     """Gated nonlinearity on multivectors.
 
     Given multivector input ``x``, computes ``f(x_0) * x``, where ``f`` is one of ReLU, sigmoid,
-    GeLU, or SiLU. Auxiliary scalar inputs are processed with the same ``f`` directly (without
+    tanh, GeLU, or SiLU. Auxiliary scalar inputs are processed with the same ``f`` directly (without
     gating).
 
     Parameters
@@ -34,14 +34,14 @@ class ScalarGatedNonlinearity(nn.Module):
         multivectors
             Input multivectors of shape ``(..., 16)``.
         scalars
-            Optional input scalars of shape ``(...)``. If None, ``outputs_s`` is None.
+            Optional input scalars of shape ``(..., s_channels)``. If None, ``outputs_s`` is None.
 
         Returns
         -------
         outputs_mv
             Output multivectors of shape ``(..., 16)``.
         outputs_s
-            Output scalars of shape ``(...)``, or None if ``scalars`` is None.
+            Output scalars of shape ``(..., s_channels)``, or None if ``scalars`` is None.
         """
 
         gates = multivectors[..., 0:1]

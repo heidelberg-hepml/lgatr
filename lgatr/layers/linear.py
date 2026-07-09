@@ -25,12 +25,14 @@ class EquiLinear(nn.Module):
     would break equivariance). Here ``basis_map`` are precomputed (see
     :mod:`lgatr.primitives.linear`) and ``weights`` are the learnable weights of this layer.
     The ``basis_map`` includes 5 elements if the full Lorentz group is considered, and 10 elements
-    if only the fully-connected subgroup is considered. See
+    if only the connected subgroup is considered. See
     :class:`lgatr.primitives.config.PrimitivesConfig` for the ``subgroup`` option.
 
     If there are auxiliary input scalars, they transform under a linear layer and mix with the
-    scalar components of the multivector data. In this layer (and only here) the auxiliary scalars
-    are optional.
+    scalar components of the multivector data. The ``scalars`` argument to :meth:`forward` must be
+    provided when ``in_s_channels > 0`` and must not carry scalar data when ``in_s_channels == 0``;
+    a mismatch raises. A zero-channel scalar tensor is the "no scalars" convention and is always
+    accepted (unlike the other layers, ``in_s_channels`` may be 0).
 
     This layer supports four initialization schemes:
 
@@ -156,6 +158,12 @@ class EquiLinear(nn.Module):
         outputs_s
             Output scalars of shape ``(..., out_s_channels)``, or None if ``out_s_channels == 0``.
         """
+        # A zero-channel scalar tensor is the "no scalars" convention and is allowed either way;
+        # only a genuine mismatch (missing scalars, or real scalar data the layer would ignore) raises.
+        if self._in_s_channels > 0 and scalars is None:
+            raise ValueError("EquiLinear built with in_s_channels>0 but called with scalars=None.")
+        if self._in_s_channels == 0 and scalars is not None and scalars.shape[-1] > 0:
+            raise ValueError("EquiLinear built with in_s_channels=0 but called with scalars.")
 
         outputs_mv = equi_linear(
             multivectors, self.weight, config=self.primitives
@@ -228,12 +236,7 @@ class EquiLinear(nn.Module):
         additional_factor = 1 / math.sqrt(3.0) if additional_factor is None else additional_factor
 
         # Prefactors depending on initialization scheme
-        (
-            mv_component_factors,
-            mv_factor,
-            mvs_bias_shift,
-            s_factor,
-        ) = self._compute_init_factors(
+        mv_factor, mvs_bias_shift, s_factor = self._compute_init_factors(
             initialization,
             gain,
             additional_factor,
@@ -248,7 +251,7 @@ class EquiLinear(nn.Module):
         # get summed over to compute each output element.
 
         # Let us fist consider the multivector outputs.
-        self._init_multivectors(mv_component_factors, mv_factor, mvs_bias_shift)
+        self._init_multivectors(mv_factor, mvs_bias_shift)
 
         # Then let's consider the maps to scalars.
         self._init_scalars(s_factor)
@@ -258,7 +261,7 @@ class EquiLinear(nn.Module):
         initialization: str,
         gain: float,
         additional_factor: float,
-    ) -> tuple[torch.Tensor, float, float, float]:
+    ) -> tuple[float, float, float]:
         """Compute prefactors for the initialization (see :meth:`reset_parameters`)."""
 
         assert initialization in [
@@ -288,12 +291,10 @@ class EquiLinear(nn.Module):
             s_factor = gain * additional_factor * math.sqrt(3)
             mvs_bias_shift = 1.0
 
-        mv_component_factors = torch.ones(self.primitives.num_pin_linear_basis_elements)
-        return mv_component_factors, mv_factor, mvs_bias_shift, s_factor
+        return mv_factor, mvs_bias_shift, s_factor
 
     def _init_multivectors(
         self,
-        mv_component_factors: torch.Tensor,
         mv_factor: float,
         mvs_bias_shift: float,
     ) -> None:
@@ -312,8 +313,7 @@ class EquiLinear(nn.Module):
         # In theory (see docstring).
         fan_in = max(self._in_mv_channels, 1)
         bound = mv_factor / math.sqrt(fan_in)
-        for i, factor in enumerate(mv_component_factors):
-            nn.init.uniform_(self.weight[..., i], a=-factor * bound, b=factor * bound)
+        nn.init.uniform_(self.weight, a=-bound, b=bound)
 
         # Now let's focus on the scalar components of the multivector outputs.
         # If there are only multivector inputs, all is good. But if scalar inputs contribute them as
@@ -325,19 +325,18 @@ class EquiLinear(nn.Module):
         # weights to give a variance of 0.5, not 1.
         if self.s2mvs is not None:
             # contribution from scalar -> mv scalar
-            bound = mv_component_factors[0] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
-            nn.init.uniform_(self.weight[..., [0]], a=-bound, b=bound)
+            bound = mv_factor / math.sqrt(fan_in) / math.sqrt(2)
+            nn.init.uniform_(self.weight[..., 0], a=-bound, b=bound)
             if self.primitives.subgroup:
                 # contribution from scalar -> mv pseudoscalar
-                bound = mv_component_factors[-1] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
-                nn.init.uniform_(self.weight[..., [-1]], a=-bound, b=bound)
+                nn.init.uniform_(self.weight[..., -1], a=-bound, b=bound)
 
         # The same holds for the scalar-to-MV map, where we also just want a variance of 0.5.
         # Note: This is not properly extended to scalar and pseudoscalar outputs yet
         if self.s2mvs is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.s2mvs.weight)
             fan_in = max(fan_in, 1)  # Since in theory we could have 0-channel scalar "data"
-            bound = mv_component_factors[0] * mv_factor / math.sqrt(fan_in) / math.sqrt(2)
+            bound = mv_factor / math.sqrt(fan_in) / math.sqrt(2)
             nn.init.uniform_(self.s2mvs.weight, a=-bound, b=bound)
 
             # Bias needs to be adapted, as the overall fan in is different (need to account for MV
@@ -347,7 +346,7 @@ class EquiLinear(nn.Module):
                     nn.init._calculate_fan_in_and_fan_out(self.s2mvs.weight)[0]
                     + self._in_mv_channels
                 )
-                bound = mv_component_factors[0] / math.sqrt(fan_in) if fan_in > 0 else 0
+                bound = 1.0 / math.sqrt(fan_in) if fan_in > 0 else 0
                 nn.init.uniform_(self.s2mvs.bias, mvs_bias_shift - bound, mvs_bias_shift + bound)
 
     def _init_scalars(self, s_factor: float) -> None:

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from ..utils.config import cast_config
 
 
 @dataclass
@@ -18,25 +19,21 @@ class PrimitivesConfig:
     Parameters
     ----------
     subgroup
-        If True, model is only equivariant with respect to
-        the fully connected subgroup of the Lorentz group,
-        the proper orthochronous Lorentz group :math:`SO^+(1,3)`,
-        which does not include parity and time reversal.
-        This setting affects how the EquiLinear maps work:
-        For :math:`SO^+(1,3)`, they include transitions scalars/pseudoscalars
-        vectors/axialvectors and among bivectors, effectively
-        treating the pseudoscalar/axialvector representations
-        like another scalar/vector.
-        Defaults to True, because parity-odd representations
-        are usually not important in high-energy physics simulations.
+        If True, the model is only equivariant with respect to the connected subgroup of the
+        Lorentz group, the proper orthochronous Lorentz group :math:`SO^+(1,3)`, which excludes
+        parity and time reversal. This setting affects how the EquiLinear maps work: for
+        :math:`SO^+(1,3)` they additionally mix scalars with pseudoscalars, vectors with
+        axialvectors, and among bivectors, effectively treating the pseudoscalar and axialvector
+        representations like another scalar and vector. Defaults to True, because parity-odd
+        representations are usually not important in high-energy physics simulations.
     bivector
         If False, the bivector components are set to zero after they are created in the
         :class:`GeometricBilinear` layer. This is a toy switch to explore the effect of
         higher-order representations.
     geometric_product
-        If False, the :class:`GeometricBilinear` layer is replaced by a sequence of
-        :class:`EquiLinear` and :class:`ScalarGatedNonlinearity` layers. This is a toy switch to
-        explore the effect of the geometric product.
+        If False, the :class:`GeometricBilinear` layer is replaced by a
+        :class:`ScalarGatedNonlinearity` followed by an :class:`EquiLinear` layer. This is a toy
+        switch to explore the effect of the geometric product.
     sparse_gp
         If True, route :func:`geometric_product` through the gather-and-reduce kernel that exploits
         the basis sparsity (the dense path otherwise spends most of its FLOPs on zero entries).
@@ -59,15 +56,10 @@ class PrimitivesConfig:
 
     @property
     def num_pin_linear_basis_elements(self) -> int:
+        """Number of equivariant linear basis elements (10 for the subgroup, 5 for full Lorentz)."""
         return 10 if self.subgroup else 5
 
     @classmethod
     def cast(cls, config: Any) -> PrimitivesConfig:
-        """Cast an arbitrary object to a :class:`PrimitivesConfig`."""
-        if config is None:
-            return cls()
-        if isinstance(config, PrimitivesConfig):
-            return config
-        if isinstance(config, Mapping):
-            return cls(**config)
-        raise ValueError(f"Can not cast {config} to {cls}")
+        """Cast a :class:`PrimitivesConfig` or mapping to a :class:`PrimitivesConfig`."""
+        return cast_config(cls, config)

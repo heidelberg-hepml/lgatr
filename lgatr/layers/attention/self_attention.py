@@ -3,10 +3,10 @@
 import torch
 from torch import nn
 
+from ...primitives.attention import sdp_attention
 from ...primitives.config import PrimitivesConfig
 from ..dropout import GradeDropout
 from ..linear import EquiLinear
-from .attention import GeometricAttention
 from .config import SelfAttentionConfig
 from .qkv import MultiQueryQKVModule, QKVModule
 
@@ -28,10 +28,6 @@ class SelfAttention(nn.Module):
     def __init__(self, config: SelfAttentionConfig, primitives: PrimitivesConfig) -> None:
         super().__init__()
 
-        # Store settings
-        self.config = config
-        self.primitives = primitives
-
         # QKV computation
         self.qkv_module = (
             MultiQueryQKVModule(config, primitives)
@@ -49,9 +45,6 @@ class SelfAttention(nn.Module):
             initialization=config.output_init,
         )
 
-        # Attention
-        self.attention = GeometricAttention(config)
-
         # Dropout
         self.dropout: nn.Module | None
         if config.dropout_prob is not None:
@@ -67,37 +60,26 @@ class SelfAttention(nn.Module):
     def forward(
         self,
         multivectors: torch.Tensor,
-        additional_qk_features_mv: torch.Tensor | None = None,
         scalars: torch.Tensor | None = None,
+        additional_qk_features_mv: torch.Tensor | None = None,
         additional_qk_features_s: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Compute self-attention.
 
-        The result is the following:
-
-        .. code-block::
-
-            # For each head
-            queries = linear_channels(multivectors)
-            keys = linear_channels(multivectors)
-            values = linear_channels(multivectors)
-            hidden = attention_items(queries, keys, values, biases=biases)
-            head_output = linear_channels(hidden)
-
-            # Combine results
-            output = concatenate_heads head_output
+        Queries, keys, and values are computed per head, geometric attention is applied over items,
+        the heads are concatenated, and a final linear map produces the outputs.
 
         Parameters
         ----------
         multivectors
             Input multivectors of shape ``(..., items, mv_channels, 16)``.
-        additional_qk_features_mv
-            Additional multivector Q/K features of shape ``(..., items, add_qk_mv_channels, 16)``.
         scalars
             Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
             stream is bypassed and ``outputs_s`` may be None (or a tensor lifted by ``out_linear``
             if ``out_s_channels`` is configured).
+        additional_qk_features_mv
+            Additional multivector Q/K features of shape ``(..., items, add_qk_mv_channels, 16)``.
         additional_qk_features_s
             Additional scalar Q/K features of shape ``(..., items, add_qk_s_channels)``.
         **attn_kwargs
@@ -106,9 +88,9 @@ class SelfAttention(nn.Module):
         Returns
         -------
         outputs_mv
-            Output multivectors of shape ``(..., items, mv_channels, 16)``.
+            Output multivectors of shape ``(..., items, out_mv_channels, 16)``.
         outputs_s
-            Output scalars of shape ``(..., items, s_channels)``, or None.
+            Output scalars of shape ``(..., items, out_s_channels)``, or None.
         """
         # Compute Q, K, V
         q_mv, k_mv, v_mv, q_s, k_s, v_s = self.qkv_module(
@@ -116,7 +98,7 @@ class SelfAttention(nn.Module):
         )
 
         # Attention layer
-        h_mv, h_s = self.attention(
+        h_mv, h_s = sdp_attention(
             q_mv,
             k_mv,
             v_mv,
