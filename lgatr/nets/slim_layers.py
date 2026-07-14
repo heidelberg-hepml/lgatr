@@ -10,6 +10,8 @@ from ..primitives.attention import scaled_dot_product_attention
 from ..utils.autocast import minimum_autocast_precision
 from ..utils.misc import get_nonlinearity
 
+_MAX_ABS_VALUE = 1e16  # clamp bound; squared (1e32) stays within fp32 range to avoid inf/nan
+
 
 def _require_scalars(**named: torch.Tensor | None) -> None:
     """Raise if any named scalar tensor is None or has zero channels (slim nets require scalars)."""
@@ -162,13 +164,14 @@ class SlimRMSNorm(nn.Module):
         outputs_s
             Normalized scalar features, same shape as ``scalars``.
         """
-        v_squared_norm = (vectors.square() * self.metric[..., None]).sum(-2).abs()
+        v_squared = vectors.square().clamp(max=_MAX_ABS_VALUE**2)
+        v_squared_norm = (v_squared * self.metric[..., None]).sum(-2).abs()
         s_squared_norm = scalars.square()
         total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
         mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
         norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
-        outputs_v = vectors * norm[..., None, None]
+        outputs_v = (vectors * norm[..., None, None]).clamp(min=-_MAX_ABS_VALUE, max=_MAX_ABS_VALUE)
         outputs_s = scalars * norm[..., None]
         if self.elementwise_affine:
             outputs_v = outputs_v * self.weight_v
@@ -366,7 +369,8 @@ class SlimGLU(nn.Module):
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
-        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric[..., None]).sum(dim=-2, keepdim=True)
+        product = (v_gates_1 * v_gates_2).clamp(min=-(_MAX_ABS_VALUE**2), max=_MAX_ABS_VALUE**2)
+        return 0.5 * (product * self.metric[..., None]).sum(dim=-2, keepdim=True)
 
 
 class SlimSelfAttention(nn.Module):
