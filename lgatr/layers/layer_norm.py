@@ -45,11 +45,15 @@ class EquiLayerNorm(nn.Module):
         s_channels: int = 0,
         mv_channel_dim: int = -2,
         epsilon: float = 0.01,
+        gain: float = 1.0,
         elementwise_affine: bool = False,
     ) -> None:
         super().__init__()
         self.mv_channel_dim = mv_channel_dim
-        self.epsilon = epsilon
+        self.register_buffer(
+            "epsilon", torch.tensor(epsilon, dtype=torch.float32), persistent=False
+        )
+        self.register_buffer("gain", torch.tensor(gain, dtype=torch.float32), persistent=False)
         self.elementwise_affine = elementwise_affine
         if elementwise_affine:
             self.register_buffer("grade_index", torch.tensor(_GRADE_INDEX), persistent=False)
@@ -85,7 +89,7 @@ class EquiLayerNorm(nn.Module):
         """
 
         outputs_mv = equi_layer_norm(
-            multivectors, channel_dim=self.mv_channel_dim, epsilon=self.epsilon
+            multivectors, channel_dim=self.mv_channel_dim, gain=self.gain, epsilon=self.epsilon
         )
         if scalars is None:
             outputs_s = None
