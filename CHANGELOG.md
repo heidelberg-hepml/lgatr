@@ -29,14 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated `docs/` and `README.md`
 - `LGATrSlim`/`ConditionalLGATrSlim` hidden layers store vectors channel-last `(..., 4, channels)`
 - Unify `get_nonlinearity()` between `LGATr`/`LGATrSlim`
 - Enforce `torch>=2.4` autocast syntax, drop support for low-torch-2 versions
-- Unify variable naming across the code; affects public API for conditional networks
+- Unify variable names across the code; affects public API for conditional networks
 - `PrimitivesConfig` is now a model input like `MLPConfig`, no global `gatr_config` anymore
 - Renamed `PrimitivesConfig` flags: `use_fully_connected_subgroup`→`subgroup`, `use_bivector`→`bivector`, `use_geometric_product`→`geometric_product`
 - `minimum_autocast_precision` return outputs as tuple and downcast to low dtype automatically
-- Removed scalar bias from qkv linear layers in all models
+- Removed scalar bias from qkv linear layers in all models because redundant
 - Slim stability refinements: initialize `linear_s` bias to 0, scale GLU inner product by 1/sqrt(4)
 - Replaced the separate `compile_mode`/`compile_dynamic`/`compile_fullgraph` arguments with a single `compile_kwargs` dict forwarded verbatim to `torch.compile` in `compile_model` and all nets.
 - Different amp strategy: vector/multivector path stays in fp32, only scalar path uses amp
