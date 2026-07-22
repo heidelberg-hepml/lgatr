@@ -20,6 +20,8 @@ provide more efficient versions of the respective networks using only scalar and
    lgatr.nets.slim.LGATrSlim
    lgatr.nets.conditional_slim.ConditionalLGATrSlim
 
+.. _l-gatr-layers:
+
 L-GATr Layers
 -------------
 
