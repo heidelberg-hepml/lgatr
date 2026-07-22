@@ -1,6 +1,7 @@
 """Embed common tensors into multivectors and extract them back (scalar, vector, axialvector, pseudoscalar)."""
 
 from .axialvector import embed_axialvector, extract_axialvector
+from .bivector import embed_bivector, extract_bivector
 from .pseudoscalar import embed_pseudoscalar, extract_pseudoscalar
 from .scalar import embed_scalar, extract_scalar
 from .spurions import get_num_spurions, get_spurions

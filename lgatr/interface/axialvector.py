@@ -9,7 +9,7 @@ def embed_axialvector(axialvectors: torch.Tensor) -> torch.Tensor:
     Parameters
     ----------
     axialvectors
-        Axial vectors of shape ``(..., 4)``.
+        Axial vectors of shape ``(..., 4)`` using the convention (z, y, x, t).
 
     Returns
     -------

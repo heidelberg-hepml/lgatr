@@ -9,7 +9,7 @@ def embed_vector(vectors: torch.Tensor) -> torch.Tensor:
     Parameters
     ----------
     vectors
-        Lorentz vectors of shape ``(..., 4)``.
+        Lorentz vectors of shape ``(..., 4)`` using the convention (t, x, y, z).
 
     Returns
     -------

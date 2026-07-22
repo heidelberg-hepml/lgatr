@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `torch.compile` support for `LGATr`/`ConditionalLGATr`; `warmup_caches` helper for primitives under `mode="reduce-overhead"`
 - `activation_memory_budget` option in `torch.compile` to trade backward FLOPs for a lower activation-memory peak (helps for `LGATrSlim`)
 - Unit tests for all supported torch versions `torch>=2.4`; generally extended unit tests
+- `embed_bivector` and `extract_bivector` interface
 
 ### Fixed
 
