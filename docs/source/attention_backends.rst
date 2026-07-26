@@ -72,7 +72,7 @@ including the varlen FlashAttention mentioned below, and selects the best one fo
 To the best of our knowledge, the xformers backend is the only attention backend that supports
 sparse sequence representations and float32. This is the reason why xformers was used in the original
 L-GATr publications for tasks that require variable-length sequences.
-To use it, you need to install ``lgatr`` with the ``xformers-attention`` extra:
+To use it, you need to install ``lgatr`` with the ``xformers-attention`` extra, which requires ``torch>=2.4``:
 
 .. code-block:: python
 
@@ -104,7 +104,7 @@ and we found that this degrades performance in the cases that we tested, see :do
 Note that xformers might default to using FlashAttention under the hood if it detects that your attention inputs and hardware support it.
 See its `documentation <https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup>`_ for installation instructions for this package,
 the process is a bit more involved than for other backends.
-You can install ``lgatr`` with the ``flash-attention`` extra as follows:
+You can install ``lgatr`` with the ``flash-attention`` extra, which requires ``torch>=2.1``, as follows:
 
 .. code-block:: python
 

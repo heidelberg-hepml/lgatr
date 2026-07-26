@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `nonlinearity_v` option for `LGATrSlim`/`ConditionalLGATrSlim` (changed default to `nonlinearity_v="sigmoid"` because more stable)
 - `naive_amp=False` option and public `naive_amp` context manager to bypass `minimum_autocast_precision` and run the forward in the surrounding autocast dtype (e.g. bf16)
 - `torch.compile` support for `LGATr`/`ConditionalLGATr`; `warmup_caches` helper for primitives under `mode="reduce-overhead"`
-- `activation_memory_budget` option in `torch.compile` to trade backward FLOPs for a lower activation-memory peak (helps for `LGATrSlim`)
-- Unit tests for all supported torch versions `torch>=2.4`; generally extended unit tests
+- `activation_memory_budget` option in `torch.compile` to trade backward FLOPs for a lower activation-memory peak (helps for `LGATrSlim`); requires `torch>=2.4`
+- Unit tests for all supported torch versions `torch>=2.0`; generally extended unit tests
 - `embed_bivector` and `extract_bivector` interface
 
 ### Fixed
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `docs/` and `README.md`
 - `LGATrSlim`/`ConditionalLGATrSlim` hidden layers store vectors channel-last `(..., 4, channels)`
 - Unify `get_nonlinearity()` between `LGATr`/`LGATrSlim`
-- Enforce `torch>=2.4` autocast syntax, drop support for low-torch-2 versions
+- Lowered the requirement to `torch>=2.0`
 - Unify variable names across the code; affects public API for conditional networks
 - `PrimitivesConfig` is now a model input like `MLPConfig`, no global `gatr_config` anymore
 - Renamed `PrimitivesConfig` flags: `use_fully_connected_subgroup`→`subgroup`, `use_bivector`→`bivector`, `use_geometric_product`→`geometric_product`
@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `einops`/`opt_einsum`/`numpy`/`lloca` requirements, now simply `torch>=2.4`
+- `einops`/`opt_einsum`/`numpy`/`lloca` requirements, now simply `torch>=2.0`
 
 ## [1.4.4] - 27.04.2026
 

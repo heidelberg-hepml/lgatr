@@ -12,13 +12,13 @@ authors = [
   { name = "Jonas Spinner", email = "j.spinner@thphys.uni-heidelberg.de" },
   { name = "Víctor Bresó", email = "breso@thphys.uni-heidelberg.de" },
 ]
-dependencies = ["torch>=2.4"]
+dependencies = ["torch>=2.0"]
 
 [project.optional-dependencies]
 varlen-attention = ["torch>=2.10"]  # torch native varlen-attention added in torch 2.10
-xformers-attention = ["xformers"]
+xformers-attention = ["xformers", "torch>=2.4"]  # torch.library.custom_op added in torch 2.4
 flex-attention = ["torch>=2.7"]  # experimental in torch 2.5, 2.6
-flash-attention = ["flash-attn"]  # non-trivial, check https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup for build instructions
+flash-attention = ["flash-attn", "torch>=2.1"]  # torch.compiler added in torch 2.1; flash-attn is non-trivial, check https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup for build instructions
 dev = [
     "pre-commit",
     # unit tests

@@ -31,10 +31,12 @@ def compile_model(
         Fraction in ``[0, 1]`` for the partitioner's activation-memory budget; lower values trade
         backward FLOPs for a smaller activation memory peak. ``None`` (default) leaves torch's
         global setting untouched. Applied via a scoped patch only in effect while this model
-        (re)compiles.
+        (re)compiles. Requires ``torch>=2.4``.
     """
     compiled = torch.compile(model.forward, **dict(compile_kwargs or {}))
     if activation_memory_budget is not None:
+        if not hasattr(torch._functorch.config, "activation_memory_budget"):
+            raise ValueError("activation_memory_budget requires torch>=2.4.")
         compiled = torch._functorch.config.patch(activation_memory_budget=activation_memory_budget)(
             compiled
         )

@@ -14,6 +14,9 @@ except ModuleNotFoundError as err:
         "xformers is not installed. Run 'pip install lgatr[xformers-attention]'."
     ) from err
 
+if not hasattr(torch.library, "custom_op"):  # torch.library.custom_op was added in torch 2.4
+    raise ImportError("torch>=2.4 is not installed. Run 'pip install lgatr[xformers-attention]'.")
+
 
 _CUSTOM_MASK_TYPE = {
     BlockDiagonalMask: 0,

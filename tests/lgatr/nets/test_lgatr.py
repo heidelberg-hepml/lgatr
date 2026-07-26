@@ -5,7 +5,12 @@ from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.mlp.config import MLPConfig
 from lgatr.nets import LGATr
 from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
+from tests.helpers import (
+    BATCH_DIMS,
+    COMPILE_SUPPORTED,
+    MILD_TOLERANCES,
+    check_pin_equivariance,
+)
 
 S_CHANNELS = [(0, 0, 7), (0, 0, 0), (4, 5, 6)]
 
@@ -119,6 +124,7 @@ def test_lgatr_equivariance(
     )
 
 
+@pytest.mark.skipif(not COMPILE_SUPPORTED, reason="torch.compile is unavailable")
 @pytest.mark.parametrize("batch_dims", [(64,)])
 @pytest.mark.parametrize(
     "num_items,in_mv_channels,out_mv_channels,hidden_mv_channels", [(8, 3, 4, 6)]
@@ -183,6 +189,29 @@ def test_lgatr_reinsert_channels(multi_query: bool) -> None:
 
     assert outputs.shape == (2, 7, 2, 16)
     assert output_scalars.shape == (2, 7, 2)
+
+
+def test_lgatr_apply_casts_and_runs() -> None:
+    # The _apply override forwards to nn.Module and warms the caches, so .to() casts and still runs.
+    net = LGATr(
+        num_blocks=1,
+        in_mv_channels=2,
+        out_mv_channels=1,
+        hidden_mv_channels=4,
+        in_s_channels=2,
+        out_s_channels=2,
+        hidden_s_channels=4,
+        attention=SelfAttentionConfig(num_heads=2),
+        mlp=MLPConfig(),
+    )
+
+    assert net.to(torch.float64) is net
+    assert net.linear_in.weight.dtype == torch.float64
+
+    inputs = torch.randn(2, 3, 2, 16, dtype=torch.float64)
+    scalars = torch.randn(2, 3, 2, dtype=torch.float64)
+    outputs, output_scalars = net(inputs, scalars=scalars)
+    assert outputs.dtype == output_scalars.dtype == torch.float64
 
 
 def test_two_lgatr_configs_coexist() -> None:

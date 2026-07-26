@@ -12,7 +12,7 @@ from lgatr.nets.slim_layers import (
     SlimSelfAttention,
 )
 
-from ...helpers.constants import BATCH_DIMS, TOLERANCES
+from ...helpers.constants import BATCH_DIMS, COMPILE_SUPPORTED, TOLERANCES
 from ...helpers.equivariance_noga import check_equivariance
 
 CHANNELS = [
@@ -333,6 +333,7 @@ def test_LGATrSlim_equivariance(
     check_equivariance(layer, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
 
 
+@pytest.mark.skipif(not COMPILE_SUPPORTED, reason="torch.compile is unavailable")
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize(
     "in_v_channels,in_s_channels,out_v_channels,out_s_channels", [(4, 3, 9, 2)]

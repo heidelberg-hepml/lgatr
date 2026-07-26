@@ -98,7 +98,7 @@ def test_naive_amp_disables_islands(device: str, amp_dtype: torch.dtype) -> None
         assert input_dtype(x) == torch.float32  # island on: upcast to fp32
         with naive_amp():
             assert input_dtype(x) == amp_dtype  # island bypassed: stays low precision
-            assert torch.is_autocast_enabled(device)  # autocast left enabled (unlike the decorator)
+            assert autocast_mod._autocast_active()  # autocast left enabled (unlike the decorator)
         assert input_dtype(x) == torch.float32  # restored after the block
 
 

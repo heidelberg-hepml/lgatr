@@ -11,6 +11,20 @@ import torch
 _NAIVE_AMP = False
 
 
+try:
+    torch.is_autocast_enabled("cpu")
+
+    def _autocast_active() -> bool:
+        """Whether CPU or CUDA autocast is enabled."""
+        return torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")
+
+except TypeError:  # pragma: no cover - torch<2.4 has no device_type argument
+
+    def _autocast_active() -> bool:
+        """Whether CPU or CUDA autocast is enabled."""
+        return torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled()
+
+
 class naive_amp:
     """Disable all :class:`minimum_autocast_precision` pinning inside the block.
 
@@ -113,9 +127,7 @@ class minimum_autocast_precision:
         @wraps(func)
         def decorated_func(*args: Any, **kwargs: Any):
             # Skip in naive-AMP mode (run in the autocast dtype), or outside autocast regions.
-            if _NAIVE_AMP or not (
-                torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")
-            ):
+            if _NAIVE_AMP or not _autocast_active():
                 return func(*args, **kwargs)
             # Cast inputs to at least min_dtype
             mod_args = [

@@ -154,9 +154,9 @@ class LGATr(nn.Module):
                 activation_memory_budget=activation_memory_budget,
             )
 
-    def _apply(self, fn, recurse=True):
+    def _apply(self, fn, *args, **kwargs):
         """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""
-        super()._apply(fn, recurse=recurse)
+        super()._apply(fn, *args, **kwargs)
         warmup_after_apply(self)
         return self
 

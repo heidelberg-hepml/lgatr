@@ -20,7 +20,11 @@ jobs:
           - { python-version: '3.13', torch-version: 'latest', extra: '' }
 
           # Torch coverage at common python version
-          # torch<2.4 are probably also supported, but require care with numpy install, torch.compile etc
+          # torch 2.0 rejects torch.compile on python>=3.11, so we use python==3.10 there
+          - { python-version: '3.10', torch-version: '2.0', extra: '' }
+          - { python-version: '3.11', torch-version: '2.1', extra: '' }
+          - { python-version: '3.11', torch-version: '2.2', extra: '' }
+          - { python-version: '3.11', torch-version: '2.3', extra: '' }
           - { python-version: '3.11', torch-version: '2.4', extra: '' }
           - { python-version: '3.11', torch-version: '2.5', extra: '' }
           - { python-version: '3.11', torch-version: '2.6', extra: '' }
@@ -50,6 +54,8 @@ jobs:
           SPEC=torch
         else
           SPEC="torch==${{ matrix.torch-version }}.*"
+          # torch<2.3 wheels are built against numpy 1.x
+          case "${{ matrix.torch-version }}" in 2.0|2.1|2.2) pip install "numpy<2" ;; esac
         fi
         pip install "$SPEC" \
             --index-url https://download.pytorch.org/whl/cpu \

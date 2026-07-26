@@ -9,6 +9,9 @@ except ModuleNotFoundError as err:
         "flash-attn is not installed. Run 'pip install lgatr[flash-attention]'."
     ) from err
 
+if not hasattr(torch, "compiler"):  # torch.compiler was added in torch 2.1
+    raise ImportError("torch>=2.1 is not installed. Run 'pip install lgatr[flash-attention]'.")
+
 
 @torch.compiler.disable()
 def attention(

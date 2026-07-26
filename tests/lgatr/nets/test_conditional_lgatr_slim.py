@@ -4,7 +4,7 @@ import torch
 from lgatr.nets.conditional_slim import ConditionalLGATrSlim
 from lgatr.nets.slim_layers import ConditionalSlimBlock, SlimCrossAttention
 
-from ...helpers.constants import BATCH_DIMS, TOLERANCES
+from ...helpers.constants import BATCH_DIMS, COMPILE_SUPPORTED, TOLERANCES
 from ...helpers.equivariance_noga import check_equivariance
 
 BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
@@ -177,6 +177,7 @@ def test_ConditionalLGATrSlim_equivariance(
     )
 
 
+@pytest.mark.skipif(not COMPILE_SUPPORTED, reason="torch.compile is unavailable")
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("N,N_cond", [(3, 7)])
 @pytest.mark.parametrize(

@@ -4,7 +4,12 @@ import torch
 from lgatr.layers import CrossAttentionConfig, MLPConfig, SelfAttentionConfig
 from lgatr.nets import ConditionalLGATr
 from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
+from tests.helpers import (
+    BATCH_DIMS,
+    COMPILE_SUPPORTED,
+    MILD_TOLERANCES,
+    check_pin_equivariance,
+)
 
 S_CHANNELS = [(3, 5), (2, 2), (0, 0)]
 BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
@@ -158,6 +163,7 @@ def test_conditional_gatr_equivariance(
     )
 
 
+@pytest.mark.skipif(not COMPILE_SUPPORTED, reason="torch.compile is unavailable")
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("num_items,num_items_cond", [(2, 9)])
 @pytest.mark.parametrize("in_mv_channels,mv_channels_cond", [(7, 11)])
@@ -212,3 +218,31 @@ def test_conditional_gatr_equivariance_compiled(
         fn_kwargs=dict(scalars=scalars, scalars_cond=scalars_cond),
         **MILD_TOLERANCES,
     )
+
+
+def test_conditional_lgatr_apply_casts_and_runs() -> None:
+    # The _apply override forwards to nn.Module and warms the caches, so .to() casts and still runs.
+    net = ConditionalLGATr(
+        num_blocks=1,
+        in_mv_channels=2,
+        out_mv_channels=1,
+        hidden_mv_channels=4,
+        mv_channels_cond=3,
+        in_s_channels=2,
+        out_s_channels=2,
+        hidden_s_channels=4,
+        s_channels_cond=2,
+        attention=SelfAttentionConfig(num_heads=2),
+        crossattention=CrossAttentionConfig(num_heads=2),
+        mlp=MLPConfig(),
+    )
+
+    assert net.to(torch.float64) is net
+    assert net.linear_in.weight.dtype == torch.float64
+
+    inputs = torch.randn(2, 3, 2, 16, dtype=torch.float64)
+    inputs_cond = torch.randn(2, 5, 3, 16, dtype=torch.float64)
+    scalars = torch.randn(2, 3, 2, dtype=torch.float64)
+    scalars_cond = torch.randn(2, 5, 2, dtype=torch.float64)
+    outputs, output_scalars = net(inputs, inputs_cond, scalars=scalars, scalars_cond=scalars_cond)
+    assert outputs.dtype == output_scalars.dtype == torch.float64
