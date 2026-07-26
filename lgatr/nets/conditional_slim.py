@@ -19,6 +19,8 @@ class ConditionalLGATrSlim(nn.Module):
 
     Parameters
     ----------
+    num_blocks
+        Number of Lorentz-transformer blocks.
     in_v_channels
         Number of input vector channels.
     v_channels_cond
@@ -35,8 +37,6 @@ class ConditionalLGATrSlim(nn.Module):
         Number of output scalar channels.
     hidden_s_channels
         Number of hidden scalar channels.
-    num_blocks
-        Number of Lorentz-transformer blocks.
     num_heads
         Number of attention heads.
     nonlinearity
@@ -49,7 +49,7 @@ class ConditionalLGATrSlim(nn.Module):
     attn_ratio
         Expansion ratio for attention hidden channels.
     num_layers_mlp
-        Number of layers in each MLP.
+        Number of layers in each MLP (must be ``>= 2``).
     dropout_prob
         Dropout probability.
     norm_elementwise_affine
@@ -77,6 +77,7 @@ class ConditionalLGATrSlim(nn.Module):
 
     def __init__(
         self,
+        num_blocks: int,
         in_v_channels: int,
         v_channels_cond: int,
         out_v_channels: int,
@@ -85,7 +86,6 @@ class ConditionalLGATrSlim(nn.Module):
         s_channels_cond: int,
         out_s_channels: int,
         hidden_s_channels: int,
-        num_blocks: int,
         num_heads: int,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",

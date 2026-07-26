@@ -5,7 +5,7 @@ import torch
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 
 from lgatr.primitives.attention_backends import get_attention_backend
-from tests.helpers.constants import MILD_TOLERANCES, STRICT_TOLERANCES, TOLERANCES
+from tests.helpers import MILD_TOLERANCES, STRICT_TOLERANCES, TOLERANCES
 
 SHAPES = [
     (32, 8, 5, 32),
@@ -50,15 +50,9 @@ def _sparsify_shape(
     return shape_sparse, cu_seq, max_seq
 
 
-@pytest.mark.parametrize("shape", SHAPES)
-def test_default_backend_selection(shape: tuple[int, ...]) -> None:
+def test_default_backend_selection() -> None:
     # The default attention backend is torch's native scaled_dot_product_attention.
-    backend_fn = get_attention_backend()
-    assert backend_fn is torch_sdpa
-
-    qkv = _random_qkv(shape)
-    out = backend_fn(*qkv)
-    assert out.shape == shape
+    assert get_attention_backend() is torch_sdpa
 
 
 @pytest.mark.skipif(

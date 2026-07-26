@@ -1,4 +1,4 @@
-"""Embed common tensors into multivectors and extract them back (scalar, vector, axialvector, pseudoscalar)."""
+"""Embed common tensors into multivectors and extract them back (scalar, vector, bivector, axialvector, pseudoscalar), plus spurion tools."""
 
 from .axialvector import embed_axialvector, extract_axialvector
 from .bivector import embed_bivector, extract_bivector

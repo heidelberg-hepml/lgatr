@@ -42,7 +42,7 @@ class LGATr(nn.Module):
     out_s_channels
         Number of scalar output channels. Use 0 for no scalar outputs.
     hidden_s_channels
-        Number of scalar hidden channels. Use 0 for no scalar stream in the hidden layers.
+        Number of scalar hidden channels.
     attention
         Self-attention configuration (see :class:`~lgatr.layers.attention.config.SelfAttentionConfig`).
     mlp
@@ -90,8 +90,8 @@ class LGATr(nn.Module):
         in_s_channels: int,
         out_s_channels: int,
         hidden_s_channels: int,
-        attention: SelfAttentionConfig,
-        mlp: MLPConfig,
+        attention: SelfAttentionConfig | Mapping,
+        mlp: MLPConfig | Mapping,
         primitives: PrimitivesConfig | Mapping | None = None,
         reinsert_mv_channels: tuple[int, ...] | None = None,
         reinsert_s_channels: tuple[int, ...] | None = None,

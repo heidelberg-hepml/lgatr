@@ -3,39 +3,25 @@ import torch
 from torch import nn
 
 from lgatr.layers.layer_norm import EquiLayerNorm
-from lgatr.primitives import abs_squared_norm
 from tests.helpers import TOLERANCES, check_pin_equivariance
 
-
-@pytest.mark.parametrize("batch_dims", [(7, 9)])
-@pytest.mark.parametrize("num_scalars", [9])
-def test_equi_layer_norm_layer_correctness(batch_dims: tuple[int, ...], num_scalars: int) -> None:
-    # EquiLayerNorm rescales the multivector input to unit mean GA squared norm.
-    inputs = torch.randn(*batch_dims, 16)
-    scalars = torch.randn(*batch_dims, num_scalars)
-    layer = EquiLayerNorm(epsilon=1e-9)
-    normalized_inputs, _ = layer(inputs, scalars=scalars)
-    dims = tuple(range(1, len(batch_dims) + 1))
-    variance = torch.mean(abs_squared_norm(normalized_inputs), dim=dims)
-    torch.testing.assert_close(variance, torch.ones_like(variance), **TOLERANCES)
+BATCH_DIMS = (7, 9)
+NUM_SCALARS = 9
 
 
-@pytest.mark.parametrize("batch_dims", [(7, 9)])
-@pytest.mark.parametrize("num_scalars", [9])
 @pytest.mark.parametrize("elementwise_affine", [False, True])
-def test_equi_layer_norm_layer_equivariance(
-    batch_dims: tuple[int, ...], num_scalars: int, elementwise_affine: bool
-) -> None:
+def test_equi_layer_norm_layer_equivariance(elementwise_affine: bool) -> None:
     # EquiLayerNorm is Pin-equivariant, including with a non-trivial per-grade affine gain.
-    mv_channels = batch_dims[-1]
-    layer = EquiLayerNorm(mv_channels, num_scalars, elementwise_affine=elementwise_affine)
+    # The normalization itself is covered by tests/lgatr/primitives/test_normalization.py.
+    mv_channels = BATCH_DIMS[-1]
+    layer = EquiLayerNorm(mv_channels, NUM_SCALARS, elementwise_affine=elementwise_affine)
     if elementwise_affine:
         # default init is all-ones, which is indistinguishable from off, so randomize
         nn.init.normal_(layer.weight_mv)
         nn.init.normal_(layer.weight_s)
-    scalars = torch.randn(*batch_dims, num_scalars)
+    scalars = torch.randn(*BATCH_DIMS, NUM_SCALARS)
     check_pin_equivariance(
-        layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=scalars), **TOLERANCES
+        layer, 1, batch_dims=BATCH_DIMS, fn_kwargs=dict(scalars=scalars), spin=False, **TOLERANCES
     )
 
 

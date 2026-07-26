@@ -24,12 +24,12 @@ When expressing the :class:`~lgatr.nets.lgatr.LGATr` linear and tensor product
 (bilinear) operations as coefficient lists, then the list has over 90% zeros for
 the linear layers, and over 99% for the bilinear layers. One can either implement them
 as `dense` operations that use the efficient GEMM matrix multiplication kernels but with
-many zero-coefficients, or as `sparse` operations that do do not spend compute on
+many zero-coefficients, or as `sparse` operations that do not spend compute on
 zero-multiplications but use less efficient kernels. The linear and bilinear
 operations in :class:`~lgatr.nets.lgatr.LGATr` support both options through
-the ``sparse_linear`` and ``sparse_gp``` keys in
+the ``sparse_linear`` and ``sparse_gp`` keys in
 :class:`~lgatr.primitives.config.PrimitivesConfig`. The default is ``sparse_gp=True``,
-``sparse_linear=False``, which runs fastest on GPU but has significnatly higher FLOPs
+``sparse_linear=False``, which runs fastest on GPU but has significantly higher FLOPs
 usage compared to ``sparse_linear=True``. On CPU the fully sparse implementation is fastest.
 
 The optimal solution for the problem of inefficient kernels is to write optimized
@@ -43,6 +43,8 @@ on without modifications. For instance,
 
 .. code-block:: python
 
+    from lgatr import LGATr
+
     net = LGATr(
         num_blocks=2,
         in_mv_channels=1,
@@ -51,6 +53,8 @@ on without modifications. For instance,
         in_s_channels=5,
         out_s_channels=0,
         hidden_s_channels=32,
+        attention=dict(num_heads=4),
+        mlp=dict(),
         compile=True,
         compile_kwargs={
             "dynamic": True,
@@ -60,8 +64,8 @@ on without modifications. For instance,
     )
 
 We find that ``torch.compile`` significantly reduces time and memory consumption,
-and recommend to always use turn it on (on GPU and CPU). For varying
-shapes, we recommend setting ``compile_kwargs={"dynamic"}``. If used correctly, the
+and recommend to always turn it on (on GPU and CPU). For varying
+shapes, we recommend setting ``compile_kwargs={"dynamic": True}``. If used correctly, the
 only cost to pay for ``compile=True`` is a ~1min compilation overhead on the first
 network call.
 
@@ -71,7 +75,7 @@ requires ``compile_kwargs={"dynamic": False}`` there. On ``torch<2.2`` compiling
 additionally requires ``setuptools<82``, because torch imports ``pkg_resources``, which
 setuptools removed in version 82.
 
-Automic mixed precision
+Automatic mixed precision
 --------------------------------------------
 
 Evaluating networks with float16 or bfloat16 precision can significantly decrease time
@@ -87,11 +91,11 @@ architectures both support automatic mixed precision. There are two modes:
 and uses full float32 precision for operations on vectors. The
 ``naive_amp=False`` path uses a custom
 :class:`~lgatr.utils.autocast.minimum_autocast_precision` decorator that can
-be applied on any function to upcasts to float32 precision locally.
+be applied on any function to upcast to float32 precision locally.
 
 However, **currently we do not recommend to use amp** with the
 :class:`~lgatr.nets.slim.LGATrSlim` or :class:`~lgatr.nets.lgatr.LGATr`
 architectures. For tests on jet tagging, we found that networks trained with
 amp achieve significantly lower performance in some cases, to the point that
 the speed and memory gains from amp do not justify the performance drop.
-We are working on actively working on understanding this better.
+We are actively working on understanding this better.

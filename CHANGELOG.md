@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `sparse_gp=True` and `sparse_linear=True` options in `PrimitivesConfig` (changed default to `sparse_gp=True` because always faster)
 - `nonlinearity_v` option for `LGATrSlim`/`ConditionalLGATrSlim` (changed default to `nonlinearity_v="sigmoid"` because more stable)
 - `naive_amp=False` option and public `naive_amp` context manager to bypass `minimum_autocast_precision` and run the forward in the surrounding autocast dtype (e.g. bf16)
-- `torch.compile` support for `LGATr`/`ConditionalLGATr`; `warmup_caches` helper for primitives under `mode="reduce-overhead"`
+- `torch.compile` support for `LGATr`/`ConditionalLGATr`
 - `activation_memory_budget` option in `torch.compile` to trade backward FLOPs for a lower activation-memory peak (helps for `LGATrSlim`); requires `torch>=2.4`
 - Unit tests for all supported torch versions `torch>=2.0`; generally extended unit tests
 - `embed_bivector` and `extract_bivector` interface
@@ -121,12 +121,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improve autocast support (avoid nans; support old torch versions)
-`- Drop `black` as formatter and fully move to `ruff`
+- Drop `black` as formatter and fully move to `ruff`
 
 ### Fixed
 
 - Correct install commands with extras, e.g. `pip install lgatr[xformers_attention]` -> `pip install lgatr[xformers-attention]` (pypi doesn't support `_` in package names)
-- Subtle bug in `compute_pin_equi_linear_basis` triggered `when modifying `use_fully_connected_subgroup`
+- Subtle bug in `compute_pin_equi_linear_basis` triggered when modifying `use_fully_connected_subgroup`
 
 ### Removed
 

@@ -4,3 +4,14 @@ from .conditional_lgatr import ConditionalLGATr
 from .conditional_slim import ConditionalLGATrSlim
 from .lgatr import LGATr
 from .slim import LGATrSlim
+from .slim_layers import (
+    ConditionalSlimBlock,
+    SlimBlock,
+    SlimCrossAttention,
+    SlimDropout,
+    SlimGLU,
+    SlimLinear,
+    SlimMLP,
+    SlimRMSNorm,
+    SlimSelfAttention,
+)

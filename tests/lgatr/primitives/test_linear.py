@@ -8,34 +8,24 @@ from lgatr.primitives.linear import equi_linear, grade_involute, grade_project, 
 from tests.helpers import (
     BATCH_DIMS,
     TOLERANCES,
-    check_consistence_with_grade_involution,
-    check_consistence_with_reversal,
+    check_against_clifford,
     check_pin_equivariance,
 )
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_reverse_correctness(batch_dims: list[int]) -> None:
+def test_reverse_correctness() -> None:
     # reverse matches the clifford-library reference for multivector reversal.
-    check_consistence_with_reversal(reverse, batch_dims=batch_dims, **TOLERANCES)
+    check_against_clifford(reverse, lambda x: ~x, BATCH_DIMS, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_grade_involution_correctness(batch_dims: list[int]) -> None:
+def test_grade_involution_correctness() -> None:
     # grade_involute matches the clifford-library reference for grade involution.
-    check_consistence_with_grade_involution(grade_involute, batch_dims=batch_dims, **TOLERANCES)
+    check_against_clifford(grade_involute, lambda x: x.gradeInvol(), BATCH_DIMS, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_identity_equivariance(batch_dims: list[int]) -> None:
-    # The identity is trivially equivariant (smoke-tests the equivariance harness itself).
-    check_pin_equivariance(lambda x: x, 1, batch_dims=batch_dims, **TOLERANCES)
-
-
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_grade_project_equivariance(batch_dims: list[int]) -> None:
-    # grade_project is Pin-equivariant.
-    check_pin_equivariance(grade_project, 1, batch_dims=batch_dims, **TOLERANCES)
+def test_grade_project_equivariance() -> None:
+    # grade_project is Pin-equivariant: the sandwich product preserves grades.
+    check_pin_equivariance(grade_project, 1, batch_dims=BATCH_DIMS, spin=False, **TOLERANCES)
 
 
 @pytest.mark.parametrize(
@@ -49,7 +39,7 @@ def test_grade_project_equivariance(batch_dims: list[int]) -> None:
 def test_linear_equivariance(
     input_batch_dims: tuple[int, ...], coeff_batch_dims: tuple[int, ...]
 ) -> None:
-    # equi_linear is Pin-equivariant for several input/coeff broadcasting shapes.
+    # equi_linear is Spin-equivariant for several input/coeff broadcasting shapes.
     config = PrimitivesConfig()
     fn_kwargs = dict(
         coeffs=torch.randn(*coeff_batch_dims, config.num_pin_linear_basis_elements),
@@ -60,29 +50,30 @@ def test_linear_equivariance(
     )
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("subgroup", [True, False])
-def test_equi_linear_sparse_dense_equivalence(batch_dims: list[int], subgroup: bool) -> None:
+def test_equi_linear_sparse_dense_equivalence(subgroup: bool) -> None:
     # The sparse path agrees with the dense path within TOLERANCES on shared inputs.
     config_dense = PrimitivesConfig(subgroup=subgroup, sparse_linear=False)
     config_sparse = PrimitivesConfig(subgroup=subgroup, sparse_linear=True)
     in_c, out_c = 4, 7
-    x = torch.randn(*batch_dims, in_c, 16)
+    x = torch.randn(*BATCH_DIMS, in_c, 16)
     coeffs = torch.randn(out_c, in_c, config_dense.num_pin_linear_basis_elements)
     out_dense = equi_linear(x, coeffs, config=config_dense)
     out_sparse = equi_linear(x, coeffs, config=config_sparse)
     torch.testing.assert_close(out_sparse, out_dense, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("subgroup", [True, False])
-def test_equi_linear_sparse_equivariance(batch_dims: list[int], subgroup: bool) -> None:
-    # The sparse path is Pin-equivariant. check_pin_equivariance builds inputs as
-    # (*batch_dims, 16), so the trailing batch dim plays the role of in_channels.
+@pytest.mark.parametrize("subgroup,spin", [(True, True), (False, False)])
+def test_equi_linear_sparse_equivariance(subgroup: bool, spin: bool) -> None:
+    # The sparse path is equivariant under the group it is built for: Spin for the subgroup, the
+    # full Pin group (including reflections) otherwise. check_pin_equivariance builds inputs of
+    # shape (*batch_dims, 16), so the trailing batch dim plays the role of in_channels.
     config = PrimitivesConfig(subgroup=subgroup, sparse_linear=True)
-    in_c = batch_dims[-1]
+    in_c = BATCH_DIMS[-1]
     fn_kwargs = dict(
         coeffs=torch.randn(7, in_c, config.num_pin_linear_basis_elements),
         config=config,
     )
-    check_pin_equivariance(equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=batch_dims, **TOLERANCES)
+    check_pin_equivariance(
+        equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=BATCH_DIMS, spin=spin, **TOLERANCES
+    )

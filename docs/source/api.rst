@@ -90,8 +90,9 @@ which can be added as extra items or channels to break equivariance at the input
 
    lgatr.interface.scalar
    lgatr.interface.vector
-   lgatr.interface.pseudoscalar
+   lgatr.interface.bivector
    lgatr.interface.axialvector
+   lgatr.interface.pseudoscalar
    lgatr.interface.spurions
 
 L-GATr Utilities

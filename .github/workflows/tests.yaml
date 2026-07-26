@@ -38,6 +38,12 @@ jobs:
           - { python-version: '3.11', torch-version: 'latest', extra: 'flex' }
           - { python-version: '3.13', torch-version: 'latest', extra: 'flex' }
 
+          # varlen extra (requires torch >= 2.10); pure torch, so it installs on CPU runners
+          - { python-version: '3.11', torch-version: '2.10',   extra: 'varlen' }
+
+          # The xformers and flash backends are CUDA-only (see attention_backends/__init__.py), so
+          # their tests self-skip here and they are not covered by this CPU matrix.
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

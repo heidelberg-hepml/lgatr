@@ -18,11 +18,21 @@ try:
         """Whether CPU or CUDA autocast is enabled."""
         return torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")
 
+    def autocast_dtype(device_type: str = "cuda") -> torch.dtype:
+        """Dtype that autocast would cast to on ``device_type``."""
+        return torch.get_autocast_dtype(device_type)
+
 except TypeError:  # pragma: no cover - torch<2.4 has no device_type argument
 
     def _autocast_active() -> bool:
         """Whether CPU or CUDA autocast is enabled."""
         return torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled()
+
+    def autocast_dtype(device_type: str = "cuda") -> torch.dtype:
+        """Dtype that autocast would cast to on ``device_type``."""
+        if device_type == "cpu":
+            return torch.get_autocast_cpu_dtype()
+        return torch.get_autocast_gpu_dtype()
 
 
 class naive_amp:
@@ -82,28 +92,20 @@ class minimum_autocast_precision:
         Minimum dtype.
     output
         Specifies which dtype the outputs should be cast to. Only floating-point tensor outputs
-        are affected. If ``"low"`` (default), the lowest-precision input dtype is used. If
-        ``None``, outputs are not modified. If ``"high"``, ``min_dtype`` or the highest-precision
-        input dtype is used (whichever is higher). If a ``torch.dtype``, that dtype is used.
-    which_args
-        Positional argument indices to modify. If None, all positional arguments are modified
-        (subject to the type / dtype filter above).
-    which_kwargs
-        Keyword argument names to modify. If None, all keyword arguments are modified (subject to
-        the type / dtype filter above).
+        are affected. If ``"low"`` (default), the lowest precision among ``min_dtype`` and the
+        input dtypes is used. If ``"high"``, the highest-precision input dtype is used. If
+        ``None``, outputs are not modified. If a ``torch.dtype``, that dtype is used. In the
+        ``"low"`` and ``"high"`` modes, outputs are left alone when there are no floating-point
+        inputs to derive a dtype from.
     """
 
     def __init__(
         self,
         min_dtype: torch.dtype = torch.float32,
         output: Literal["low", "high"] | torch.dtype | None = "low",
-        which_args: list[int] | None = None,
-        which_kwargs: list[str] | None = None,
     ) -> None:
         self.min_dtype = min_dtype
         self.output = output
-        self.which_args = which_args
-        self.which_kwargs = which_kwargs
 
     def cast(self, var: Any) -> Any:
         """Upcast a floating-point tensor to at least ``min_dtype``."""
@@ -130,16 +132,8 @@ class minimum_autocast_precision:
             if _NAIVE_AMP or not _autocast_active():
                 return func(*args, **kwargs)
             # Cast inputs to at least min_dtype
-            mod_args = [
-                self.cast(arg)
-                for i, arg in enumerate(args)
-                if self.which_args is None or i in self.which_args
-            ]
-            mod_kwargs = {
-                key: self.cast(val)
-                for key, val in kwargs.items()
-                if self.which_kwargs is None or key in self.which_kwargs
-            }
+            mod_args = [self.cast(arg) for arg in args]
+            mod_kwargs = {key: self.cast(val) for key, val in kwargs.items()}
             # Fresh contexts (not `with self:`) — keeps the decorator re-entrant-safe.
             with (
                 torch.autocast(device_type="cuda", enabled=False),

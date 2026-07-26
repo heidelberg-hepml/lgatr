@@ -6,6 +6,8 @@ from importlib import metadata
 
 import torch
 
+from . import native
+
 # Backends keyed by their distinguishing kwargs; iteration order is the dispatch priority.
 BACKEND_KWARGS: dict[str, list[str]] = {
     "varlen": ["cu_seq_q", "cu_seq_k", "max_q", "max_k"],
@@ -14,28 +16,22 @@ BACKEND_KWARGS: dict[str, list[str]] = {
     "flash": ["cu_seqlens_q", "cu_seqlens_k", "max_seqlen_q", "max_seqlen_k"],
 }
 
-# Pip extra that provides each optional backend (used in dispatch error messages).
-BACKEND_EXTRAS: dict[str, str] = {
-    "varlen": "lgatr[varlen-attention]",
-    "xformers": "lgatr[xformers-attention]",
-    "flex": "lgatr[flex-attention]",
-    "flash": "lgatr[flash-attention]",
-}
-
 
 @lru_cache
 def _cuda_available() -> bool:
-    """Whether a CUDA device is available (cached; gates CPU-only backends)."""
+    """Whether a CUDA device is available (cached; gates CUDA-only backends)."""
     return torch.cuda.is_available()
 
 
-# Entry points are discovered at import (cheap: no backend module is imported yet). Each backend
-# is loaded lazily on first use so that importing lgatr does not pull in xformers / flash-attn /
-# etc. for users who never touch those backends.
+# Entry points are discovered at import (cheap: no optional backend module is imported yet). Each
+# optional backend is loaded lazily on first use so that importing lgatr does not pull in
+# xformers / flash-attn / etc. for users who never touch those backends. The native backend is a
+# pure-torch shim, so it is imported eagerly and never depends on distribution metadata being
+# present (which it is not in an uninstalled source checkout).
 _ENTRY_POINTS = {
     ep.name: ep for ep in metadata.entry_points(group="lgatr.primitives.attention_backends")
 }
-_RESOLVED: dict[str, object] = {}  # name -> loaded backend module
+_RESOLVED: dict[str, object] = {"native": native}  # name -> loaded backend module
 _UNAVAILABLE: dict[str, str] = {}  # name -> reason it could not be loaded
 
 
@@ -98,21 +94,14 @@ def get_attention_backend(**kwargs) -> Callable:
             return module.attention
 
     # fall-back to native torch attention (always available)
-    native = _resolve_backend("native")
-    if native is None:
-        raise RuntimeError("The native attention backend failed to load.")
     return native.attention
 
 
 def _backend_unavailable_message(backend: str) -> str:
-    """Build a dispatch error naming the missing backend and how to enable it."""
-    known = ", ".join(sorted(_ENTRY_POINTS))
-    if backend not in _ENTRY_POINTS:
+    """Build a dispatch error naming the missing backend and why it could not be loaded."""
+    known = ", ".join(sorted(_ENTRY_POINTS.keys() | _RESOLVED.keys()))
+    if backend not in _ENTRY_POINTS and backend not in _RESOLVED:
         return f"Unknown attention backend {backend!r}. Known backends: {known}."
     reason = _UNAVAILABLE.get(backend)
-    if reason and reason != "unknown backend":
-        detail = f" ({reason})"
-    else:
-        extra = BACKEND_EXTRAS.get(backend)
-        detail = f" (install with 'pip install {extra}')" if extra else ""
+    detail = f" ({reason})" if reason else ""
     return f"Attention backend {backend!r} is not available.{detail} Known backends: {known}."

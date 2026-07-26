@@ -32,13 +32,13 @@ You can construct a simple :class:`~lgatr.nets.slim.LGATrSlim` model as follows:
    from lgatr import LGATrSlim
 
    lgatr = LGATrSlim(
+      num_blocks=2,
       in_v_channels=1,
       out_v_channels=1,
       hidden_v_channels=8,
       in_s_channels=1,
       out_s_channels=1,
       hidden_s_channels=16,
-      num_blocks=2,
       num_heads=1,
    )
 
@@ -69,7 +69,7 @@ Now we can use the model:
    scalars = pid
    output_v, output_s = lgatr(vectors=vectors, scalars=scalars)
    print(output_v.shape) # torch.Size([128, 20, 1, 4])
-   print(output_s.shape) # torch.Size([128, 20, 1, 1])
+   print(output_s.shape) # torch.Size([128, 20, 1])
 
 Next steps
 ----------

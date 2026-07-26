@@ -2,6 +2,8 @@
 
 import torch
 
+from ...utils.autocast import autocast_dtype
+
 try:
     from flash_attn import flash_attn_varlen_func
 except ModuleNotFoundError as err:
@@ -37,7 +39,7 @@ def attention(
         Values of shape ``(batch, head, items_in, channel)``.
     dtype
         If specified, cast input tensors to this dtype before passing to flash-attention. If None,
-        use ``torch.get_autocast_gpu_dtype()``.
+        use the dtype that autocast would cast to on CUDA.
     **kwargs
         Additional keyword arguments forwarded to ``flash_attn_varlen_func``.
 
@@ -53,7 +55,7 @@ def attention(
     if query.dtype not in [torch.float16, torch.bfloat16]:
         # flash-attention only supports fp16 and bf16
         if dtype is None:
-            dtype = torch.get_autocast_gpu_dtype()
+            dtype = autocast_dtype("cuda")
         in_dtype = query.dtype
         query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
     else:

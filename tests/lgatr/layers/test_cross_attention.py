@@ -1,58 +1,50 @@
 import pytest
 import torch
+from torch import nn
 
 from lgatr.layers import CrossAttention, CrossAttentionConfig
 from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
+ITEMS_Q, ITEMS_KV = 3, 8
+Q_MV_CHANNELS, KV_MV_CHANNELS = 3, 2
+Q_S_CHANNELS, KV_S_CHANNELS = 5, 4
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("items_q,items_kv", [(3, 8)])
-@pytest.mark.parametrize(
-    "kv_mv_channels,q_mv_channels,kv_s_channels,q_s_channels",
-    [(2, 3, 4, 5)],
-)
-@pytest.mark.parametrize("multi_query,head_scale", [(True, True), (False, False)])
-@pytest.mark.parametrize("num_heads,attn_ratio", [(3, 2)])
+
+@pytest.mark.parametrize("multi_query", [False, True])
+@pytest.mark.parametrize("head_scale", [False, True])
 @pytest.mark.parametrize("dropout_prob", [None, 0.5])
 def test_crossattention_equivariance(
-    batch_dims: list[int],
-    items_q: int,
-    items_kv: int,
-    kv_mv_channels: int,
-    q_mv_channels: int,
-    kv_s_channels: int,
-    q_s_channels: int,
     multi_query: bool,
     head_scale: bool,
-    num_heads: int,
-    attn_ratio: int,
     dropout_prob: float | None,
 ) -> None:
-    # CrossAttention is Pin-equivariant in both query and key/value multivector inputs. Eval mode is
-    # required: a train-mode dropout mask is random and not equivariant.
+    # CrossAttention is Spin-equivariant in both query and key/value multivector inputs. Eval mode
+    # is required: a train-mode dropout mask is random and not equivariant.
     config = CrossAttentionConfig(
-        kv_mv_channels=kv_mv_channels,
-        q_mv_channels=q_mv_channels,
-        out_mv_channels=q_mv_channels,
-        kv_s_channels=kv_s_channels,
-        q_s_channels=q_s_channels,
-        out_s_channels=q_s_channels,
-        num_heads=num_heads,
+        kv_mv_channels=KV_MV_CHANNELS,
+        q_mv_channels=Q_MV_CHANNELS,
+        out_mv_channels=Q_MV_CHANNELS,
+        kv_s_channels=KV_S_CHANNELS,
+        q_s_channels=Q_S_CHANNELS,
+        out_s_channels=Q_S_CHANNELS,
+        num_heads=3,
         head_scale=head_scale,
-        attn_ratio=attn_ratio,
+        attn_ratio=2,
         multi_query=multi_query,
         dropout_prob=dropout_prob,
     )
     layer = CrossAttention(config, PrimitivesConfig())
+    if head_scale:
+        # default init is all-ones, which is indistinguishable from off, so randomize
+        nn.init.normal_(layer.head_scale)
     layer.eval()
 
-    scalars_q = torch.randn(*batch_dims, items_q, q_s_channels)
-    scalars_kv = torch.randn(*batch_dims, items_kv, kv_s_channels)
-
+    scalars_q = torch.randn(*BATCH_DIMS, ITEMS_Q, Q_S_CHANNELS)
+    scalars_kv = torch.randn(*BATCH_DIMS, ITEMS_KV, KV_S_CHANNELS)
     data_dims = [
-        tuple(list(batch_dims) + [items_q, q_mv_channels]),
-        tuple(list(batch_dims) + [items_kv, kv_mv_channels]),
+        (*BATCH_DIMS, ITEMS_Q, Q_MV_CHANNELS),
+        (*BATCH_DIMS, ITEMS_KV, KV_MV_CHANNELS),
     ]
     check_pin_equivariance(
         layer,

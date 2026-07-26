@@ -1,6 +1,7 @@
 """Equivariant conditional transformer for multivector data."""
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 import torch
 from torch import nn
@@ -45,7 +46,7 @@ class ConditionalLGATr(nn.Module):
     out_s_channels
         Number of scalar output channels. Use 0 for no scalar outputs.
     hidden_s_channels
-        Number of scalar hidden channels. Use 0 for no scalar stream in the hidden layers.
+        Number of scalar hidden channels.
     attention
         Self-attention configuration.
     crossattention
@@ -93,9 +94,9 @@ class ConditionalLGATr(nn.Module):
         s_channels_cond: int,
         out_s_channels: int,
         hidden_s_channels: int,
-        attention: SelfAttentionConfig,
-        crossattention: CrossAttentionConfig,
-        mlp: MLPConfig,
+        attention: SelfAttentionConfig | Mapping,
+        crossattention: CrossAttentionConfig | Mapping,
+        mlp: MLPConfig | Mapping,
         primitives: PrimitivesConfig | Mapping | None = None,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
@@ -117,7 +118,12 @@ class ConditionalLGATr(nn.Module):
             out_s_channels=hidden_s_channels,
         )
 
-        attention = SelfAttentionConfig.cast(attention)
+        # ConditionalLGATr has no reinsert_* channels, so there are never additional qk features.
+        attention = replace(
+            SelfAttentionConfig.cast(attention),
+            additional_qk_mv_channels=0,
+            additional_qk_s_channels=0,
+        )
         crossattention = CrossAttentionConfig.cast(crossattention)
         mlp = MLPConfig.cast(mlp)
 

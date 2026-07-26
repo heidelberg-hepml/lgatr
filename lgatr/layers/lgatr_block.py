@@ -1,5 +1,6 @@
 """L-GATr encoder block."""
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 import torch
@@ -25,7 +26,7 @@ class LGATrBlock(nn.Module):
     mv_channels
         Number of input and output multivector channels.
     s_channels
-        Number of input and output scalar channels. Use 0 for no scalar stream.
+        Number of input and output scalar channels.
     attention
         Self-attention configuration.
     mlp
@@ -42,13 +43,14 @@ class LGATrBlock(nn.Module):
         self,
         mv_channels: int,
         s_channels: int,
-        attention: SelfAttentionConfig,
-        mlp: MLPConfig,
-        primitives: PrimitivesConfig,
+        attention: SelfAttentionConfig | Mapping,
+        mlp: MLPConfig | Mapping,
+        primitives: PrimitivesConfig | Mapping,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
 
         # Normalization layers
         self.norm1 = EquiLayerNorm(
@@ -60,7 +62,7 @@ class LGATrBlock(nn.Module):
 
         # Self-attention layer
         attention = replace(
-            attention,
+            SelfAttentionConfig.cast(attention),
             in_mv_channels=mv_channels,
             out_mv_channels=mv_channels,
             in_s_channels=s_channels,
@@ -72,7 +74,7 @@ class LGATrBlock(nn.Module):
 
         # MLP block
         mlp = replace(
-            mlp,
+            MLPConfig.cast(mlp),
             mv_channels=mv_channels,
             s_channels=s_channels,
             dropout_prob=dropout_prob,

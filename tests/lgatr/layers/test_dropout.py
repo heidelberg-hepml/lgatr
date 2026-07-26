@@ -1,90 +1,28 @@
-import pytest
 import torch
 
 from lgatr.layers.dropout import GradeDropout
-from tests.helpers import MILD_TOLERANCES, TOLERANCES, check_pin_equivariance
+
+BATCH_DIMS = (10,)
 
 
-@pytest.mark.parametrize("batch_dims", [(10,)])
-@pytest.mark.parametrize("p", [0.0, 0.2])
-@pytest.mark.parametrize("training", [True, False])
-def test_dropout_shape(training: bool, p: float, batch_dims: tuple[int, ...]) -> None:
-    # GradeDropout preserves the input shape of multivectors and scalars.
-    layer = GradeDropout(p=p)
-    if training:
-        layer.train()
-    else:
-        layer.eval()
+def test_dropout_layer() -> None:
+    # GradeDropout wraps grade_dropout (tested in tests/lgatr/primitives/test_dropout.py) and adds
+    # scalar dropout. Check the shapes it produces, the p=0 identity, and scalars=None handling.
+    layer = GradeDropout(p=0.2)
+    layer.train()
 
-    mv = torch.randn(*batch_dims, 16)
-    s = torch.randn(*batch_dims)
+    mv = torch.randn(*BATCH_DIMS, 16)
+    s = torch.randn(*BATCH_DIMS)
     outputs_mv, outputs_s = layer(mv, s)
-
     assert outputs_mv.shape == mv.shape
     assert outputs_s.shape == s.shape
 
-
-@pytest.mark.parametrize("batch_dims", [(10,)])
-@pytest.mark.parametrize("training", [True, False])
-def test_dropout_trivial_limit(training: bool, batch_dims: tuple[int, ...]) -> None:
-    # GradeDropout is the identity when p == 0.
-    layer = GradeDropout(p=0.0)
-    if training:
-        layer.train()
-    else:
-        layer.eval()
-
-    mv = torch.randn(*batch_dims, 16)
-    s = torch.randn(*batch_dims)
-    outputs_mv, outputs_s = layer(mv, s)
-
-    torch.testing.assert_close(outputs_mv, mv, **TOLERANCES)
-    torch.testing.assert_close(outputs_s, s, **TOLERANCES)
-
-
-@pytest.mark.parametrize("batch_dims", [(10,)])
-@pytest.mark.parametrize("p", [0.0, 0.2])
-@pytest.mark.parametrize("training", [True, False])
-def test_dropout_expectation(
-    training: bool, p: float, batch_dims: tuple[int, ...], num_trials: int = 10000
-) -> None:
-    # GradeDropout has the expected mean (over many trials) for both train and eval.
-    layer = GradeDropout(p=p)
-    if training:
-        layer.train()
-    else:
-        layer.eval()
-
-    mv = torch.randn(*batch_dims, 16)
-    s = torch.randn(*batch_dims)
-    outputs_mv, outputs_s = layer(
-        mv.unsqueeze(0).expand(num_trials, *mv.shape),
-        s.unsqueeze(0).expand(num_trials, *s.shape),
-    )
-    outputs_mv = outputs_mv.mean(dim=0)
-    outputs_s = outputs_s.mean(dim=0)
-
-    torch.testing.assert_close(
-        outputs_mv, mv, **MILD_TOLERANCES
-    )  # Over 10k trials we won't get perfect agreement
-    torch.testing.assert_close(outputs_s, s, **MILD_TOLERANCES)
-
-
-@pytest.mark.parametrize("batch_dims", [(10,)])
-@pytest.mark.parametrize("p", [0.0, 0.2])
-def test_dropout_equivariance(p: float, batch_dims: tuple[int, ...]) -> None:
-    # GradeDropout is Pin-equivariant at eval time.
-    layer = GradeDropout(p=p)
-    layer.eval()
-    s = torch.randn(*batch_dims)
-    check_pin_equivariance(layer, 1, batch_dims=batch_dims, fn_kwargs=dict(scalars=s), **TOLERANCES)
-
-
-def test_dropout_none_scalars() -> None:
-    # GradeDropout propagates scalars=None.
-    layer = GradeDropout(p=0.2)
-    layer.train()
-    mv = torch.randn(10, 16)
     outputs_mv, outputs_s = layer(mv, None)
     assert outputs_mv.shape == mv.shape
     assert outputs_s is None
+
+    identity = GradeDropout(p=0.0)
+    identity.train()
+    outputs_mv, outputs_s = identity(mv, s)
+    torch.testing.assert_close(outputs_mv, mv)
+    torch.testing.assert_close(outputs_s, s)

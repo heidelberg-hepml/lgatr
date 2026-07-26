@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/heidelberg-hepml/lgatr/branch/main/graph/badge.svg)](https://codecov.io/gh/heidelberg-hepml/lgatr)
 [![PyPI version](https://img.shields.io/pypi/v/lgatr.svg)](https://pypi.org/project/lgatr)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/lgatr.svg)](https://anaconda.org/conda-forge/lgatr)
-[![pytorch](https://img.shields.io/badge/PyTorch_2.4+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
+[![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [![LGATr-CS](http://img.shields.io/badge/paper-arxiv.2405.14806-B31B1B.svg)](https://arxiv.org/abs/2405.14806)
@@ -15,7 +15,7 @@
 
 </div>
 
-This repository contains a standalone implementation of the **Lorentz-Equivariant Geometric Algebra Transformer (L-GATr)**, as well as the more **L-GATr-slim** variant. L-GATr uses spacetime geometric algebra representations to construct Lorentz-equivariant layers and combines them into a transformer architecture, whereas L-GATr-slim uses only scalar and vector representations.
+This repository contains a standalone implementation of the **Lorentz-Equivariant Geometric Algebra Transformer (L-GATr)**, as well as the more efficient **L-GATr-slim** variant. L-GATr uses spacetime geometric algebra representations to construct Lorentz-equivariant layers and combines them into a transformer architecture, whereas L-GATr-slim uses only scalar and vector representations.
 You can read more about L-GATr as well as L-GATr-slim in the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) as well as in the original papers:
 - [Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics](https://arxiv.org/abs/2405.14806) (L-GATr; for ML audience)
 - [A Lorentz-Equivariant Transformer for All of the LHC](https://arxiv.org/abs/2411.00446) (L-GATr; for HEP audience)
@@ -44,19 +44,18 @@ Overview of features in L-GATr:
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
 - `LGATrSlim` and `ConditionalLGATrSlim` as efficient variants that use only scalar and vector representations
 - Set `compile=True` for typically 2x-3x speedup, and `compile_kwargs={"dynamic": True}` for variable-length sequences
-` because extra imports require modern versions of `pip, setuptools, wheel`.
-- Additional attention backends, installation via `pip install lgatr[varlen-attention]`, `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel`
+- Additional attention backends, installation via `pip install lgatr[varlen-attention]`, `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel` first, because these extra imports require modern versions of `pip`, `setuptools` and `wheel`.
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `PrimitivesConfig` objects
 
-Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb) and [ConditionalLGATr](examples/demo_conditional_lgatr).
+Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb), [ConditionalLGATr](examples/demo_conditional_lgatr.ipynb) and [LGATrSlim](examples/demo_lgatr_slim.ipynb).
 
 ## Examples
 
 - https://github.com/heidelberg-hepml/lorentz-gatr: Original `LGATr` implementation used for the papers. This repo doesn't import the `lgatr` package, but has its own (outdated) `lgatr/` folder. ([paper1](https://arxiv.org/abs/2405.14806) [paper2](https://arxiv.org/abs/2411.00446))
 - https://github.com/heidelberg-hepml/lloca-experiments: Code for the LLoCa project, including L-GATr as a baseline. The main results from https://github.com/heidelberg-hepml/lorentz-gatr can be reproduced here using the `lgatr` package. ([paper1](https://arxiv.org/abs/2505.20280) [paper2](https://arxiv.org/abs/2508.14898))
-- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.ing
-- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](arxiv.org/abs/2510.19906))
+- https://github.com/spinjo/weaver-core/blob/lgatr/weaver/nn/model/LGATr.py: L-GATr in the CMS boosted object tagging library `weaver`. Includes examples for how to use L-GATr without the `xformers` package.
+- https://github.com/heidelberg-hepml/high-dim-unfolding: Generative jet substructure unfolding with L-GATr, uses the `ConditionalLGATr`. ([paper](https://arxiv.org/abs/2510.19906))
 - https://github.com/gregorkrz/jetclustering: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
 - https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model ([paper](https://arxiv.org/abs/2603.08802))

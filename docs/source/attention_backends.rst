@@ -4,19 +4,48 @@ Attention Backends
 Our architectures are designed to be agnostic to the attention backend.
 We implement several attention backends or kernels as described below.
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr  # only default attention
     pip install lgatr[varlen-attention]  # add varlen attention
     pip install lgatr[xformers-attention]  # add xformers attention
     pip install lgatr[flex-attention]  # add flex_attention
     pip install lgatr[flash-attention]  # add flash attention
-    pip install lgatr[varlen-attention, xformers-attention,flex-attention,flash-attention]  # add all
+    pip install lgatr[varlen-attention,xformers-attention,flex-attention,flash-attention]  # add all
 
 The extras install additional requirements, i.e. you don't have to specify them if
 you already have these requirements installed.
 You might have to run ``python -m pip install --upgrade pip setuptools wheel``
 to update your build environment, extra imports require the most recent versions.
+
+Selecting a backend
+-------------------
+
+Backends are selected per forward call. Every network forwards its extra keyword arguments
+down to :func:`~lgatr.primitives.attention.sdp_attention`, so you can name a backend explicitly
+with ``backend=...``:
+
+.. code-block:: python
+
+   outputs, outputs_s = net(multivectors, scalars=scalars, backend="xformers")
+
+If you do not pass ``backend``, the backend is inferred from the other keyword arguments: the
+block-diagonal mask ``attn_bias`` selects xformers, ``cu_seqlens_q``/``max_seqlen_q`` select
+flash, ``cu_seq_q``/``max_q`` select varlen, and ``score_mod``/``block_mask`` select flex.
+Without any of them, the native PyTorch backend is used:
+
+.. code-block:: python
+
+   from xformers.ops.fmha import BlockDiagonalMask
+
+   attn_bias = BlockDiagonalMask.from_seqlens(seqlens)
+   outputs, outputs_s = net(multivectors, scalars=scalars, attn_bias=attn_bias)
+
+Backends are resolved lazily on first use, so importing ``lgatr`` never pulls in ``xformers``
+or ``flash-attn``. Requesting a backend whose dependency is missing raises a ``ValueError``
+naming the backend and the reason it could not be loaded.
+
+.. autofunction:: lgatr.primitives.attention_backends.get_attention_backend
 
 Why care about Attention Kernels?
 ---------------------------------
@@ -26,7 +55,7 @@ memory consumption and computation time. This is because attention is the only
 transformer operation whose cost grows quadratically with the sequence length.
 To address this, researchers have devoted significant effort to designing more
 efficient attention backends that reduce this quadratic blowup. The best-known
-example is FlashAttention (ttps://arxiv.org/abs/2205.14135), which never writes out the full attention matrix
+example is FlashAttention (https://arxiv.org/abs/2205.14135), which never writes out the full attention matrix
 to memory but instead computes attention in smaller chunks. Today, FlashAttention
 is the standard in most transformer libraries, e.g. ``torch.nn.functional.scaled_dot_product_attention`` in PyTorch.
 
@@ -57,7 +86,7 @@ PyTorch's native
 is easy to use, but it requires dense tensors for queries, keys and values.
 It is automatically contained in
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr
 
@@ -74,7 +103,7 @@ sparse sequence representations and float32. This is the reason why xformers was
 L-GATr publications for tasks that require variable-length sequences.
 To use it, you need to install ``lgatr`` with the ``xformers-attention`` extra, which requires ``torch>=2.4``:
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr[xformers-attention]
 
@@ -89,7 +118,7 @@ that allow the user to create most attention variants, see `this blog <https://p
 flex_attention is considered stable for ``torch>=2.7``, we therefore do not include
 it in the default installation of ``lgatr`` yet. To install ``lgatr`` with ``flex-attention``, run
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr[flex-attention]
 
@@ -106,7 +135,7 @@ See its `documentation <https://deepwiki.com/Dao-AILab/flash-attention/1.1-insta
 the process is a bit more involved than for other backends.
 You can install ``lgatr`` with the ``flash-attention`` extra, which requires ``torch>=2.1``, as follows:
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr[flash-attention]
 
@@ -116,7 +145,7 @@ PyTorch's native varlen attention
 PyTorch 2.10 natively includes a varlen attention kernel that is very similar to
 the official flash attention implementation. It can be installed with
 
-.. code-block:: python
+.. code-block:: bash
 
     pip install lgatr[varlen-attention]
 

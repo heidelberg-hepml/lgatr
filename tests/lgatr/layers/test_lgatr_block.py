@@ -7,83 +7,64 @@ from lgatr.layers.mlp.config import MLPConfig
 from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
+NUM_ITEMS, MV_CHANNELS = 8, 6
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,mv_channels", [(8, 6)])
+# GeometricBilinear needs a scalar stream, so s_channels=0 requires geometric_product=False.
+S_CHANNELS = [(0, False), (2, True), (6, True)]
+
+
+def _block(
+    s_channels: int, geometric_product: bool, num_heads: int, multi_query: bool, **kwargs
+) -> LGATrBlock:
+    """An LGATrBlock with the standard test channel counts."""
+    return LGATrBlock(
+        MV_CHANNELS,
+        s_channels=s_channels,
+        attention=SelfAttentionConfig(num_heads=num_heads, multi_query=multi_query),
+        mlp=MLPConfig(),
+        primitives=PrimitivesConfig(geometric_product=geometric_product),
+        **kwargs,
+    )
+
+
 @pytest.mark.parametrize("num_heads", [4, 1])
-@pytest.mark.parametrize("s_channels", [0, 2, 6])
-@pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("s_channels,geometric_product", S_CHANNELS)
+@pytest.mark.parametrize("multi_query", [False, True])
 def test_lgatr_block_shape(
-    batch_dims: list[int],
-    num_items: int,
-    mv_channels: int,
-    num_heads: int,
-    s_channels: int,
-    multi_query_attention: bool,
-    dropout_prob: float | None,
+    num_heads: int, s_channels: int, geometric_product: bool, multi_query: bool
 ) -> None:
     # LGATrBlock outputs match the input shape for both multivector and scalar streams.
-    inputs = torch.randn(*batch_dims, num_items, mv_channels, 16)
-    scalars = torch.randn(*batch_dims, num_items, s_channels) if s_channels else None
+    net = _block(s_channels, geometric_product, num_heads, multi_query, dropout_prob=0.3)
 
-    try:
-        net = LGATrBlock(
-            mv_channels,
-            s_channels=s_channels,
-            attention=SelfAttentionConfig(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            mlp=MLPConfig(),
-            primitives=PrimitivesConfig(),
-            dropout_prob=dropout_prob,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
-
+    inputs = torch.randn(*BATCH_DIMS, NUM_ITEMS, MV_CHANNELS, 16)
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, s_channels) if s_channels else None
     outputs, output_scalars = net(inputs, scalars=scalars)
 
-    assert outputs.shape == (*batch_dims, num_items, mv_channels, 16)
+    assert outputs.shape == (*BATCH_DIMS, NUM_ITEMS, MV_CHANNELS, 16)
     if s_channels:
-        assert output_scalars.shape == (*batch_dims, num_items, s_channels)
+        assert output_scalars.shape == (*BATCH_DIMS, NUM_ITEMS, s_channels)
+    else:
+        assert output_scalars is None
 
 
-@pytest.mark.parametrize("batch_dims", [(64,)])
-@pytest.mark.parametrize("num_items,mv_channels", [(8, 6)])
-@pytest.mark.parametrize("num_heads", [4, 1])
-@pytest.mark.parametrize("s_channels", [2, 6])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("s_channels,geometric_product", [(0, False), (6, True)])
+@pytest.mark.parametrize("multi_query", [False, True])
 @pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_lgatr_block_equivariance(
-    batch_dims: tuple[int, ...],
-    num_items: int,
-    mv_channels: int,
-    num_heads: int,
-    s_channels: int,
-    multi_query_attention: bool,
-    norm_elementwise_affine: bool,
+    s_channels: int, geometric_product: bool, multi_query: bool, norm_elementwise_affine: bool
 ) -> None:
-    # LGATrBlock is Pin-equivariant.
-    try:
-        net = LGATrBlock(
-            mv_channels,
-            s_channels=s_channels,
-            attention=SelfAttentionConfig(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            mlp=MLPConfig(),
-            primitives=PrimitivesConfig(),
-            norm_elementwise_affine=norm_elementwise_affine,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
+    # LGATrBlock is Spin-equivariant. Only Spin, because of the fixed reference multivector in its
+    # bilinear layers.
+    net = _block(
+        s_channels,
+        geometric_product,
+        num_heads=4,
+        multi_query=multi_query,
+        norm_elementwise_affine=norm_elementwise_affine,
+    )
 
-    scalars = torch.randn(*batch_dims, num_items, s_channels) if s_channels else None
-    data_dims = tuple(list(batch_dims) + [num_items, mv_channels])
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, s_channels) if s_channels else None
+    data_dims = (*BATCH_DIMS, NUM_ITEMS, MV_CHANNELS)
     check_pin_equivariance(
         net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES
     )
@@ -91,12 +72,6 @@ def test_lgatr_block_equivariance(
 
 def test_lgatr_block_rejects_none_scalars() -> None:
     # An LGATrBlock built with scalar channels rejects scalars=None at runtime.
-    net = LGATrBlock(
-        mv_channels=4,
-        s_channels=2,
-        attention=SelfAttentionConfig(num_heads=2),
-        mlp=MLPConfig(),
-        primitives=PrimitivesConfig(),
-    )
+    net = _block(s_channels=2, geometric_product=True, num_heads=2, multi_query=False)
     with pytest.raises(ValueError):
-        net(torch.randn(3, 5, 4, 16), scalars=None)
+        net(torch.randn(3, 5, MV_CHANNELS, 16), scalars=None)

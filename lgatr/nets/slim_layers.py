@@ -520,7 +520,7 @@ class SlimMLP(nn.Module):
         dropout_prob: float | None = None,
     ) -> None:
         super().__init__()
-        assert num_layers >= 2
+        assert num_layers >= 2, f"SlimMLP needs num_layers >= 2, got {num_layers}"
         layers: list[nn.Module] = []
 
         v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
@@ -599,7 +599,7 @@ class SlimBlock(nn.Module):
     attn_ratio
         Expansion ratio for attention hidden channels.
     num_layers_mlp
-        Number of layers in the MLP.
+        Number of layers in the MLP (must be ``>= 2``).
     dropout_prob
         Dropout probability.
     norm_elementwise_affine
@@ -864,7 +864,7 @@ class ConditionalSlimBlock(nn.Module):
     attn_ratio
         Expansion ratio for attention hidden channels.
     num_layers_mlp
-        Number of layers in the MLP.
+        Number of layers in the MLP (must be ``>= 2``).
     dropout_prob
         Dropout probability.
     norm_elementwise_affine

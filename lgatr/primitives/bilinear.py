@@ -12,7 +12,7 @@ from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 # Module-level constants loaded once at import. Lru_cache helpers below only do `.to(...)`
 # casts on these, keeping them traceable under torch.compile(fullgraph=True).
 _GP = (
-    torch.load(Path(__file__).parent.resolve() / "geometric_product.pt")
+    torch.load(Path(__file__).parent.resolve() / "geometric_product.pt", weights_only=True)
     .to(DEFAULT_DTYPE)
     .to_dense()
 )

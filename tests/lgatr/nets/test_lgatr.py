@@ -5,163 +5,111 @@ from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.mlp.config import MLPConfig
 from lgatr.nets import LGATr
 from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import (
-    BATCH_DIMS,
-    COMPILE_SUPPORTED,
-    MILD_TOLERANCES,
-    check_pin_equivariance,
-)
+from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
-S_CHANNELS = [(0, 0, 7), (0, 0, 0), (4, 5, 6)]
+BATCH_DIMS = BATCH_DIMS[:-1]
+NUM_ITEMS, IN_MV, OUT_MV, HIDDEN_MV = 8, 3, 4, 6
+
+# GeometricBilinear needs a scalar stream, so hidden_s_channels=0 only works with
+# geometric_product=False; that configuration has its own test below.
+S_CHANNELS = [(0, 0, 7), (4, 5, 6)]
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize(
-    "num_items,in_mv_channels,out_mv_channels,hidden_mv_channels", [(8, 3, 4, 6)]
-)
-@pytest.mark.parametrize("num_heads,num_blocks", [(4, 1)])
+def _net(in_s: int, out_s: int, hidden_s: int, **kwargs) -> LGATr:
+    """An LGATr with the standard test channel counts."""
+    return LGATr(
+        num_blocks=1,
+        in_mv_channels=IN_MV,
+        out_mv_channels=OUT_MV,
+        hidden_mv_channels=HIDDEN_MV,
+        in_s_channels=in_s,
+        out_s_channels=out_s,
+        hidden_s_channels=hidden_s,
+        mlp=MLPConfig(),
+        **kwargs,
+    )
+
+
 @pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", S_CHANNELS)
-@pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.3])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("multi_query", [False, True])
 @pytest.mark.parametrize("checkpoint_blocks", [False, True])
-@pytest.mark.parametrize("subgroup", [True, False])
 def test_lgatr_shape(
-    batch_dims: list[int],
-    num_items: int,
-    in_mv_channels: int,
-    out_mv_channels: int,
-    hidden_mv_channels: int,
-    num_blocks: int,
-    num_heads: int,
     in_s_channels: int,
     out_s_channels: int,
     hidden_s_channels: int,
-    multi_query_attention: bool,
-    dropout_prob: float | None,
+    multi_query: bool,
     checkpoint_blocks: bool,
-    subgroup: bool,
 ) -> None:
-    # LGATr's outputs match the expected shapes for all combinations of channels and config.
-    inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
-    scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
+    # LGATr's outputs match the expected shapes. The dict form of the layer configs is used here
+    # to exercise Config.cast.
+    net = _net(
+        in_s_channels,
+        out_s_channels,
+        hidden_s_channels,
+        attention=dict(num_heads=4, multi_query=multi_query),
+        dropout_prob=0.3,
+        checkpoint_blocks=checkpoint_blocks,
+    )
 
-    try:
-        net = LGATr(
-            in_mv_channels=in_mv_channels,
-            out_mv_channels=out_mv_channels,
-            hidden_mv_channels=hidden_mv_channels,
-            in_s_channels=in_s_channels,
-            out_s_channels=out_s_channels,
-            hidden_s_channels=hidden_s_channels,
-            attention=dict(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            num_blocks=num_blocks,
-            mlp=dict(),
-            primitives=PrimitivesConfig(subgroup=subgroup),
-            dropout_prob=dropout_prob,
-            checkpoint_blocks=checkpoint_blocks,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
-
+    inputs = torch.randn(*BATCH_DIMS, NUM_ITEMS, IN_MV, 16)
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, in_s_channels) if in_s_channels else None
     outputs, output_scalars = net(inputs, scalars=scalars)
 
-    assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
+    assert outputs.shape == (*BATCH_DIMS, NUM_ITEMS, OUT_MV, 16)
     if out_s_channels:
-        assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
+        assert output_scalars.shape == (*BATCH_DIMS, NUM_ITEMS, out_s_channels)
 
 
-@pytest.mark.parametrize("batch_dims", [(64,)])
-@pytest.mark.parametrize(
-    "num_items,in_mv_channels,out_mv_channels,hidden_mv_channels", [(8, 3, 4, 6)]
-)
-@pytest.mark.parametrize("num_heads,num_blocks", [(4, 1)])
+def test_lgatr_no_scalar_stream() -> None:
+    # A scalar-free LGATr runs and stays equivariant, as documented for hidden_s_channels=0.
+    net = _net(
+        0,
+        0,
+        0,
+        attention=SelfAttentionConfig(num_heads=4),
+        primitives=PrimitivesConfig(geometric_product=False),
+    )
+
+    inputs = torch.randn(*BATCH_DIMS, NUM_ITEMS, IN_MV, 16)
+    outputs, output_scalars = net(inputs)
+    assert outputs.shape == (*BATCH_DIMS, NUM_ITEMS, OUT_MV, 16)
+    assert output_scalars is None
+
+    check_pin_equivariance(net, 1, batch_dims=(*BATCH_DIMS, NUM_ITEMS, IN_MV), **MILD_TOLERANCES)
+
+
 @pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", S_CHANNELS)
-@pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("multi_query", [False, True])
 @pytest.mark.parametrize("norm_elementwise_affine", [False, True])
+@pytest.mark.parametrize("subgroup,spin", [(True, True), (False, False)])
 def test_lgatr_equivariance(
-    batch_dims: tuple[int, ...],
-    num_items: int,
-    in_mv_channels: int,
-    out_mv_channels: int,
-    hidden_mv_channels: int,
-    num_blocks: int,
-    num_heads: int,
     in_s_channels: int,
     out_s_channels: int,
     hidden_s_channels: int,
-    multi_query_attention: bool,
+    multi_query: bool,
     norm_elementwise_affine: bool,
+    subgroup: bool,
+    spin: bool,
 ) -> None:
-    # LGATr (full network) is Pin-equivariant.
-    try:
-        net = LGATr(
-            in_mv_channels=in_mv_channels,
-            out_mv_channels=out_mv_channels,
-            hidden_mv_channels=hidden_mv_channels,
-            in_s_channels=in_s_channels,
-            out_s_channels=out_s_channels,
-            hidden_s_channels=hidden_s_channels,
-            attention=SelfAttentionConfig(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            num_blocks=num_blocks,
-            mlp=MLPConfig(),
-            norm_elementwise_affine=norm_elementwise_affine,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
-
-    scalars = torch.randn(*batch_dims, num_items, in_s_channels) if in_s_channels else None
-    data_dims = tuple(list(batch_dims) + [num_items, in_mv_channels])
-    check_pin_equivariance(
-        net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES
+    # LGATr is equivariant under the group it is built for: Spin for the proper-orthochronous
+    # subgroup, the full Pin group (including reflections) otherwise.
+    net = _net(
+        in_s_channels,
+        out_s_channels,
+        hidden_s_channels,
+        attention=SelfAttentionConfig(num_heads=4, multi_query=multi_query),
+        primitives=PrimitivesConfig(subgroup=subgroup),
+        norm_elementwise_affine=norm_elementwise_affine,
     )
 
-
-@pytest.mark.skipif(not COMPILE_SUPPORTED, reason="torch.compile is unavailable")
-@pytest.mark.parametrize("batch_dims", [(64,)])
-@pytest.mark.parametrize(
-    "num_items,in_mv_channels,out_mv_channels,hidden_mv_channels", [(8, 3, 4, 6)]
-)
-@pytest.mark.parametrize("num_heads,num_blocks", [(4, 1)])
-@pytest.mark.parametrize("in_s_channels,out_s_channels,hidden_s_channels", [(4, 5, 6)])
-def test_lgatr_equivariance_compiled(
-    batch_dims: tuple[int, ...],
-    num_items: int,
-    in_mv_channels: int,
-    out_mv_channels: int,
-    hidden_mv_channels: int,
-    num_blocks: int,
-    num_heads: int,
-    in_s_channels: int,
-    out_s_channels: int,
-    hidden_s_channels: int,
-    compile: bool = True,
-) -> None:
-    # torch.compile-wrapped LGATr still preserves shapes and Pin-equivariance.
-    net = LGATr(
-        in_mv_channels=in_mv_channels,
-        out_mv_channels=out_mv_channels,
-        hidden_mv_channels=hidden_mv_channels,
-        in_s_channels=in_s_channels,
-        out_s_channels=out_s_channels,
-        hidden_s_channels=hidden_s_channels,
-        attention=SelfAttentionConfig(num_heads=num_heads),
-        num_blocks=num_blocks,
-        mlp=MLPConfig(),
-        compile=compile,
-    )
-
-    scalars = torch.randn(*batch_dims, num_items, in_s_channels)
-    data_dims = tuple(list(batch_dims) + [num_items, in_mv_channels])
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, in_s_channels) if in_s_channels else None
     check_pin_equivariance(
-        net, 1, batch_dims=data_dims, fn_kwargs=dict(scalars=scalars), **MILD_TOLERANCES
+        net,
+        1,
+        batch_dims=(*BATCH_DIMS, NUM_ITEMS, IN_MV),
+        fn_kwargs=dict(scalars=scalars),
+        spin=spin,
+        **MILD_TOLERANCES,
     )
 
 

@@ -8,7 +8,7 @@ def embed_bivector(bivectors: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-    vectors
+    bivectors
         Lorentz bivectors of shape ``(..., 6)`` using the convention (tx, ty, tz, xy, xz, yz).
 
     Returns
@@ -17,9 +17,9 @@ def embed_bivector(bivectors: torch.Tensor) -> torch.Tensor:
         Multivectors of shape ``(..., 16)``.
     """
 
-    assert bivectors.shape[-1] == 4
-    # F.pad(x, (5, 5)) zero-pads 5 entry on the left and 5 on the right of the last dim,
-    # placing the input at indices 5-11 with zeros elsewhere.
+    assert bivectors.shape[-1] == 6
+    # F.pad(x, (5, 5)) zero-pads 5 entries on the left and 5 on the right of the last dim,
+    # placing the input at indices 5-10 (the bivector slots) with zeros elsewhere.
     return torch.nn.functional.pad(bivectors, (5, 5))
 
 
@@ -33,7 +33,7 @@ def extract_bivector(multivectors: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    vectors
+    bivectors
         Lorentz bivectors of shape ``(..., 6)``.
     """
 

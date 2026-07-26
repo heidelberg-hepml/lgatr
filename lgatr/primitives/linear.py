@@ -16,7 +16,8 @@ DEFAULT_DTYPE = torch.float32
 # Module-level constants loaded once at import. lru_cache helpers below only do `.to(...)`
 # casts on these, keeping them traceable under torch.compile(fullgraph=True).
 def _load_basis(name: str) -> torch.Tensor:
-    return torch.load(Path(__file__).parent.resolve() / name).to(DEFAULT_DTYPE).to_dense()
+    path = Path(__file__).parent.resolve() / name
+    return torch.load(path, weights_only=True).to(DEFAULT_DTYPE).to_dense()
 
 
 _BASIS_SUBGROUP = _load_basis("linear_basis_subgroup.pt")

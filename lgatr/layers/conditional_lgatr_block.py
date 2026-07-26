@@ -1,5 +1,6 @@
 """L-GATr decoder block."""
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 import torch
@@ -31,7 +32,7 @@ class ConditionalLGATrBlock(nn.Module):
     mv_channels
         Number of input and output multivector channels.
     s_channels
-        Number of input and output scalar channels. Use 0 for no scalar stream.
+        Number of input and output scalar channels.
     mv_channels_cond
         Number of condition multivector channels.
     s_channels_cond
@@ -56,14 +57,15 @@ class ConditionalLGATrBlock(nn.Module):
         s_channels: int,
         mv_channels_cond: int,
         s_channels_cond: int,
-        attention: SelfAttentionConfig,
-        crossattention: CrossAttentionConfig,
-        mlp: MLPConfig,
-        primitives: PrimitivesConfig,
+        attention: SelfAttentionConfig | Mapping,
+        crossattention: CrossAttentionConfig | Mapping,
+        mlp: MLPConfig | Mapping,
+        primitives: PrimitivesConfig | Mapping,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
 
         # Pre-norms: norm1 (self-attn), norm2 (cross-attn query), norm_cond (cross-attn condition),
         # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the
@@ -83,7 +85,7 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Self-attention layer
         attention = replace(
-            attention,
+            SelfAttentionConfig.cast(attention),
             in_mv_channels=mv_channels,
             out_mv_channels=mv_channels,
             in_s_channels=s_channels,
@@ -95,7 +97,7 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Cross-attention layer
         crossattention = replace(
-            crossattention,
+            CrossAttentionConfig.cast(crossattention),
             q_mv_channels=mv_channels,
             q_s_channels=s_channels,
             kv_mv_channels=mv_channels_cond,
@@ -109,7 +111,7 @@ class ConditionalLGATrBlock(nn.Module):
 
         # MLP block
         mlp = replace(
-            mlp,
+            MLPConfig.cast(mlp),
             mv_channels=mv_channels,
             s_channels=s_channels,
             dropout_prob=dropout_prob,

@@ -1,7 +1,17 @@
 import pytest
 import torch
 
+from lgatr.interface import embed_vector
 from lgatr.interface.spurions import get_num_spurions, get_spurions
+from tests.helpers import TOLERANCES
+
+# Beam 4-momenta documented in get_spurions, with their pz-mirrored partners.
+BEAMS = {
+    "lightlike": [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, -1.0]],
+    "timelike": [[2**0.5, 0.0, 0.0, 1.0], [2**0.5, 0.0, 0.0, -1.0]],
+    "spacelike": [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, -1.0]],
+}
+TIME = [1.0, 0.0, 0.0, 0.0]
 
 
 @pytest.mark.parametrize(
@@ -49,42 +59,28 @@ def test_get_num_spurions(
     assert result == expected_num
 
 
-@pytest.mark.parametrize(
-    "beam_spurion, add_time_spurion, beam_mirror",
-    [
-        ("xyplane", True, True),
-        ("xyplane", False, False),
-        ("lightlike", True, True),
-        ("lightlike", False, False),
-        ("spacelike", True, True),
-        ("spacelike", False, False),
-        ("timelike", True, True),
-        ("timelike", False, False),
-        (None, True, True),
-        (None, False, False),
-    ],
-)
-def test_get_spurions(
-    beam_spurion: str | None,
-    add_time_spurion: bool,
-    beam_mirror: bool,
-) -> None:
-    # get_spurions returns a tensor of shape (n_spurions, 16) where n_spurions matches get_num_spurions.
-    expected_num = get_num_spurions(
-        beam_spurion=beam_spurion,
-        add_time_spurion=add_time_spurion,
-        beam_mirror=beam_mirror,
-    )
-    result = get_spurions(
-        beam_spurion=beam_spurion,
-        add_time_spurion=add_time_spurion,
-        beam_mirror=beam_mirror,
-        device="cpu",
-        dtype=torch.float32,
-    )
+@pytest.mark.parametrize("beam_spurion", list(BEAMS))
+@pytest.mark.parametrize("beam_mirror", [False, True])
+def test_get_spurions_beam_values(beam_spurion: str, beam_mirror: bool) -> None:
+    # The beam spurions are the documented 4-momenta embedded as vectors, followed by the time
+    # direction; beam_mirror appends the pz-flipped partner.
+    beams = BEAMS[beam_spurion][: 2 if beam_mirror else 1]
+    expected = embed_vector(torch.tensor(beams + [TIME]))
 
-    # Check type
-    assert isinstance(result, torch.Tensor), "Output should be a torch.Tensor."
+    spurions = get_spurions(beam_spurion=beam_spurion, beam_mirror=beam_mirror)
+    torch.testing.assert_close(spurions, expected, **TOLERANCES)
 
-    # Check shape
-    assert result.shape == (expected_num, 16)
+
+def test_get_spurions_xyplane_value() -> None:
+    # The xy-plane spurion is the xy bivector (slot 8) and nothing else.
+    expected = torch.zeros(1, 16)
+    expected[0, 8] = 1.0
+
+    spurions = get_spurions(beam_spurion="xyplane", add_time_spurion=False)
+    torch.testing.assert_close(spurions, expected, **TOLERANCES)
+
+
+def test_get_spurions_time_only() -> None:
+    # Without a beam spurion, only the time direction is returned.
+    spurions = get_spurions(beam_spurion=None)
+    torch.testing.assert_close(spurions, embed_vector(torch.tensor([TIME])), **TOLERANCES)

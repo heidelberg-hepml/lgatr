@@ -64,18 +64,18 @@ geometric algebra can be written as
     x = x_0 + x_\mu^V \gamma^\mu + x_{\mu\nu}^B \sigma^{\mu\nu} + x_\mu^A \gamma^\mu\gamma^5 + x^P \gamma^5.
 
 The 5 terms in this equation represent the 5 `grades` scalar, vector, bivector, axialvector,
-and pseudoscalar, which form subrepresentations of the Lorentz group, corresponding to
-paticles of spin 0, 1, and 2.
+and pseudoscalar, which form subrepresentations of the Lorentz group.
 :class:`~lgatr.nets.lgatr.LGATr` internally performs operations on the 16-dimensional object
 :math:`(x^S, x_\mu^V, x_{\mu\nu}^B, x_\mu^A, x^P)`, which fully characterizes a multivector.
-Additionally, :class:`~lgatr.nets.lgatr.LGATr` constrains this quite restrictive setup of working solely only multivectors by allowing
-additional scalar representations which mix with the scalar part of multivector representations.
+Additionally, :class:`~lgatr.nets.lgatr.LGATr` relaxes this quite restrictive setup of working
+solely with multivectors by allowing additional scalar representations, which mix with the scalar
+part of the multivector representations.
 
-:class:`~lgatr.nets.lgatr.LGATr` also covers parity-odd representation of the Lorentz group,
+:class:`~lgatr.nets.lgatr.LGATr` also covers parity-odd representations of the Lorentz group,
 controlled by the flag ``subgroup`` in :class:`~lgatr.primitives.config.PrimitivesConfig`.
-The default ``subgroup=true`` allows parity-even and parity-odd representations to mix,
+The default ``subgroup=True`` allows parity-even and parity-odd representations to mix,
 effectively replacing parity-odd representations by parity-even representations.
-Changing to ``subgroup=false`` recovers the parity-odd pseudoscalar and axialvector
+Changing to ``subgroup=False`` recovers the parity-odd pseudoscalar and axialvector
 representations as separate representations that mix non-trivially.
 For more information, have a look at https://arxiv.org/abs/2411.00446 and https://arxiv.org/abs/2405.14806.
 
@@ -84,9 +84,8 @@ Embedding data in and extracting data from multivectors
 
 The ``lgatr`` package provides tools for embedding and extracting
 :mod:`~lgatr.interface.scalar`, :mod:`~lgatr.interface.vector`, :mod:`~lgatr.interface.bivector`, :mod:`~lgatr.interface.axialvector` and
-:mod:`~lgatr.interface.pseudoscalar` objects into spacetime geometric algebra representations .
+:mod:`~lgatr.interface.pseudoscalar` objects into spacetime geometric algebra representations.
 For each representation, we have an embedding and an extraction function.
-We
 The embedding function takes the scalar/vector/bivector/axialvector/pseudoscalar
 and embeds it into a multivector, while zero-padding the other multivector entries.
 The extraction function returns the specified part of the multivector, ignoring
