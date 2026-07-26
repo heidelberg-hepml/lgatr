@@ -4,6 +4,7 @@ from .constants import (
     MILD_TOLERANCES,
     STRICT_TOLERANCES,
     TOLERANCES,
+    TORCH_VERSION,
 )
 from .equivariance import check_pin_equivariance, check_pin_invariance
 from .geometric_algebra import (

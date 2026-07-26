@@ -56,6 +56,8 @@ jobs:
           SPEC="torch==${{ matrix.torch-version }}.*"
           # torch<2.3 wheels are built against numpy 1.x
           case "${{ matrix.torch-version }}" in 2.0|2.1|2.2) pip install "numpy<2" ;; esac
+          # torch<2.2 imports pkg_resources when inductor compiles, setuptools 82 removed it
+          case "${{ matrix.torch-version }}" in 2.0|2.1) pip install "setuptools<82" ;; esac
         fi
         pip install "$SPEC" \
             --index-url https://download.pytorch.org/whl/cpu \

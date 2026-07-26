@@ -13,6 +13,7 @@ def _compile_supported() -> bool:
 
 
 COMPILE_SUPPORTED = _compile_supported()
+TORCH_VERSION = tuple(int(part) for part in torch.__version__.split(".")[:2])
 
 # Default tolerances
 TOLERANCES = dict(atol=1e-3, rtol=1e-4)

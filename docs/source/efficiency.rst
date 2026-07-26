@@ -65,6 +65,12 @@ shapes, we recommend setting ``compile_kwargs={"dynamic"}``. If used correctly, 
 only cost to pay for ``compile=True`` is a ~1min compilation overhead on the first
 network call.
 
+Old torch versions limit what can be compiled. On ``torch<2.3`` the inductor backend
+cannot generate code for the attention scale under dynamic shapes, so ``compile=True``
+requires ``compile_kwargs={"dynamic": False}`` there. On ``torch<2.2`` compiling
+additionally requires ``setuptools<82``, because torch imports ``pkg_resources``, which
+setuptools removed in version 82.
+
 Automic mixed precision
 --------------------------------------------
 
