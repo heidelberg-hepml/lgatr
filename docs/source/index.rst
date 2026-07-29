@@ -22,6 +22,7 @@ available under https://github.com/heidelberg-hepml/lgatr.
 * :doc:`symmetry_breaking`
 * :doc:`attention_backends`
 * :doc:`efficiency`
+* :doc:`v1_to_v2`
 * :doc:`api`
 
 Citation
@@ -86,6 +87,7 @@ If you find this package useful, please cite our papers:
    symmetry_breaking
    attention_backends
    efficiency
+   v1_to_v2
 
 .. toctree::
    :maxdepth: 2
