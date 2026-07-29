@@ -6,9 +6,14 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
+from ..layers.slim_layers import (
+    ConditionalSlimBlock,
+    SlimLinear,
+    _freeze_dead_tail,
+    _require_scalars,
+)
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
-from .slim_layers import ConditionalSlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
 
 
 class ConditionalLGATrSlim(nn.Module):

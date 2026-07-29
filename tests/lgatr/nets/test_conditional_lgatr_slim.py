@@ -1,8 +1,8 @@
 import pytest
 import torch
 
+from lgatr.layers.slim_layers import ConditionalSlimBlock, SlimCrossAttention
 from lgatr.nets.conditional_slim import ConditionalLGATrSlim
-from lgatr.nets.slim_layers import ConditionalSlimBlock, SlimCrossAttention
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
 BATCH_DIMS = BATCH_DIMS[:-1]

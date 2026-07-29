@@ -121,12 +121,12 @@ This approach allows a more efficient implementation while achieving similar per
    :toctree: generated/
    :recursive:
 
-   lgatr.nets.slim_layers.SlimBlock
-   lgatr.nets.slim_layers.ConditionalSlimBlock
-   lgatr.nets.slim_layers.SlimSelfAttention
-   lgatr.nets.slim_layers.SlimCrossAttention
-   lgatr.nets.slim_layers.SlimMLP
-   lgatr.nets.slim_layers.SlimGLU
-   lgatr.nets.slim_layers.SlimLinear
-   lgatr.nets.slim_layers.SlimRMSNorm
-   lgatr.nets.slim_layers.SlimDropout
+   lgatr.layers.slim_layers.SlimBlock
+   lgatr.layers.slim_layers.ConditionalSlimBlock
+   lgatr.layers.slim_layers.SlimSelfAttention
+   lgatr.layers.slim_layers.SlimCrossAttention
+   lgatr.layers.slim_layers.SlimMLP
+   lgatr.layers.slim_layers.SlimGLU
+   lgatr.layers.slim_layers.SlimLinear
+   lgatr.layers.slim_layers.SlimRMSNorm
+   lgatr.layers.slim_layers.SlimDropout

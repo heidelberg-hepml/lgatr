@@ -1,8 +1,7 @@
 import pytest
 import torch
 
-from lgatr.nets.slim import LGATrSlim
-from lgatr.nets.slim_layers import (
+from lgatr.layers.slim_layers import (
     SlimBlock,
     SlimDropout,
     SlimGLU,
@@ -11,6 +10,7 @@ from lgatr.nets.slim_layers import (
     SlimRMSNorm,
     SlimSelfAttention,
 )
+from lgatr.nets.slim import LGATrSlim
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
 # (in_v, out_v, in_s, out_s), covering the zero-channel edges on every slot.

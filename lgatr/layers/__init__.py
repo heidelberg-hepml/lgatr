@@ -1,4 +1,4 @@
-"""High-level L-GATr layers (linear, attention, MLP, dropout, normalization)."""
+"""High-level L-GATr layers (linear, attention, MLP, dropout, normalization), full and slim."""
 
 from .attention.config import CrossAttentionConfig, SelfAttentionConfig
 from .attention.cross_attention import CrossAttention
@@ -12,3 +12,14 @@ from .mlp.config import MLPConfig
 from .mlp.geometric_bilinears import GeometricBilinear
 from .mlp.mlp import GeoMLP
 from .mlp.nonlinearities import ScalarGatedNonlinearity
+from .slim_layers import (
+    ConditionalSlimBlock,
+    SlimBlock,
+    SlimCrossAttention,
+    SlimDropout,
+    SlimGLU,
+    SlimLinear,
+    SlimMLP,
+    SlimRMSNorm,
+    SlimSelfAttention,
+)

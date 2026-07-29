@@ -46,7 +46,7 @@ and vector representations. The LorentzNet architecture implements the same idea
 graph networks. The allowed operations on vectors are the Minkowski inner product
 and the scalar scalar product of a scalar and a vector.
 :class:`~lgatr.nets.slim.LGATrSlim` implements these operations directly as part
-of the :class:`~lgatr.nets.slim_layers.SlimGLU`, and also in the attention,
+of the :class:`~lgatr.layers.slim_layers.SlimGLU`, and also in the attention,
 normalization, and nonlinearity operations. See https://arxiv.org/abs/2512.17011
 for more information.
 
