@@ -1,34 +1,22 @@
-"""Geometric algebra operations based on the clifford library."""
+"""Geometric-algebra operations based on the clifford library."""
 
 import clifford
 import numpy as np
 import torch
 
-LAYOUT, BLADES = clifford.Cl(1, 3)
+LAYOUT, _ = clifford.Cl(1, 3)
 
 
-def np_to_mv(array):
-    """Shorthand to transform a numpy array to a Pin(1,3) multivector."""
+def _to_mv(array: np.ndarray) -> clifford.MultiVector:
+    """Wrap a length-16 numpy array as a Pin(1, 3) multivector."""
     return clifford.MultiVector(LAYOUT, value=array)
 
 
-def tensor_to_mv(tensor):
-    """Shorthand to transform a numpy array to a Pin(1,3) multivector."""
-    return np_to_mv(tensor.detach().cpu().numpy())
-
-
-def tensor_to_mv_list(tensor):
-    """Transforms a torch.Tensor to a list of multivector objects."""
-
-    tensor = tensor.reshape((-1, 16))
-    mv_list = [tensor_to_mv(x) for x in tensor]
-
-    return mv_list
-
-
-def mv_list_to_tensor(multivectors, batch_shape=None):
-    """Transforms a list of multivector objects to a torch.Tensor."""
-
+def mv_list_to_tensor(
+    multivectors: list[clifford.MultiVector],
+    batch_shape: tuple[int, ...] | list[int] | None = None,
+) -> torch.Tensor:
+    """Stack a list of multivectors into a torch tensor."""
     tensor = torch.from_numpy(np.array([mv.value for mv in multivectors])).to(torch.float32)
     if batch_shape is not None:
         tensor = tensor.reshape(*batch_shape, 16)
@@ -36,95 +24,56 @@ def mv_list_to_tensor(multivectors, batch_shape=None):
     return tensor
 
 
-def sample_pin_multivector(spin: bool = False, rng: np.random.Generator | None = None):
-    """Samples from the Pin(1,3) group as a product of reflections."""
+def _sample_reflection() -> clifford.MultiVector:
+    """Sample a normalized Lorentz vector, i.e. a single reflection in Pin(1, 3)."""
+    vector = np.zeros(16)
+    vector[2:5] = np.random.normal(size=3) * 2
+    norm = np.linalg.norm(vector[2:5])
+    vector[1] = (np.random.uniform() - 0.5) * norm
 
-    if rng is None:
-        rng = np.random.default_rng()
-
-    # Sample number of reflections we want to multiply
-    if spin:
-        i = np.random.randint(3) * 2
-    else:
-        i = np.random.randint(5)
-
-    # If no reflections, just return unit scalar
-    if i == 0:
-        return BLADES[""]
-
-    multivector = 1.0
-    for _ in range(i):
-        # Sample reflection vector
-        vector = np.zeros(16)
-        vector[2:5] = rng.normal(size=3) * 2
-        norm = np.linalg.norm(vector[2:5])
-        vector[1] = (rng.uniform(size=1)[0] - 0.5) * norm
-
-        vector_mv = np_to_mv(vector)
-        vector_mv = vector_mv / abs(vector_mv.mag2()) ** 0.5
-
-        # Multiply together (geometric product)
-        multivector = multivector * vector_mv
-
-    return multivector
+    mv = _to_mv(vector)
+    return mv / abs(mv.mag2()) ** 0.5
 
 
-def get_parity(mv):
-    """Gets parity of a clifford multivector.
+def _sample_pin_multivector(odd: bool) -> tuple[clifford.MultiVector, clifford.MultiVector]:
+    """Sample a non-identity element of Pin(1, 3), and its inverse, as a product of reflections.
 
-    Given a clifford multivector, returns True if it is pure-odd-grade, False if it is pure-even
-    grade, and raises a RuntimeError if it is mixed.
+    An odd number of reflections gives an element outside Spin(1, 3), i.e. one that involves a
+    parity flip; an even number gives a Spin element. The identity is never returned, so every
+    equivariance check applies a non-trivial transformation.
     """
-    if mv == mv.even:
-        return False
-    if mv == mv.odd:
-        return True
-    raise RuntimeError(f"Mixed-grade multivector: {mv}")
+    num_reflections = np.random.choice([1, 3] if odd else [2, 4])
+
+    multivector, inverse = 1.0, 1.0
+    for _ in range(num_reflections):
+        v = _sample_reflection()
+        # v is normalized, so v * v == +-1 and the inverse of the product just reverses the order.
+        multivector = multivector * v
+        inverse = v / (v * v).value[0] * inverse
+
+    return multivector, inverse
 
 
-def sandwich(u, x):
-    """Given clifford multivectors, computes their sandwich product.
+class RandomPinTransform:
+    """Random Pin(1, 3) transform on multivector tensors of shape ``(..., 16)``.
 
-    Specifically, given a Pin element u and a PGA element x, both given as clifford multivectors,
-    computes the sandwich product
-    ```
-    sandwich(x, u) = (-1)^(grade(u) * grade(x)) u x u^{-1} .
-    ```
-
-    If `u` is of odd grades, then this is equal to `u * grade_involute(x) * u^{-1}`.
-    If `u` is of even grades, then this is equal to `u * x * u^{-1}`.
+    The action is the twisted sandwich product: ``u x u^-1`` for even ``u``, and
+    ``u grade_involute(x) u^-1`` for odd ``u``. It is linear in ``x``, so it is applied as a single
+    16x16 matmul; building that matrix means sandwiching the 16 basis blades, which costs the same
+    no matter how large the inputs are.
     """
 
-    if get_parity(u):
-        return u * x.gradeInvol() * u.shirokov_inverse()
+    def __init__(self, odd: bool = False) -> None:
+        u, u_inverse = _sample_pin_multivector(odd)
+        basis = [_to_mv(row) for row in np.eye(16)]
+        if odd:
+            basis = [e.gradeInvol() for e in basis]
+        self._matrix = mv_list_to_tensor([u * e * u_inverse for e in basis])
 
-    return u * x * u.shirokov_inverse()
-
-
-class SlowRandomPinTransform:
-    """Random Pin transform on a multivector torch.Tensor.
-
-    Slow, only used for testing purposes. Breaks computational graph.
-    """
-
-    def __init__(self, spin=False, rng=None):
-        super().__init__()
-        self._u = sample_pin_multivector(spin, rng)
-        self._u_inverse = self._u.shirokov_inverse()
+    def sample(self, batch_dims: tuple[int, ...] | list[int]) -> torch.Tensor:
+        """Draw random multivector inputs of shape ``(*batch_dims, 16)``."""
+        return torch.randn(*batch_dims, 16)
 
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
-        """Apply Pin transformation to multivector inputs."""
-        # Input shape
         assert inputs.shape[-1] == 16
-        batch_dims = inputs.shape[:-1]
-
-        # Convert inputs to list of multivectors
-        inputs_mv = tensor_to_mv_list(inputs)
-
-        # Transform
-        outputs_mv = [sandwich(self._u, x) for x in inputs_mv]
-
-        # Back to tensor
-        outputs = mv_list_to_tensor(outputs_mv, batch_shape=batch_dims)
-
-        return outputs
+        return inputs @ self._matrix

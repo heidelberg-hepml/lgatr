@@ -2,6 +2,8 @@
 
 import torch
 
+from ...utils.autocast import autocast_dtype
+
 try:
     from torch.nn.attention.varlen import varlen_attn
 except ModuleNotFoundError as err:
@@ -10,49 +12,67 @@ except ModuleNotFoundError as err:
     ) from err
 
 
-def attention(query, key, value, dtype=None, **kwargs):
-    """Pass to pytorchs native varlen_attn.
-    Note that pytorchs native varlen_attn closely follows flash-attn, see flash.py.
-    Note that flash-attention expects the shape (batch=1, items, head, channel).
+def attention(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    dtype: torch.dtype | None = None,
+    **kwargs,
+) -> torch.Tensor:
+    """Forward to PyTorch's native ``varlen_attn``.
+
+    PyTorch's ``varlen_attn`` closely follows flash-attention (see ``flash.py``) and expects shape
+    ``(batch=1, items, head, channel)`` internally; this wrapper transposes between the L-GATr
+    layout and that.
 
     Parameters
     ----------
-    query : torch.Tensor
-        Queries with shape (batch, head, items_out, channel)
-    key : torch.Tensor
-        Keys with shape (batch, head, items_in, channel)
-    value : torch.Tensor
-        Values with shape (batch, head, items_in, channel)
-    dtype : torch.dtype, optional
-        If specified, cast input tensors to this dtype before passing to flash-attention.
-        If None, use torch.get_autocast_gpu_dtype().
+    query
+        Queries of shape ``(batch, head, items_out, channel)``.
+    key
+        Keys of shape ``(batch, head, items_in, channel)``.
+    value
+        Values of shape ``(batch, head, items_in, channel)``.
+    dtype
+        If specified, cast input tensors to this dtype before passing to ``varlen_attn``. If None,
+        use the dtype that autocast would cast to on CUDA.
     **kwargs
-        Additional keyword arguments passed to varlen_attn.
+        Additional keyword arguments forwarded to ``varlen_attn``.
 
     Returns
     -------
-    out : torch.Tensor
-        Result with shape (batch, head, items_out, channel)
+    out
+        Result of shape ``(batch, head, items_out, channel)``.
     """
     assert len(query.shape) == 4, (
         "varlen_attn constrains attention input shape to (batch, head, items, channel)."
     )
 
     if query.dtype not in [torch.float16, torch.bfloat16]:
-        # flash-attention only supports fp16 and bf16
+        # varlen_attn only supports fp16 and bf16
         if dtype is None:
-            dtype = torch.get_autocast_gpu_dtype()
+            dtype = autocast_dtype("cuda")
         in_dtype = query.dtype
         query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
     else:
         in_dtype = None
 
-    def reshape(x):
+    def reshape(x: torch.Tensor) -> torch.Tensor:
         assert x.shape[0] == 1
         return x.squeeze(0).transpose(0, 1).contiguous()
 
     query, key, value = reshape(query), reshape(key), reshape(value)
+
+    head_dim = query.shape[-1]
+    pad = -head_dim % 8
+    if pad:
+        kwargs.setdefault("scale", head_dim**-0.5)
+        query = torch.nn.functional.pad(query, (0, pad))
+        key = torch.nn.functional.pad(key, (0, pad))
+        value = torch.nn.functional.pad(value, (0, pad))
     out = varlen_attn(query, key, value, **kwargs)
+    if pad:
+        out = out[..., :head_dim]
     out = out.transpose(0, 1).unsqueeze(0).contiguous()
 
     if in_dtype is not None:

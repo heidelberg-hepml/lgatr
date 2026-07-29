@@ -19,8 +19,10 @@ available under https://github.com/heidelberg-hepml/lgatr.
 * :doc:`quickstart`
 * :doc:`quickstart_slim`
 * :doc:`geometric_algebra`
-* :doc:`attention_backends`
 * :doc:`symmetry_breaking`
+* :doc:`attention_backends`
+* :doc:`efficiency`
+* :doc:`v1_to_v2`
 * :doc:`api`
 
 Citation
@@ -82,8 +84,10 @@ If you find this package useful, please cite our papers:
    quickstart
    quickstart_slim
    geometric_algebra
-   attention_backends
    symmetry_breaking
+   attention_backends
+   efficiency
+   v1_to_v2
 
 .. toctree::
    :maxdepth: 2

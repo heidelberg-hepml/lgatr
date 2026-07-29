@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 29.07.2026
+
+### Added
+
+- `norm_elementwise_affine=True` option for all networks (changed default behavior)
+- `sparse_gp=True` and `sparse_linear=True` options in `PrimitivesConfig` (changed default to `sparse_gp=True` because always faster)
+- `nonlinearity_v` option for `LGATrSlim`/`ConditionalLGATrSlim` (changed default to `nonlinearity_v="sigmoid"` because more stable)
+- `naive_amp=False` option and public `naive_amp` context manager to bypass `minimum_autocast_precision` and run the forward in the surrounding autocast dtype (e.g. bf16)
+- `torch.compile` support for `LGATr`/`ConditionalLGATr`
+- `activation_memory_budget` option in `torch.compile` to trade backward FLOPs for a lower activation-memory peak (helps for `LGATrSlim`); requires `torch>=2.4`
+- Unit tests for all supported torch versions `torch>=2.0`; generally extended unit tests
+- `embed_bivector` and `extract_bivector` interface
+
+### Fixed
+
+- Consistently support `scalars=None`
+- Set `requires_grad_(False)` for unused params to avoid `DDP` issues
+- Unified docstrings, and format equations for sphinx readability
+- Micro speed/memory optimizations for `LGATr`/`LGATrSlim` primitives
+- `varlen` and `xformers` attention backends now support head dims that are not a multiple of 8 via zero-padding
+- Custom access to `xformers` kernels to allow `torch.compile` `xformers` attention backend without graph breaks
+
+### Changed
+
+- Updated `docs/` and `README.md`
+- `LGATrSlim`/`ConditionalLGATrSlim` hidden layers store vectors channel-last `(..., 4, channels)`
+- Unify `get_nonlinearity()` between `LGATr`/`LGATrSlim`
+- Lowered the requirement to `torch>=2.0`
+- Unify variable names across the code; affects public API for conditional networks
+- `PrimitivesConfig` is now a model input like `MLPConfig`, no global `gatr_config` anymore
+- Renamed `PrimitivesConfig` flags: `use_fully_connected_subgroup`→`subgroup`, `use_bivector`→`bivector`, `use_geometric_product`→`geometric_product`
+- `minimum_autocast_precision` return outputs as tuple and downcast to low dtype automatically
+- Removed scalar bias from qkv linear layers in all models because redundant
+- Slim stability refinements: initialize `linear_s` bias to 0, scale GLU inner product by 1/sqrt(4)
+- Replaced the separate `compile_mode`/`compile_dynamic`/`compile_fullgraph` arguments with a single `compile_kwargs` dict forwarded verbatim to `torch.compile` in `compile_model` and all nets.
+- Different amp strategy: vector/multivector path stays in fp32, only scalar path uses amp
+- Unified the `LGATr` config names:  `increase_hidden_channels`->`attn_ratio`,  `increase_hidden_channels`->`mlp_ratio`, `activation`->`nonlinearity`, `num_hidden_layers`->`num_layers_mlp`
+- Renamed slim building blocks with a `Slim` prefix (`SlimLinear` etc)
+
+### Removed
+
+- `einops`/`opt_einsum`/`numpy`/`lloca` requirements, now simply `torch>=2.0`
+
 ## [1.4.4] - 27.04.2026
 
 ### Added
@@ -78,12 +121,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improve autocast support (avoid nans; support old torch versions)
-`- Drop `black` as formatter and fully move to `ruff`
+- Drop `black` as formatter and fully move to `ruff`
 
 ### Fixed
 
 - Correct install commands with extras, e.g. `pip install lgatr[xformers_attention]` -> `pip install lgatr[xformers-attention]` (pypi doesn't support `_` in package names)
-- Subtle bug in `compute_pin_equi_linear_basis` triggered `when modifying `use_fully_connected_subgroup`
+- Subtle bug in `compute_pin_equi_linear_basis` triggered when modifying `use_fully_connected_subgroup`
 
 ### Removed
 

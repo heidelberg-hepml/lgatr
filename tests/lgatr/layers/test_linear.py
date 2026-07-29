@@ -2,86 +2,72 @@ import pytest
 import torch
 
 from lgatr.layers.linear import EquiLinear
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
 
+# Fan-in-heavy, fan-out-heavy and square channel counts, covering the 0-scalar-in and
+# 0-scalar-out edges. The unit-scalar initializations need a scalar stream, so the row without
+# scalar inputs is paired only with the schemes that support it.
+INIT_CHANNELS = [
+    (200, 5, 100, 0, "default"),
+    (200, 5, 100, 0, "small"),
+    (200, 5, 100, 0, "unit_scalar"),
+    (200, 5, 100, 0, "almost_unit_scalar"),
+    (16, 16, 32, 32, "default"),
+    (16, 16, 32, 32, "small"),
+    (16, 16, 32, 32, "unit_scalar"),
+    (16, 16, 32, 32, "almost_unit_scalar"),
+    (5, 200, 0, 100, "default"),
+    (5, 200, 0, 100, "small"),
+    (16, 16, 0, 0, "default"),
+    (16, 16, 0, 0, "small"),
+]
+CHANNELS = [(9, 7, 3, 4), (1, 1, 0, 0), (9, 1, 3, 0), (1, 7, 0, 4)]
 
-@pytest.mark.parametrize("batch_dims", [(100,)])
-@pytest.mark.parametrize("in_mv_channels, out_mv_channels", [(200, 5), (16, 16), (5, 200)])
-@pytest.mark.parametrize(
-    "in_s_channels, out_s_channels", [(None, None), (None, 100), (100, None), (32, 32)]
-)
-@pytest.mark.parametrize(
-    "initialization", ["default", "small", "unit_scalar", "almost_unit_scalar"]
-)
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+
+@pytest.mark.parametrize("in_mv,out_mv,in_s,out_s,initialization", INIT_CHANNELS)
+@pytest.mark.parametrize("subgroup", [True, False])
 def test_linear_layer_initialization(
-    initialization,
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    use_fully_connected_subgroup,
-    var_tolerance=10.0,
-):
-    """Tests the initialization of `EquiLinear`.
+    in_mv: int,
+    out_mv: int,
+    in_s: int,
+    out_s: int,
+    initialization: str,
+    subgroup: bool,
+    var_tolerance: float = 10.0,
+) -> None:
+    # EquiLinear maps unit-variance inputs to roughly unit-variance outputs across channel sizes.
+    primitives = PrimitivesConfig(subgroup=subgroup)
+    layer = EquiLinear(
+        in_mv,
+        out_mv,
+        primitives,
+        in_s_channels=in_s,
+        out_s_channels=out_s,
+        initialization=initialization,
+    )
 
-    The goal is that independent of the channel size, inputs with variance 1 are mapped to outputs
-    with, very roughly, variance 1.
-    """
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
-
-    # Create layer
-    try:
-        layer = EquiLinear(
-            in_mv_channels,
-            out_mv_channels,
-            in_s_channels=in_s_channels,
-            out_s_channels=out_s_channels,
-            initialization=initialization,
-        )
-    # Some initialization schemes are not implemented when data is all-scalar. That's fine.
-    except NotImplementedError as exc:
-        print(exc)
-        return
-
-    # Inputs
-    inputs_mv = torch.randn(*batch_dims, in_mv_channels, 16)
-    inputs_s = torch.randn(*batch_dims, in_s_channels) if in_s_channels is not None else None
-
-    # Compute outputs
+    inputs_mv = torch.randn(100, in_mv, 16)
+    inputs_s = torch.randn(100, in_s) if in_s else None
     outputs_mv, outputs_s = layer(inputs_mv, scalars=inputs_s)
 
-    # Compute mean and variance of MV outputs
-    mv_mean = outputs_mv[...].cpu().detach().to(torch.float64).mean(dim=(0, 1))
-    mv_var = outputs_mv[...].cpu().detach().to(torch.float64).var(dim=(0, 1))
-
-    print("Output multivector means and std by components:")
-    for i, (mean_, var_) in enumerate(zip(mv_mean, mv_var, strict=False)):
-        print(f"  Component {i}: mean = {mean_:.2f}, std = {var_**0.5:.2f}")
+    mv_mean = outputs_mv.detach().to(torch.float64).mean(dim=(0, 1))
+    mv_var = outputs_mv.detach().to(torch.float64).var(dim=(0, 1))
 
     # Check that the mean and variance agree with expectations
+    target_mean = torch.zeros_like(mv_mean)
     if initialization == "default":
-        target_mean = torch.zeros_like(mv_mean)
         target_var = torch.ones_like(mv_var) / 3.0  # Factor 3 comes from heuristics
     elif initialization == "small":
-        target_mean = torch.zeros_like(mv_mean)
         target_var = 0.01 * torch.ones_like(mv_var) / 3.0
     elif initialization == "unit_scalar":
-        target_mean = torch.zeros_like(mv_mean)
-        target_mean[0] = 1.0
-        if gatr_config.use_fully_connected_subgroup:
-            target_mean[-1] = 1.0
         target_var = 0.01 * torch.ones_like(mv_var) / 3.0
-    elif initialization == "almost_unit_scalar":
-        target_mean = torch.zeros_like(mv_mean)
-        target_mean[0] = 1.0
-        if gatr_config.use_fully_connected_subgroup:
-            target_mean[-1] = 1.0
-        target_var = 0.25 * torch.ones_like(mv_var) / 3.0
     else:
-        raise ValueError(initialization)
+        target_var = 0.25 * torch.ones_like(mv_var) / 3.0
+    if initialization in {"unit_scalar", "almost_unit_scalar"}:
+        target_mean[0] = 1.0
+        if subgroup:
+            target_mean[-1] = 1.0
 
     assert torch.all(mv_mean > target_mean - 0.3)
     assert torch.all(mv_mean < target_mean + 0.3)
@@ -89,103 +75,66 @@ def test_linear_layer_initialization(
     assert torch.all(mv_var < target_var * var_tolerance)
 
     # Same for scalar outputs
-    if out_s_channels is not None:
-        s_mean = outputs_s[...].cpu().detach().to(torch.float64).mean().item()
-        s_var = outputs_s[...].cpu().detach().to(torch.float64).var().item()
+    if out_s:
+        s_mean = outputs_s.detach().to(torch.float64).mean().item()
+        s_var = outputs_s.detach().to(torch.float64).var().item()
 
-        print(f"Output scalar: mean = {s_mean:.2f}, std = {s_var**0.5:.2f}")
         assert -0.3 < s_mean < 0.3
-        if initialization in {"default", "unit_scalar", "almost_unit_scalar"}:
-            assert 1.0 / 3.0 / var_tolerance < s_var < 1.0 / 3.0 * var_tolerance
-        else:
-            assert 0.01 / 3.0 / var_tolerance < s_var < 0.01 / 3.0 * var_tolerance
-
-    # restore defaults
-    gatr_config.use_fully_connected_subgroup = True
+        expected_s_var = 0.01 / 3.0 if initialization == "small" else 1.0 / 3.0
+        assert expected_s_var / var_tolerance < s_var < expected_s_var * var_tolerance
 
 
-@pytest.mark.parametrize("rescaling", [0.0, -2.0, 100.0])
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("in_mv_channels", [9, 1])
-@pytest.mark.parametrize("out_mv_channels", [7, 1])
-@pytest.mark.parametrize("in_s_channels", [None, 3])
-@pytest.mark.parametrize("out_s_channels", [None, 4])
+@pytest.mark.parametrize("rescaling", [-2.0, 100.0])
+@pytest.mark.parametrize("in_mv,out_mv,in_s,out_s", CHANNELS)
 def test_linear_layer_linearity(
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    rescaling,
-):
-    """Tests that the EquiLinear layer indeed describes a linear map (when the bias is deactivated).
-
-    Checks that `f(x + rescaling * y) = f(x) + rescaling * f(y)` for random inputs `x`, `y` and
-    linear layer `f(x)`.
-    """
+    in_mv: int, out_mv: int, in_s: int, out_s: int, rescaling: float
+) -> None:
+    # EquiLinear (no bias) is linear: f(x + c*y) == f(x) + c*f(y).
     layer = EquiLinear(
-        in_mv_channels,
-        out_mv_channels,
-        in_s_channels=in_s_channels,
-        out_s_channels=out_s_channels,
+        in_mv,
+        out_mv,
+        PrimitivesConfig(),
+        in_s_channels=in_s,
+        out_s_channels=out_s,
         bias=False,
     )
 
-    # Inputs
-    x_mv = torch.randn(*batch_dims, in_mv_channels, 16)
-    y_mv = torch.randn(*batch_dims, in_mv_channels, 16)
-    xy_mv = x_mv + rescaling * y_mv
-
-    if in_s_channels:
-        x_s = torch.randn(*batch_dims, in_s_channels)
-        y_s = torch.randn(*batch_dims, in_s_channels)
+    x_mv = torch.randn(*BATCH_DIMS, in_mv, 16)
+    y_mv = torch.randn(*BATCH_DIMS, in_mv, 16)
+    if in_s:
+        x_s = torch.randn(*BATCH_DIMS, in_s)
+        y_s = torch.randn(*BATCH_DIMS, in_s)
         xy_s = x_s + rescaling * y_s
     else:
         x_s, y_s, xy_s = None, None, None
 
-    # Compute outputs
-    o_xy_mv, o_xy_s = layer(xy_mv, scalars=xy_s)
+    o_xy_mv, o_xy_s = layer(x_mv + rescaling * y_mv, scalars=xy_s)
     o_x_mv, o_x_s = layer(x_mv, scalars=x_s)
     o_y_mv, o_y_s = layer(y_mv, scalars=y_s)
 
-    # Check equality
     torch.testing.assert_close(o_xy_mv, o_x_mv + rescaling * o_y_mv, **TOLERANCES)
-
-    if out_s_channels is not None:
+    if out_s:
         torch.testing.assert_close(o_xy_s, o_x_s + rescaling * o_y_s, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("in_mv_channels", [9, 1])
-@pytest.mark.parametrize("out_mv_channels", [7, 1])
+@pytest.mark.parametrize("in_mv,out_mv,in_s,out_s", CHANNELS)
 @pytest.mark.parametrize("bias", [False, True])
-@pytest.mark.parametrize("in_s_channels", [None, 3])
-@pytest.mark.parametrize("out_s_channels", [None, 4])
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
+@pytest.mark.parametrize("subgroup,spin", [(True, True), (False, False)])
 def test_linear_layer_equivariance(
-    batch_dims,
-    in_mv_channels,
-    out_mv_channels,
-    in_s_channels,
-    out_s_channels,
-    bias,
-    use_fully_connected_subgroup,
-):
-    """Tests the equi_linear() primitive for equivariance."""
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
-
+    in_mv: int, out_mv: int, in_s: int, out_s: int, bias: bool, subgroup: bool, spin: bool
+) -> None:
+    # EquiLinear is equivariant under the group it is built for: Spin for the proper-orthochronous
+    # subgroup, the full Pin group (including reflections) otherwise.
     layer = EquiLinear(
-        in_mv_channels,
-        out_mv_channels,
-        in_s_channels=in_s_channels,
-        out_s_channels=out_s_channels,
+        in_mv,
+        out_mv,
+        PrimitivesConfig(subgroup=subgroup),
+        in_s_channels=in_s,
+        out_s_channels=out_s,
         bias=bias,
     )
-    data_dims = tuple(list(batch_dims) + [in_mv_channels])
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, in_s_channels)
+    data_dims = (*BATCH_DIMS, in_mv)
+    scalars = torch.randn(*BATCH_DIMS, in_s) if in_s else None
     check_pin_equivariance(
-        layer, 1, fn_kwargs=dict(scalars=scalars), batch_dims=data_dims, **TOLERANCES
+        layer, 1, fn_kwargs=dict(scalars=scalars), batch_dims=data_dims, spin=spin, **TOLERANCES
     )
-
-    # restore defaults
-    gatr_config.use_fully_connected_subgroup = True

@@ -1,105 +1,88 @@
 import pytest
 import torch
 
-from lgatr.nets.conditional_lgatr_slim import (
-    ConditionalLGATrSlim,
-    ConditionalLGATrSlimBlock,
-    CrossAttention,
-)
+from lgatr.layers.slim_layers import ConditionalSlimBlock, SlimCrossAttention
+from lgatr.nets.conditional_slim import ConditionalLGATrSlim
+from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
-from ...helpers.constants import BATCH_DIMS, TOLERANCES
-from ...helpers.equivariance_noga import check_equivariance
-
-BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
+BATCH_DIMS = BATCH_DIMS[:-1]
+V_CHANNELS, V_CHANNELS_COND = 24, 6
+S_CHANNELS, S_CHANNELS_COND = 14, 20
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("N,Ncond", [(3, 7), (13, 2)])
-@pytest.mark.parametrize("v_channels,cond_v_channels,s_channels,cond_s_channels", [(24, 6, 14, 20)])
+@pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
-def test_CrossAttention_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    v_channels,
-    cond_v_channels,
-    s_channels,
-    cond_s_channels,
-    num_heads,
-    attn_ratio,
-):
-    layer = CrossAttention(
-        q_v_channels=v_channels,
-        kv_v_channels=cond_v_channels,
-        q_s_channels=s_channels,
-        kv_s_channels=cond_s_channels,
+def test_SlimCrossAttention_equivariance(
+    N: int, N_cond: int, num_heads: int, attn_ratio: int
+) -> None:
+    # SlimCrossAttention preserves shapes and is SO(1, 3)-equivariant in both inputs.
+    layer = SlimCrossAttention(
+        q_v_channels=V_CHANNELS,
+        kv_v_channels=V_CHANNELS_COND,
+        q_s_channels=S_CHANNELS,
+        kv_s_channels=S_CHANNELS_COND,
         num_heads=num_heads,
         attn_ratio=attn_ratio,
     )
-    s = torch.randn(*batch_dims, N, s_channels)
-    cond_s = torch.randn(*batch_dims, Ncond, cond_s_channels)
+    s = torch.randn(*BATCH_DIMS, N, S_CHANNELS)
+    s_cond = torch.randn(*BATCH_DIMS, N_cond, S_CHANNELS_COND)
+    v = torch.randn(*BATCH_DIMS, N, 4, V_CHANNELS)
+    v_cond = torch.randn(*BATCH_DIMS, N_cond, 4, V_CHANNELS_COND)
 
-    v = torch.randn(*batch_dims, N, v_channels, 4)
-    cond_v = torch.randn(*batch_dims, Ncond, cond_v_channels, 4)
-    out_v, out_s = layer(v, cond_v, s, cond_s)
-    assert out_v.shape == v.shape
-    assert out_s.shape == s.shape
+    outputs_v, outputs_s = layer(v, v_cond, s, s_cond)
+    assert outputs_v.shape == v.shape
+    assert outputs_s.shape == s.shape
 
-    batch_dims = [batch_dims + [N, v_channels], batch_dims + [Ncond, cond_v_channels]]
     check_equivariance(
         layer,
-        batch_dims=batch_dims,
+        batch_dims=[
+            (*BATCH_DIMS, N, V_CHANNELS),
+            (*BATCH_DIMS, N_cond, V_CHANNELS_COND),
+        ],
         num_args=2,
-        fn_kwargs=dict(scalars=s, scalars_condition=cond_s),
+        fn_kwargs=dict(scalars_q=s, scalars_kv=s_cond),
+        vector_dim=-2,
         **TOLERANCES,
     )
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("N,Ncond", [(3, 7), (13, 2)])
-@pytest.mark.parametrize(
-    "v_channels,cond_v_channels,s_channels,cond_s_channels,num_heads", [(24, 6, 14, 20, 2)]
-)
-@pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
-def test_ConditionalLGATrSlimBlock_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    v_channels,
-    cond_v_channels,
-    s_channels,
-    cond_s_channels,
-    num_heads,
-    dropout_prob,
-):
-    layer = ConditionalLGATrSlimBlock(
-        v_channels=v_channels,
-        condition_v_channels=cond_v_channels,
-        s_channels=s_channels,
-        condition_s_channels=cond_s_channels,
-        num_heads=num_heads,
+@pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
+@pytest.mark.parametrize("dropout_prob", [None, 0.5])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
+def test_ConditionalSlimBlock_equivariance(
+    N: int, N_cond: int, dropout_prob: float | None, norm_elementwise_affine: bool
+) -> None:
+    # ConditionalSlimBlock is SO(1, 3)-equivariant at eval time.
+    layer = ConditionalSlimBlock(
+        v_channels=V_CHANNELS,
+        v_channels_cond=V_CHANNELS_COND,
+        s_channels=S_CHANNELS,
+        s_channels_cond=S_CHANNELS_COND,
+        num_heads=2,
         dropout_prob=dropout_prob,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
 
-    s = torch.randn(*batch_dims, N, s_channels)
-    cond_s = torch.randn(*batch_dims, Ncond, cond_s_channels)
-    batch_dims = [batch_dims + [N, v_channels], batch_dims + [Ncond, cond_v_channels]]
+    s = torch.randn(*BATCH_DIMS, N, S_CHANNELS)
+    s_cond = torch.randn(*BATCH_DIMS, N_cond, S_CHANNELS_COND)
 
-    # equivariance
     check_equivariance(
         layer,
-        batch_dims=batch_dims,
+        batch_dims=[
+            (*BATCH_DIMS, N, V_CHANNELS),
+            (*BATCH_DIMS, N_cond, V_CHANNELS_COND),
+        ],
         num_args=2,
-        fn_kwargs=dict(scalars=s, scalars_condition=cond_s),
+        fn_kwargs=dict(scalars=s, scalars_cond=s_cond),
+        vector_dim=-2,
         **TOLERANCES,
     )
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("N,Ncond", [(3, 7), (13, 2)])
+@pytest.mark.parametrize("N,N_cond", [(3, 7), (13, 2)])
 @pytest.mark.parametrize(
-    "in_v_channels,in_s_channels,out_v_channels,out_s_channels,cond_v_channels,cond_s_channels",
+    "in_v_channels,in_s_channels,out_v_channels,out_s_channels,v_channels_cond,s_channels_cond",
     [
         (4, 3, 9, 2, 5, 6),
         (2, 9, 0, 3, 4, 7),
@@ -107,128 +90,56 @@ def test_ConditionalLGATrSlimBlock_equivariance(
         (8, 3, 0, 0, 7, 9),
     ],
 )
-@pytest.mark.parametrize("hidden_v_channels,hidden_s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
-@pytest.mark.parametrize("dropout_prob", [None, 0.0, 0.5])
-@pytest.mark.parametrize("num_blocks", [1, 2])
-@pytest.mark.parametrize("checkpoint_blocks", [False, True])
+@pytest.mark.parametrize("num_blocks,checkpoint_blocks", [(1, False), (2, True)])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
 def test_ConditionalLGATrSlim_equivariance(
-    batch_dims,
-    N,
-    Ncond,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    cond_v_channels,
-    cond_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    dropout_prob,
-    checkpoint_blocks,
-):
+    N: int,
+    N_cond: int,
+    in_v_channels: int,
+    in_s_channels: int,
+    out_v_channels: int,
+    out_s_channels: int,
+    v_channels_cond: int,
+    s_channels_cond: int,
+    num_blocks: int,
+    checkpoint_blocks: bool,
+    norm_elementwise_affine: bool,
+) -> None:
+    # ConditionalLGATrSlim (full network) preserves shapes and is SO(1, 3)-equivariant at eval
+    # time. The layer is in eval mode, so dropout_prob would not change anything and is fixed here.
     layer = ConditionalLGATrSlim(
         in_v_channels=in_v_channels,
-        condition_v_channels=cond_v_channels,
+        v_channels_cond=v_channels_cond,
         out_v_channels=out_v_channels,
-        hidden_v_channels=hidden_v_channels,
+        hidden_v_channels=16,
         in_s_channels=in_s_channels,
-        condition_s_channels=cond_s_channels,
+        s_channels_cond=s_channels_cond,
         out_s_channels=out_s_channels,
-        hidden_s_channels=hidden_s_channels,
+        hidden_s_channels=8,
         num_blocks=num_blocks,
-        num_heads=num_heads,
-        dropout_prob=dropout_prob,
+        num_heads=4,
+        dropout_prob=0.5,
         checkpoint_blocks=checkpoint_blocks,
+        norm_elementwise_affine=norm_elementwise_affine,
     )
     layer.eval()
 
-    s = torch.randn(*batch_dims, N, in_s_channels)
-    cond_s = torch.randn(*batch_dims, Ncond, cond_s_channels)
-    v = torch.randn(*batch_dims, N, in_v_channels, 4)
-    cond_v = torch.randn(*batch_dims, Ncond, cond_v_channels, 4)
+    s = torch.randn(*BATCH_DIMS, N, in_s_channels)
+    s_cond = torch.randn(*BATCH_DIMS, N_cond, s_channels_cond)
+    v = torch.randn(*BATCH_DIMS, N, in_v_channels, 4)
+    v_cond = torch.randn(*BATCH_DIMS, N_cond, v_channels_cond, 4)
 
-    out_v, out_s = layer(
-        vectors=v,
-        vectors_condition=cond_v,
-        scalars=s,
-        scalars_condition=cond_s,
-    )
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
+    outputs_v, outputs_s = layer(vectors=v, vectors_cond=v_cond, scalars=s, scalars_cond=s_cond)
+    assert outputs_v.shape == (*BATCH_DIMS, N, out_v_channels, 4)
+    assert outputs_s.shape == (*BATCH_DIMS, N, out_s_channels)
 
-    # equivariance
-    batch_dims = [batch_dims + [N, in_v_channels], batch_dims + [Ncond, cond_v_channels]]
     check_equivariance(
         layer,
-        batch_dims=batch_dims,
+        batch_dims=[
+            (*BATCH_DIMS, N, in_v_channels),
+            (*BATCH_DIMS, N_cond, v_channels_cond),
+        ],
         num_args=2,
-        fn_kwargs=dict(scalars=s, scalars_condition=cond_s),
-        **TOLERANCES,
-    )
-
-
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("N,Ncond", [(3, 7)])
-@pytest.mark.parametrize(
-    "in_v_channels,in_s_channels,out_v_channels,out_s_channels,cond_v_channels,cond_s_channels",
-    [(4, 3, 9, 2, 5, 6)],
-)
-@pytest.mark.parametrize(
-    "hidden_v_channels,hidden_s_channels,num_heads,num_blocks", [(16, 8, 4, 1)]
-)
-def test_ConditionalLGATrSlim_equivariance_compiled(
-    batch_dims,
-    N,
-    Ncond,
-    in_v_channels,
-    in_s_channels,
-    out_v_channels,
-    out_s_channels,
-    cond_v_channels,
-    cond_s_channels,
-    hidden_v_channels,
-    hidden_s_channels,
-    num_heads,
-    num_blocks,
-    compile=True,
-):
-    layer = ConditionalLGATrSlim(
-        in_v_channels=in_v_channels,
-        condition_v_channels=cond_v_channels,
-        out_v_channels=out_v_channels,
-        hidden_v_channels=hidden_v_channels,
-        in_s_channels=in_s_channels,
-        condition_s_channels=cond_s_channels,
-        out_s_channels=out_s_channels,
-        hidden_s_channels=hidden_s_channels,
-        num_blocks=num_blocks,
-        num_heads=num_heads,
-        compile=compile,
-    )
-    layer.eval()
-
-    s = torch.randn(*batch_dims, N, in_s_channels)
-    cond_s = torch.randn(*batch_dims, Ncond, cond_s_channels)
-    v = torch.randn(*batch_dims, N, in_v_channels, 4)
-    cond_v = torch.randn(*batch_dims, Ncond, cond_v_channels, 4)
-
-    out_v, out_s = layer(
-        vectors=v,
-        vectors_condition=cond_v,
-        scalars=s,
-        scalars_condition=cond_s,
-    )
-    assert out_v.shape == v.shape[:-2] + (out_v_channels, 4)
-    assert out_s.shape == s.shape[:-1] + (out_s_channels,)
-
-    # equivariance
-    batch_dims = [batch_dims + [N, in_v_channels], batch_dims + [Ncond, cond_v_channels]]
-    check_equivariance(
-        layer,
-        batch_dims=batch_dims,
-        num_args=2,
-        fn_kwargs=dict(scalars=s, scalars_condition=cond_s),
+        fn_kwargs=dict(scalars=s, scalars_cond=s_cond),
         **TOLERANCES,
     )

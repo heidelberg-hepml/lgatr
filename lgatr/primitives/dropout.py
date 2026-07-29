@@ -6,33 +6,29 @@ from .linear import grade_project
 
 
 def grade_dropout(x: torch.Tensor, p: float, training: bool = True) -> torch.Tensor:
-    """Multivector dropout, dropping out grades independently.
+    """Multivector dropout that drops grades independently.
 
     Parameters
     ----------
-    x : torch.Tensor
-        Input data with shape (..., 16).
-    p : float
-        Dropout probability (assumed the same for each grade).
-    training : bool
-        Switches between train-time and test-time behaviour.
+    x
+        Input data of shape ``(..., 16)``.
+    p
+        Dropout probability (the same for each grade).
+    training
+        Switches between train-time and test-time behavior.
 
     Returns
     -------
-    outputs : torch.Tensor
-        Inputs with dropout applied, shape (..., 16).
+    outputs
+        Inputs with dropout applied, shape ``(..., 16)``.
     """
 
-    # Project to grades
+    if not training or p == 0.0:
+        return x
+
     x = grade_project(x)
-
-    # Apply standard 1D dropout
-    # For whatever reason, that only works with a single batch dimension, so let's reshape a bit
-    h = x.view(-1, 5, 16)
-    h = torch.nn.functional.dropout1d(h, p=p, training=training, inplace=False)
-    h = h.view(x.shape)
-
-    # Combine grades again
-    h = torch.sum(h, dim=-2)
-
-    return h
+    # dropout1d only accepts a single batch dim; ``reshape`` (not ``view``) tolerates non-
+    # contiguous inputs from the broadcast in ``grade_project``.
+    h = x.reshape(-1, 5, 16)
+    h = torch.nn.functional.dropout1d(h, p=p, training=True, inplace=False)
+    return h.reshape(x.shape).sum(dim=-2)

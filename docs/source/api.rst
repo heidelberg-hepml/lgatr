@@ -8,7 +8,7 @@ We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack
 and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders.
 For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr`
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
-In addition :class:`~lgatr.nets.lgatr_slim.LGATrSlim` and :class:`~lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim`
+In addition :class:`~lgatr.nets.slim.LGATrSlim` and :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`
 provide more efficient versions of the respective networks using only scalar and vector representations.
 
 .. autosummary::
@@ -17,8 +17,10 @@ provide more efficient versions of the respective networks using only scalar and
 
    lgatr.nets.lgatr.LGATr
    lgatr.nets.conditional_lgatr.ConditionalLGATr
-   lgatr.nets.lgatr_slim.LGATrSlim
-   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlim
+   lgatr.nets.slim.LGATrSlim
+   lgatr.nets.conditional_slim.ConditionalLGATrSlim
+
+.. _l-gatr-layers:
 
 L-GATr Layers
 -------------
@@ -56,7 +58,6 @@ The L-GATr primitives implement the core equivariant operations and are called b
    lgatr.primitives.dropout
    lgatr.primitives.invariants
    lgatr.primitives.linear
-   lgatr.primitives.nonlinearities
    lgatr.primitives.normalization
 
 
@@ -64,14 +65,13 @@ L-GATr Configuration Classes
 ----------------------------
 
 L-GATr uses ``dataclass`` objects to organize less relevant hyperparameters like number of heads or the MLP nonlinearity.
-The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig` and :class:`~lgatr.layers.attention.config.CrossAttentionConfig` are arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules,
-whereas the :class:`~lgatr.primitives.config.LGATrConfig` is a global object that is accessed within the L-GATr primitives.
+The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig`, :class:`~lgatr.layers.attention.config.CrossAttentionConfig`, and :class:`~lgatr.primitives.config.PrimitivesConfig` are all arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules.
 
 .. autosummary::
    :toctree: generated/
    :recursive:
 
-   lgatr.primitives.config.LGATrConfig
+   lgatr.primitives.config.PrimitivesConfig
    lgatr.layers.attention.config.SelfAttentionConfig
    lgatr.layers.attention.config.CrossAttentionConfig
    lgatr.layers.mlp.config.MLPConfig
@@ -90,9 +90,26 @@ which can be added as extra items or channels to break equivariance at the input
 
    lgatr.interface.scalar
    lgatr.interface.vector
-   lgatr.interface.pseudoscalar
+   lgatr.interface.bivector
    lgatr.interface.axialvector
+   lgatr.interface.pseudoscalar
    lgatr.interface.spurions
+
+L-GATr Utilities
+----------------
+
+Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
+constructor path, a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates the
+primitive caches for a given ``(device, dtype)``, and an autocast decorator that pins inputs to a
+minimum precision.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.utils.compile
+   lgatr.primitives.compile
+   lgatr.utils.autocast
 
 L-GATr-slim Layers
 ------------------
@@ -104,12 +121,12 @@ This approach allows a more efficient implementation while achieving similar per
    :toctree: generated/
    :recursive:
 
-   lgatr.nets.lgatr_slim.LGATrSlimBlock
-   lgatr.nets.conditional_lgatr_slim.ConditionalLGATrSlimBlock
-   lgatr.nets.lgatr_slim.SelfAttention
-   lgatr.nets.conditional_lgatr_slim.CrossAttention
-   lgatr.nets.lgatr_slim.MLP
-   lgatr.nets.lgatr_slim.GatedLinearUnit
-   lgatr.nets.lgatr_slim.Linear
-   lgatr.nets.lgatr_slim.RMSNorm
-   lgatr.nets.lgatr_slim.Dropout
+   lgatr.layers.slim_layers.SlimBlock
+   lgatr.layers.slim_layers.ConditionalSlimBlock
+   lgatr.layers.slim_layers.SlimSelfAttention
+   lgatr.layers.slim_layers.SlimCrossAttention
+   lgatr.layers.slim_layers.SlimMLP
+   lgatr.layers.slim_layers.SlimGLU
+   lgatr.layers.slim_layers.SlimLinear
+   lgatr.layers.slim_layers.SlimRMSNorm
+   lgatr.layers.slim_layers.SlimDropout

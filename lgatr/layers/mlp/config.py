@@ -1,46 +1,43 @@
+"""Configuration dataclass for the geometric MLP."""
+
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from ...utils.config import cast_config
 
 
 @dataclass
 class MLPConfig:
-    """Geometric MLP configuration.
+    """Geometric-MLP configuration.
 
     Parameters
     ----------
-    activation : {"relu", "sigmoid", "gelu", "silu}
-        Which (gated) activation function to use.
-    increase_hidden_channels : int
+    mv_channels
+        Number of input multivector channels. Set automatically by the parent network.
+    s_channels
+        Number of input scalar channels. Use 0 for no scalar stream. Set automatically by the
+        parent network.
+    dropout_prob
+        Dropout probability. Set automatically by the parent network.
+    nonlinearity
+        Which (gated) activation function to use. One of ``"relu"``, ``"sigmoid"``, ``"tanh"``,
+        ``"gelu"``, ``"silu"``.
+    mlp_ratio
         Factor by which to increase the number of hidden channels (both multivectors and scalars).
-        Vanilla transformers use 4, we use 2 for backward compatibility.
-    num_hidden_layers : int
-        Number of hidden layers to create.
-
-    Parameters auto-set by LGATr
-    ----------------------------
-    mv_channels : int
-        Number of input multivector channels.
-    s_channels : int
-        Number of input scalar channels.
-    dropout_prob : float or None
-        Dropout probability
+    num_layers_mlp
+        Total number of layers, including input and output layers (must be ``>= 1``).
     """
 
     mv_channels: int | None = None
-    s_channels: int | None = None
+    s_channels: int = 0
     dropout_prob: float | None = None
-    activation: str = "gelu"
-    increase_hidden_channels: int = 4
-    num_hidden_layers: int = 1
+    nonlinearity: str = "gelu"
+    mlp_ratio: int = 4
+    num_layers_mlp: int = 2
 
     @classmethod
     def cast(cls, config: Any) -> MLPConfig:
-        """Casts an object as MLPConfig."""
-        if isinstance(config, MLPConfig):
-            return config
-        if isinstance(config, Mapping):
-            return cls(**config)
-        raise ValueError(f"Can not cast {config} to {cls}")
+        """Cast an :class:`MLPConfig` or mapping to an :class:`MLPConfig`."""
+        return cast_config(cls, config)

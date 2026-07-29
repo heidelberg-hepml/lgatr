@@ -3,162 +3,127 @@ import torch
 
 from lgatr.layers import CrossAttentionConfig, MLPConfig, SelfAttentionConfig
 from lgatr.nets import ConditionalLGATr
-from lgatr.primitives.config import gatr_config
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, MILD_TOLERANCES, check_pin_equivariance
 
+BATCH_DIMS = BATCH_DIMS[:-1]
+NUM_ITEMS, NUM_ITEMS_COND = 2, 9
+IN_MV, MV_COND, HIDDEN_MV, OUT_MV = 7, 11, 9, 8
+HIDDEN_S, OUT_S = 4, 5
+
+# GeometricBilinear needs a scalar stream, so the scalar-free configuration is not constructible
+# here; see tests/lgatr/nets/test_lgatr.py::test_lgatr_no_scalar_stream.
 S_CHANNELS = [(3, 5), (2, 2)]
-BATCH_DIMS = [b[:-1] for b in BATCH_DIMS]
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,num_items_condition", [(2, 2), (2, 9)])
-@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(6, 6), (7, 11)])
-@pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
-@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", S_CHANNELS)
-@pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
-@pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
-@pytest.mark.parametrize("dropout_prob", [None])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
-@pytest.mark.parametrize("checkpoint_blocks", [False, True])
-@pytest.mark.parametrize("use_fully_connected_subgroup", [True, False])
-def test_conditional_gatr_shape(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    in_mv_channels,
-    in_mv_channels_condition,
-    hidden_mv_channels,
-    out_mv_channels,
-    num_heads,
-    num_blocks,
-    in_s_channels,
-    in_s_channels_condition,
-    hidden_s_channels,
-    out_s_channels,
-    multi_query_attention,
-    dropout_prob,
-    checkpoint_blocks,
-    use_fully_connected_subgroup,
-):
-    """Tests the output shape of ConditionalLGATr."""
-    gatr_config.use_fully_connected_subgroup = use_fully_connected_subgroup
-
-    inputs = torch.randn(*batch_dims, num_items, in_mv_channels, 16)
-    scalars = None if in_s_channels is None else torch.randn(*batch_dims, num_items, in_s_channels)
-    condition_mv = torch.randn(*batch_dims, num_items_condition, in_mv_channels_condition, 16)
-    condition_s = (
-        None
-        if in_s_channels is None
-        else torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
+def _net(in_s: int, s_cond: int, num_heads: int = 4, **kwargs) -> ConditionalLGATr:
+    """A ConditionalLGATr with the standard test channel counts."""
+    return ConditionalLGATr(
+        num_blocks=1,
+        in_mv_channels=IN_MV,
+        out_mv_channels=OUT_MV,
+        hidden_mv_channels=HIDDEN_MV,
+        mv_channels_cond=MV_COND,
+        in_s_channels=in_s,
+        out_s_channels=OUT_S,
+        hidden_s_channels=HIDDEN_S,
+        s_channels_cond=s_cond,
+        mlp=MLPConfig(),
+        **kwargs,
     )
 
-    try:
-        net = ConditionalLGATr(
-            in_mv_channels=in_mv_channels,
-            out_mv_channels=out_mv_channels,
-            hidden_mv_channels=hidden_mv_channels,
-            condition_mv_channels=in_mv_channels_condition,
-            in_s_channels=in_s_channels,
-            out_s_channels=out_s_channels,
-            hidden_s_channels=hidden_s_channels,
-            condition_s_channels=in_s_channels_condition,
-            attention=dict(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            crossattention=dict(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            mlp=dict(),
-            num_blocks=num_blocks,
-            dropout_prob=dropout_prob,
-            checkpoint_blocks=checkpoint_blocks,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
+
+@pytest.mark.parametrize("in_s_channels,s_channels_cond", S_CHANNELS)
+@pytest.mark.parametrize("multi_query", [False, True])
+@pytest.mark.parametrize("checkpoint_blocks", [False, True])
+def test_conditional_gatr_shape(
+    in_s_channels: int, s_channels_cond: int, multi_query: bool, checkpoint_blocks: bool
+) -> None:
+    # ConditionalLGATr's outputs match the expected shapes. The dict form of the layer configs is
+    # used here to exercise Config.cast.
+    net = _net(
+        in_s_channels,
+        s_channels_cond,
+        attention=dict(num_heads=4, multi_query=multi_query),
+        crossattention=dict(num_heads=4, multi_query=multi_query),
+        checkpoint_blocks=checkpoint_blocks,
+    )
+
+    inputs = torch.randn(*BATCH_DIMS, NUM_ITEMS, IN_MV, 16)
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, in_s_channels)
+    mv_cond = torch.randn(*BATCH_DIMS, NUM_ITEMS_COND, MV_COND, 16)
+    s_cond = torch.randn(*BATCH_DIMS, NUM_ITEMS_COND, s_channels_cond)
 
     outputs, output_scalars = net(
-        inputs,
-        scalars=scalars,
-        multivectors_condition=condition_mv,
-        scalars_condition=condition_s,
+        inputs, scalars=scalars, multivectors_cond=mv_cond, scalars_cond=s_cond
     )
 
-    assert outputs.shape == (*batch_dims, num_items, out_mv_channels, 16)
-    if in_s_channels is not None:
-        assert output_scalars.shape == (*batch_dims, num_items, out_s_channels)
-
-    # restore defaults
-    gatr_config.use_fully_connected_subgroup = True
+    assert outputs.shape == (*BATCH_DIMS, NUM_ITEMS, OUT_MV, 16)
+    assert output_scalars.shape == (*BATCH_DIMS, NUM_ITEMS, OUT_S)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("num_items,num_items_condition", [(2, 2), (2, 9)])
-@pytest.mark.parametrize("in_mv_channels,in_mv_channels_condition", [(6, 6), (7, 11)])
-@pytest.mark.parametrize("num_blocks,num_heads", [(1, 4)])
-@pytest.mark.parametrize("in_s_channels,in_s_channels_condition", S_CHANNELS)
-@pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(9, 4)])
-@pytest.mark.parametrize("out_mv_channels,out_s_channels", [(8, 5)])
-@pytest.mark.parametrize("dropout_prob", [None])
-@pytest.mark.parametrize("multi_query_attention", [False, True])
+@pytest.mark.parametrize("in_s_channels,s_channels_cond", S_CHANNELS)
+@pytest.mark.parametrize("multi_query", [False, True])
+@pytest.mark.parametrize("norm_elementwise_affine", [False, True])
+@pytest.mark.parametrize("subgroup,spin", [(True, True), (False, False)])
 def test_conditional_gatr_equivariance(
-    batch_dims,
-    num_items,
-    num_items_condition,
-    in_mv_channels,
-    in_mv_channels_condition,
-    hidden_mv_channels,
-    out_mv_channels,
-    num_heads,
-    num_blocks,
-    in_s_channels,
-    in_s_channels_condition,
-    hidden_s_channels,
-    out_s_channels,
-    multi_query_attention,
-    dropout_prob,
-):
-    """Tests ConditionalLGATr for equivariance."""
+    in_s_channels: int,
+    s_channels_cond: int,
+    multi_query: bool,
+    norm_elementwise_affine: bool,
+    subgroup: bool,
+    spin: bool,
+) -> None:
+    # ConditionalLGATr is equivariant in both inputs and condition, under the group it is built
+    # for: Spin for the proper-orthochronous subgroup, the full Pin group otherwise.
+    net = _net(
+        in_s_channels,
+        s_channels_cond,
+        attention=SelfAttentionConfig(num_heads=4, multi_query=multi_query),
+        crossattention=CrossAttentionConfig(num_heads=4, multi_query=multi_query),
+        primitives=PrimitivesConfig(subgroup=subgroup),
+        norm_elementwise_affine=norm_elementwise_affine,
+    )
 
-    try:
-        net = ConditionalLGATr(
-            in_mv_channels=in_mv_channels,
-            out_mv_channels=out_mv_channels,
-            hidden_mv_channels=hidden_mv_channels,
-            condition_mv_channels=in_mv_channels_condition,
-            in_s_channels=in_s_channels,
-            out_s_channels=out_s_channels,
-            hidden_s_channels=hidden_s_channels,
-            condition_s_channels=in_s_channels_condition,
-            attention=SelfAttentionConfig(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            crossattention=CrossAttentionConfig(
-                num_heads=num_heads,
-                multi_query=multi_query_attention,
-            ),
-            mlp=MLPConfig(),
-            num_blocks=num_blocks,
-            dropout_prob=dropout_prob,
-        )
-    except NotImplementedError:
-        # Some features require scalar inputs, and failing without them is fine
-        return
-
-    scalars = torch.randn(*batch_dims, num_items, in_s_channels)
-    scalars_condition = torch.randn(*batch_dims, num_items_condition, in_s_channels_condition)
-
+    scalars = torch.randn(*BATCH_DIMS, NUM_ITEMS, in_s_channels)
+    scalars_cond = torch.randn(*BATCH_DIMS, NUM_ITEMS_COND, s_channels_cond)
     data_dims = [
-        tuple(list(batch_dims) + [num_items, in_mv_channels]),
-        tuple(list(batch_dims) + [num_items_condition, in_mv_channels_condition]),
+        (*BATCH_DIMS, NUM_ITEMS, IN_MV),
+        (*BATCH_DIMS, NUM_ITEMS_COND, MV_COND),
     ]
     check_pin_equivariance(
         net,
         2,
         batch_dims=data_dims,
-        fn_kwargs=dict(scalars=scalars, scalars_condition=scalars_condition),
+        fn_kwargs=dict(scalars=scalars, scalars_cond=scalars_cond),
+        spin=spin,
         **MILD_TOLERANCES,
     )
+
+
+def test_conditional_lgatr_apply_casts_and_runs() -> None:
+    # The _apply override forwards to nn.Module and warms the caches, so .to() casts and still runs.
+    net = ConditionalLGATr(
+        num_blocks=1,
+        in_mv_channels=2,
+        out_mv_channels=1,
+        hidden_mv_channels=4,
+        mv_channels_cond=3,
+        in_s_channels=2,
+        out_s_channels=2,
+        hidden_s_channels=4,
+        s_channels_cond=2,
+        attention=SelfAttentionConfig(num_heads=2),
+        crossattention=CrossAttentionConfig(num_heads=2),
+        mlp=MLPConfig(),
+    )
+
+    assert net.to(torch.float64) is net
+    assert net.linear_in.weight.dtype == torch.float64
+
+    inputs = torch.randn(2, 3, 2, 16, dtype=torch.float64)
+    inputs_cond = torch.randn(2, 5, 3, 16, dtype=torch.float64)
+    scalars = torch.randn(2, 3, 2, dtype=torch.float64)
+    scalars_cond = torch.randn(2, 5, 2, dtype=torch.float64)
+    outputs, output_scalars = net(inputs, inputs_cond, scalars=scalars, scalars_cond=scalars_cond)
+    assert outputs.dtype == output_scalars.dtype == torch.float64

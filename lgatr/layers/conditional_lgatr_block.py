@@ -1,10 +1,13 @@
 """L-GATr decoder block."""
 
+from collections.abc import Mapping
 from dataclasses import replace
 
 import torch
 from torch import nn
 
+from ..primitives.config import PrimitivesConfig
+from ..utils.misc import residual_add
 from .attention import (
     CrossAttention,
     CrossAttentionConfig,
@@ -19,52 +22,70 @@ from .mlp.mlp import GeoMLP
 class ConditionalLGATrBlock(nn.Module):
     """L-GATr decoder block.
 
-    Inputs are first processed by a block consisting of LayerNorm, multi-head geometric
-    self-attention, and a residual connection. Then the conditions are included with
-    cross-attention using the same overhead as in the self-attention part.
-    Then the data is processed by a block consisting of another LayerNorm,
-    an item-wise two-layer geometric MLP with GeLU activations, and another
-    residual connection.
+    Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual
+    connection. Then the conditions are mixed in via cross-attention with the same overhead as
+    self-attention. Finally the data goes through another LayerNorm, an item-wise geometric MLP,
+    and another residual connection.
 
     Parameters
     ----------
-    mv_channels : int
-        Number of input and output multivector channels
-    s_channels: int
-        Number of input and output scalar channels
-    condition_mv_channels: int
-        Number of condition multivector channels
-    condition_s_channels: int
-        Number of condition scalar channels
-    attention: SelfAttentionConfig
-        Attention configuration
-    crossattention: CrossAttentionConfig
-        Cross-attention configuration
-    mlp: MLPConfig
-        MLP configuration
-    dropout_prob : float or None
-        Dropout probability
+    mv_channels
+        Number of input and output multivector channels.
+    s_channels
+        Number of input and output scalar channels.
+    mv_channels_cond
+        Number of condition multivector channels.
+    s_channels_cond
+        Number of condition scalar channels. Use 0 for no scalar condition stream.
+    attention
+        Self-attention configuration.
+    crossattention
+        Cross-attention configuration.
+    mlp
+        MLP configuration.
+    primitives
+        LGATr primitives configuration.
+    dropout_prob
+        Dropout probability.
+    norm_elementwise_affine
+        Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     """
 
     def __init__(
         self,
         mv_channels: int,
         s_channels: int,
-        condition_mv_channels: int,
-        condition_s_channels: int,
-        attention: SelfAttentionConfig,
-        crossattention: CrossAttentionConfig,
-        mlp: MLPConfig,
+        mv_channels_cond: int,
+        s_channels_cond: int,
+        attention: SelfAttentionConfig | Mapping,
+        crossattention: CrossAttentionConfig | Mapping,
+        mlp: MLPConfig | Mapping,
+        primitives: PrimitivesConfig | Mapping,
         dropout_prob: float | None = None,
+        norm_elementwise_affine: bool = True,
     ) -> None:
         super().__init__()
+        primitives = PrimitivesConfig.cast(primitives)
 
-        # Normalization layer (stateless, so we can use the same layer for both normalization instances)
-        self.norm = EquiLayerNorm()
+        # Pre-norms: norm1 (self-attn), norm2 (cross-attn query), norm_cond (cross-attn condition),
+        # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the
+        # query and condition normalizations and both follow norm_elementwise_affine.
+        self.norm1 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm2 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm3 = EquiLayerNorm(
+            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+        )
+        self.norm_cond = EquiLayerNorm(
+            mv_channels_cond, s_channels_cond, elementwise_affine=norm_elementwise_affine
+        )
 
         # Self-attention layer
         attention = replace(
-            attention,
+            SelfAttentionConfig.cast(attention),
             in_mv_channels=mv_channels,
             out_mv_channels=mv_channels,
             in_s_channels=s_channels,
@@ -72,69 +93,70 @@ class ConditionalLGATrBlock(nn.Module):
             output_init="small",
             dropout_prob=dropout_prob,
         )
-        self.attention = SelfAttention(attention)
+        self.attention = SelfAttention(attention, primitives)
 
         # Cross-attention layer
         crossattention = replace(
-            crossattention,
-            in_q_mv_channels=mv_channels,
-            in_q_s_channels=s_channels,
-            in_kv_mv_channels=condition_mv_channels,
-            in_kv_s_channels=condition_s_channels,
+            CrossAttentionConfig.cast(crossattention),
+            q_mv_channels=mv_channels,
+            q_s_channels=s_channels,
+            kv_mv_channels=mv_channels_cond,
+            kv_s_channels=s_channels_cond,
             out_mv_channels=mv_channels,
             out_s_channels=s_channels,
             output_init="small",
             dropout_prob=dropout_prob,
         )
-        self.crossattention = CrossAttention(crossattention)
+        self.crossattention = CrossAttention(crossattention, primitives)
 
         # MLP block
         mlp = replace(
-            mlp,
+            MLPConfig.cast(mlp),
             mv_channels=mv_channels,
             s_channels=s_channels,
             dropout_prob=dropout_prob,
         )
-        self.mlp = GeoMLP(mlp)
+        self.mlp = GeoMLP(mlp, primitives)
 
     def forward(
         self,
         multivectors: torch.Tensor,
-        multivectors_condition: torch.Tensor,
-        scalars: torch.Tensor = None,
-        scalars_condition: torch.Tensor = None,
-        attn_kwargs=None,
-        crossattn_kwargs=None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass of the transformer decoder block.
+        multivectors_cond: torch.Tensor,
+        scalars: torch.Tensor | None = None,
+        scalars_cond: torch.Tensor | None = None,
+        attn_kwargs: dict | None = None,
+        crossattn_kwargs: dict | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """Forward pass of the decoder block.
 
         Parameters
         ----------
-        multivectors : torch.Tensor
-            Input multivectors  with shape (..., items, mv_channels, 16).
-        scalars : torch.Tensor
-            Input scalars with shape (..., items, s_channels).
-        multivectors_condition : torch.Tensor
-            Input condition multivectors with shape (..., items, mv_channels, 16).
-        scalars_condition : torch.Tensor
-            Input condition scalars with shape (..., items, s_channels).
-        attn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask.
-        crossattn_kwargs: None or torch.Tensor or AttentionBias
-            Optional attention mask for the condition.
+        multivectors
+            Input multivectors of shape ``(..., items, mv_channels, 16)``.
+        multivectors_cond
+            Condition multivectors of shape ``(..., items_cond, mv_channels_cond, 16)``.
+        scalars
+            Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar
+            stream is bypassed and ``outputs_s`` is None.
+        scalars_cond
+            Optional condition scalars of shape ``(..., items_cond, s_channels_cond)``.
+        attn_kwargs
+            Optional keyword arguments forwarded to self-attention (e.g. attention masks).
+        crossattn_kwargs
+            Optional keyword arguments forwarded to cross-attention (e.g. attention masks).
 
         Returns
         -------
-        outputs_mv : torch.Tensor
-            Output multivectors with shape (..., items, mv_channels, 16).
-        output_scalars : torch.Tensor
-            Output scalars with shape (..., items, s_channels).
+        outputs_mv
+            Output multivectors of shape ``(..., items, mv_channels, 16)``.
+        outputs_s
+            Output scalars of shape ``(..., items, s_channels)``, or None.
         """
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 
         # Self-attention block: pre layer norm
-        h_mv, h_s = self.norm(multivectors, scalars=scalars)
+        h_mv, h_s = self.norm1(multivectors, scalars=scalars)
 
         # Self-attention block: self attention
         h_mv, h_s = self.attention(
@@ -145,33 +167,33 @@ class ConditionalLGATrBlock(nn.Module):
 
         # Self-attention block: skip connection
         multivectors = multivectors + h_mv
-        scalars = scalars + h_s
+        scalars = residual_add(scalars, h_s)
 
         # Cross-attention block: pre layer norm
-        h_mv, h_s = self.norm(multivectors, scalars=scalars)
-        c_mv, c_s = self.norm(multivectors_condition, scalars=scalars_condition)
+        h_mv, h_s = self.norm2(multivectors, scalars=scalars)
+        mv_cond, s_cond = self.norm_cond(multivectors_cond, scalars=scalars_cond)
 
         # Cross-attention block: cross attention
         h_mv, h_s = self.crossattention(
             multivectors_q=h_mv,
-            multivectors_kv=c_mv,
+            multivectors_kv=mv_cond,
             scalars_q=h_s,
-            scalars_kv=c_s,
+            scalars_kv=s_cond,
             **crossattn_kwargs,
         )
 
         # Cross-attention block: skip connection
         outputs_mv = multivectors + h_mv
-        outputs_s = scalars + h_s
+        outputs_s = residual_add(scalars, h_s)
 
         # MLP block: pre layer norm
-        h_mv, h_s = self.norm(outputs_mv, scalars=outputs_s)
+        h_mv, h_s = self.norm3(outputs_mv, scalars=outputs_s)
 
         # MLP block: MLP
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
 
         # MLP block: skip connection
         outputs_mv = outputs_mv + h_mv
-        outputs_s = outputs_s + h_s
+        outputs_s = residual_add(outputs_s, h_s)
 
         return outputs_mv, outputs_s
