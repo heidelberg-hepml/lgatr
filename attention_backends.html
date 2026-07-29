@@ -1,0 +1,274 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attention Backends &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=3469de9b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Efficient implementation" href="efficiency.html" />
+    <link rel="prev" title="Lorentz Symmetry Breaking" href="symmetry_breaking.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Attention Backends</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/attention_backends.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="attention-backends">
+<h1>Attention Backends<a class="headerlink" href="#attention-backends" title="Link to this heading"></a></h1>
+<p>Our architectures are designed to be agnostic to the attention backend.
+We implement several attention backends or kernels as described below.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="w">  </span><span class="c1"># only default attention</span>
+pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>varlen-attention<span class="o">]</span><span class="w">  </span><span class="c1"># add varlen attention</span>
+pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>xformers-attention<span class="o">]</span><span class="w">  </span><span class="c1"># add xformers attention</span>
+pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>flex-attention<span class="o">]</span><span class="w">  </span><span class="c1"># add flex_attention</span>
+pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>flash-attention<span class="o">]</span><span class="w">  </span><span class="c1"># add flash attention</span>
+pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>varlen-attention,xformers-attention,flex-attention,flash-attention<span class="o">]</span><span class="w">  </span><span class="c1"># add all</span>
+</pre></div>
+</div>
+<p>The extras install additional requirements, i.e. you don’t have to specify them if
+you already have these requirements installed.
+You might have to run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">pip</span> <span class="pre">setuptools</span> <span class="pre">wheel</span></code>
+to update your build environment, extra imports require the most recent versions.</p>
+<section id="selecting-a-backend">
+<h2>Selecting a backend<a class="headerlink" href="#selecting-a-backend" title="Link to this heading"></a></h2>
+<p>Backends are selected per forward call. Every network forwards its extra keyword arguments
+down to <a class="reference internal" href="generated/lgatr.primitives.attention.html#lgatr.primitives.attention.sdp_attention" title="lgatr.primitives.attention.sdp_attention"><code class="xref py py-func docutils literal notranslate"><span class="pre">sdp_attention()</span></code></a>, so you can name a backend explicitly
+with <code class="docutils literal notranslate"><span class="pre">backend=...</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">outputs</span><span class="p">,</span> <span class="n">outputs_s</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">multivectors</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">scalars</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;xformers&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you do not pass <code class="docutils literal notranslate"><span class="pre">backend</span></code>, the backend is inferred from the other keyword arguments: the
+block-diagonal mask <code class="docutils literal notranslate"><span class="pre">attn_bias</span></code> selects xformers, <code class="docutils literal notranslate"><span class="pre">cu_seqlens_q</span></code>/<code class="docutils literal notranslate"><span class="pre">max_seqlen_q</span></code> select
+flash, <code class="docutils literal notranslate"><span class="pre">cu_seq_q</span></code>/<code class="docutils literal notranslate"><span class="pre">max_q</span></code> select varlen, and <code class="docutils literal notranslate"><span class="pre">score_mod</span></code>/<code class="docutils literal notranslate"><span class="pre">block_mask</span></code> select flex.
+Without any of them, the native PyTorch backend is used:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xformers.ops.fmha</span><span class="w"> </span><span class="kn">import</span> <span class="n">BlockDiagonalMask</span>
+
+<span class="n">attn_bias</span> <span class="o">=</span> <span class="n">BlockDiagonalMask</span><span class="o">.</span><span class="n">from_seqlens</span><span class="p">(</span><span class="n">seqlens</span><span class="p">)</span>
+<span class="n">outputs</span><span class="p">,</span> <span class="n">outputs_s</span> <span class="o">=</span> <span class="n">net</span><span class="p">(</span><span class="n">multivectors</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">scalars</span><span class="p">,</span> <span class="n">attn_bias</span><span class="o">=</span><span class="n">attn_bias</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Backends are resolved lazily on first use, so importing <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> never pulls in <code class="docutils literal notranslate"><span class="pre">xformers</span></code>
+or <code class="docutils literal notranslate"><span class="pre">flash-attn</span></code>. Requesting a backend whose dependency is missing raises a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>
+naming the backend and the reason it could not be loaded.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="lgatr.primitives.attention_backends.get_attention_backend">
+<span class="sig-prename descclassname"><span class="pre">lgatr.primitives.attention_backends.</span></span><span class="sig-name descname"><span class="pre">get_attention_backend</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/lgatr/primitives/attention_backends.html#get_attention_backend"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.primitives.attention_backends.get_attention_backend" title="Link to this definition"></a></dt>
+<dd><p>Resolve the attention backend based on the extra keyword arguments.</p>
+<p>Implemented backends:</p>
+<ul class="simple">
+<li><p>PyTorch native attention: <code class="docutils literal notranslate"><span class="pre">torch.nn.functional.scaled_dot_product_attention</span></code></p></li>
+<li><p>PyTorch varlen attention: <code class="docutils literal notranslate"><span class="pre">torch.nn.attention.varlen.varlen_attn</span></code></p></li>
+<li><p>xformers attention: <code class="docutils literal notranslate"><span class="pre">xformers.ops.memory_efficient_attention</span></code></p></li>
+<li><p>PyTorch flex_attention: <code class="docutils literal notranslate"><span class="pre">torch.nn.attention.flex_attention.flex_attention</span></code></p></li>
+<li><p>Flash attention (variable sequence length): <code class="docutils literal notranslate"><span class="pre">flash_attn.flash_attn_varlen_func</span></code></p></li>
+</ul>
+<p>The backend is selected explicitly via <code class="docutils literal notranslate"><span class="pre">backend=...</span></code> if provided, otherwise inferred from
+backend-specific kwargs (e.g. <code class="docutils literal notranslate"><span class="pre">cu_seqlens_*</span></code> triggers flash). Falls back to the native
+backend. Backends are imported lazily on first use.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="why-care-about-attention-kernels">
+<h2>Why care about Attention Kernels?<a class="headerlink" href="#why-care-about-attention-kernels" title="Link to this heading"></a></h2>
+<p>As sequence length grows, attention becomes the bottleneck in transformers—both in
+memory consumption and computation time. This is because attention is the only
+transformer operation whose cost grows quadratically with the sequence length.
+To address this, researchers have devoted significant effort to designing more
+efficient attention backends that reduce this quadratic blowup. The best-known
+example is FlashAttention (<a class="reference external" href="https://arxiv.org/abs/2205.14135">https://arxiv.org/abs/2205.14135</a>), which never writes out the full attention matrix
+to memory but instead computes attention in smaller chunks. Today, FlashAttention
+is the standard in most transformer libraries, e.g. <code class="docutils literal notranslate"><span class="pre">torch.nn.functional.scaled_dot_product_attention</span></code> in PyTorch.</p>
+<p>However, these highly optimized CUDA kernels impose constraints on the attention
+inputs and structure of the attention mask.</p>
+<ul class="simple">
+<li><p>PyTorch’s default attention path assumes dense tensors for
+queries, keys, values, and the attention mask. In particle physics applications, each
+event often contains a different number of particles—so using dense tensors would require
+<strong>padding all events to the maximum length</strong>. An alternative is to work with “sparse” representations
+(e.g., concatenating all particles in a long list and tracking event boundaries), then apply
+a block-diagonal mask so that only particles within the same event attend to one another.
+By avoiding operations on padded particles, this approach can dramatically reduce both memory
+usage and computation time.</p></li>
+<li><p>Beyond sparse masks, many <strong>advanced positional-encoding schemes</strong>
+(such as relative positional embeddings, ALiBi, sliding-window attention, PrefixLM,
+tanh-soft-capping, and so on) also require custom attention kernels that deviate from
+the dense, full-matrix assumption.</p></li>
+<li><p>Optimized attention backends are typically optimized for the <strong>most recent NVIDIA GPUs</strong>, and do not or only partially support older hardware.</p></li>
+<li><p>Optimized operations typically only support certain data types. <code class="docutils literal notranslate"><span class="pre">float16</span></code> and <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code> are most widely supported, and <code class="docutils literal notranslate"><span class="pre">float32</span></code> and <code class="docutils literal notranslate"><span class="pre">float8</span></code> upcoming.</p></li>
+<li><p>Most backends currently only support certain head dimensions, e.g. only powers of 2.</p></li>
+</ul>
+</section>
+<section id="pytorch-s-native-attention">
+<h2>PyTorch’s native Attention<a class="headerlink" href="#pytorch-s-native-attention" title="Link to this heading"></a></h2>
+<p>PyTorch’s native
+<a class="reference external" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html">scaled_dot_product_attention</a>
+is easy to use, but it requires dense tensors for queries, keys and values.
+It is automatically contained in</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr
+</pre></div>
+</div>
+</section>
+<section id="xformers-attention">
+<h2>xformers Attention<a class="headerlink" href="#xformers-attention" title="Link to this heading"></a></h2>
+<p>Xformers is a library for <a class="reference external" href="https://facebookresearch.github.io/xformers/components/ops.html#module-xformers.ops">efficient attention implementations</a> maintained
+by facebook, including <a class="reference external" href="https://facebookresearch.github.io/xformers/components/ops.html#xformers.ops.fmha.attn_bias.BlockDiagonalMask">support for block-diagonal attention masks</a>.
+Unfortunately, <a class="reference external" href="https://github.com/facebookresearch/xformers/issues/775">xformers does not support MacOS anymore</a>.
+Under the hood, xformers supports <a class="reference external" href="https://github.com/facebookresearch/xformers/tree/main/xformers/ops/fmha">multiple attention backends</a>,
+including the varlen FlashAttention mentioned below, and selects the best one for your hardware automatically.
+To the best of our knowledge, the xformers backend is the only attention backend that supports
+sparse sequence representations and float32. This is the reason why xformers was used in the original
+L-GATr publications for tasks that require variable-length sequences.
+To use it, you need to install <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> with the <code class="docutils literal notranslate"><span class="pre">xformers-attention</span></code> extra, which requires <code class="docutils literal notranslate"><span class="pre">torch&gt;=2.4</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>xformers-attention<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="pytorch-s-flex-attention">
+<h2>PyTorch’s flex_attention<a class="headerlink" href="#pytorch-s-flex-attention" title="Link to this heading"></a></h2>
+<p>To mitigate the increasing need for custom attention kernels, PyTorch developers have
+designed <a class="reference external" href="https://docs.pytorch.org/docs/stable/nn.attention.flex_attention.html">flex_attention</a>,
+a tool that aims to generalize all variations of attention kernels while remaining efficient.
+The idea is to have two functions <code class="docutils literal notranslate"><span class="pre">score_mod</span></code> and <code class="docutils literal notranslate"><span class="pre">block_mask</span></code> as arguments
+that allow the user to create most attention variants, see <a class="reference external" href="https://pytorch.org/blog/flexattention/">this blog</a>.
+flex_attention is considered stable for <code class="docutils literal notranslate"><span class="pre">torch&gt;=2.7</span></code>, we therefore do not include
+it in the default installation of <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> yet. To install <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> with <code class="docutils literal notranslate"><span class="pre">flex-attention</span></code>, run</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>flex-attention<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="official-flashattention">
+<h2>Official FlashAttention<a class="headerlink" href="#official-flashattention" title="Link to this heading"></a></h2>
+<p>The <a class="reference external" href="https://github.com/Dao-AILab/flash-attention">original FlashAttention implementation</a> by Tri Dao is
+still actively maintained and widely used within the community. Its support for variable-length sequences
+is not yet part of native PyTorch, so we provide an extra for it in <code class="docutils literal notranslate"><span class="pre">lgatr</span></code>.
+A problem of this package is that it only supports fp16/bf16 precision on the attention arguments,
+and we found that this degrades performance in the cases that we tested, see <a class="reference internal" href="efficiency.html"><span class="doc">Efficient implementation</span></a>.
+Note that xformers might default to using FlashAttention under the hood if it detects that your attention inputs and hardware support it.
+See its <a class="reference external" href="https://deepwiki.com/Dao-AILab/flash-attention/1.1-installation-and-setup">documentation</a> for installation instructions for this package,
+the process is a bit more involved than for other backends.
+You can install <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> with the <code class="docutils literal notranslate"><span class="pre">flash-attention</span></code> extra, which requires <code class="docutils literal notranslate"><span class="pre">torch&gt;=2.1</span></code>, as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>flash-attention<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="pytorch-s-native-varlen-attention">
+<h2>PyTorch’s native varlen attention<a class="headerlink" href="#pytorch-s-native-varlen-attention" title="Link to this heading"></a></h2>
+<p>PyTorch 2.10 natively includes a varlen attention kernel that is very similar to
+the official flash attention implementation. It can be installed with</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>lgatr<span class="o">[</span>varlen-attention<span class="o">]</span>
+</pre></div>
+</div>
+</section>
+<section id="more-attention-backends">
+<h2>More attention backends<a class="headerlink" href="#more-attention-backends" title="Link to this heading"></a></h2>
+<p>L-GATr is designed to be flexible when it comes to attention backends.
+If you want to use L-GATr with another attention backend, just open an
+Issue on GitHub, or directly implement it in your own Pull Request!</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="symmetry_breaking.html" class="btn btn-neutral float-left" title="Lorentz Symmetry Breaking" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="efficiency.html" class="btn btn-neutral float-right" title="Efficient implementation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

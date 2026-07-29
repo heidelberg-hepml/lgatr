@@ -1,0 +1,8 @@
+﻿lgatr.layers.slim_layers.SlimSelfAttention
+==========================================
+
+.. autoclass:: lgatr.layers.slim_layers.SlimSelfAttention
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

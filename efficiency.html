@@ -1,0 +1,208 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Efficient implementation &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=3469de9b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="From lgatr v1 to v2" href="v1_to_v2.html" />
+    <link rel="prev" title="Attention Backends" href="attention_backends.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Efficient implementation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/efficiency.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="efficient-implementation">
+<h1>Efficient implementation<a class="headerlink" href="#efficient-implementation" title="Link to this heading"></a></h1>
+<p>This page gives advice on how to make <a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a> and
+<a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> run faster and use less memory if required.
+Both tricks are turned off by default, although we recommend to always set
+<code class="docutils literal notranslate"><span class="pre">compile=True</span></code>.</p>
+<section id="torch-compile">
+<h2>torch.compile<a class="headerlink" href="#torch-compile" title="Link to this heading"></a></h2>
+<p>Equivariant architectures introduce new operations that are typically not as optimized
+as the standard neural network operations. Examples are the linear layers in
+<a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a> / <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> that use
+joint weights for all vector/multivector components, and the geometric product in
+<a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>. These operations are then typically the reason why
+equivariant networks are slower at equal parameter count.</p>
+<p>The general problem is sparsity: For linear or bilinear operations with given
+coefficients, i.e. a matrix for linear and a 3-tensor for bilinear, non-equivariant
+networks allow arbitrary entries for the coefficients, whereas equivariant networks
+constrain the list such that coefficients agree or certain coefficients are zero.
+When expressing the <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> linear and tensor product
+(bilinear) operations as coefficient lists, then the list has over 90% zeros for
+the linear layers, and over 99% for the bilinear layers. One can either implement them
+as <cite>dense</cite> operations that use the efficient GEMM matrix multiplication kernels but with
+many zero-coefficients, or as <cite>sparse</cite> operations that do not spend compute on
+zero-multiplications but use less efficient kernels. The linear and bilinear
+operations in <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> support both options through
+the <code class="docutils literal notranslate"><span class="pre">sparse_linear</span></code> and <code class="docutils literal notranslate"><span class="pre">sparse_gp</span></code> keys in
+<a class="reference internal" href="generated/lgatr.primitives.config.PrimitivesConfig.html#lgatr.primitives.config.PrimitivesConfig" title="lgatr.primitives.config.PrimitivesConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PrimitivesConfig</span></code></a>. The default is <code class="docutils literal notranslate"><span class="pre">sparse_gp=True</span></code>,
+<code class="docutils literal notranslate"><span class="pre">sparse_linear=False</span></code>, which runs fastest on GPU but has significantly higher FLOPs
+usage compared to <code class="docutils literal notranslate"><span class="pre">sparse_linear=True</span></code>. On CPU the fully sparse implementation is fastest.</p>
+<p>The optimal solution for the problem of inefficient kernels is to write optimized
+triton or CUDA kernels for these operations, or even to create efficient
+implementations at the hardware level. Torchs native <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> tool serves
+as a cheap variant that dynamically combines operations and selects optimized kernels.
+Both <a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a>-type / <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>-type
+networks support a <code class="docutils literal notranslate"><span class="pre">compile=True</span></code> option which internally applies <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code>
+on <code class="docutils literal notranslate"><span class="pre">self.forward</span></code>, and also supports a dict of <code class="docutils literal notranslate"><span class="pre">compile_kwargs</span></code> that is passed
+on without modifications. For instance,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lgatr</span><span class="w"> </span><span class="kn">import</span> <span class="n">LGATr</span>
+
+<span class="n">net</span> <span class="o">=</span> <span class="n">LGATr</span><span class="p">(</span>
+    <span class="n">num_blocks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">in_mv_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">out_mv_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">hidden_mv_channels</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">in_s_channels</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">out_s_channels</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">hidden_s_channels</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+    <span class="n">attention</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">num_heads</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
+    <span class="n">mlp</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span>
+    <span class="nb">compile</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">compile_kwargs</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;dynamic&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;fullgraph&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>We find that <code class="docutils literal notranslate"><span class="pre">torch.compile</span></code> significantly reduces time and memory consumption,
+and recommend to always turn it on (on GPU and CPU). For varying
+shapes, we recommend setting <code class="docutils literal notranslate"><span class="pre">compile_kwargs={&quot;dynamic&quot;:</span> <span class="pre">True}</span></code>. If used correctly, the
+only cost to pay for <code class="docutils literal notranslate"><span class="pre">compile=True</span></code> is a ~1min compilation overhead on the first
+network call.</p>
+<p>Old torch versions limit what can be compiled. On <code class="docutils literal notranslate"><span class="pre">torch&lt;2.3</span></code> the inductor backend
+cannot generate code for the attention scale under dynamic shapes, so <code class="docutils literal notranslate"><span class="pre">compile=True</span></code>
+requires <code class="docutils literal notranslate"><span class="pre">compile_kwargs={&quot;dynamic&quot;:</span> <span class="pre">False}</span></code> there. On <code class="docutils literal notranslate"><span class="pre">torch&lt;2.2</span></code> compiling
+additionally requires <code class="docutils literal notranslate"><span class="pre">setuptools&lt;82</span></code>, because torch imports <code class="docutils literal notranslate"><span class="pre">pkg_resources</span></code>, which
+setuptools removed in version 82.</p>
+</section>
+<section id="automatic-mixed-precision">
+<h2>Automatic mixed precision<a class="headerlink" href="#automatic-mixed-precision" title="Link to this heading"></a></h2>
+<p>Evaluating networks with float16 or bfloat16 precision can significantly decrease time
+and memory usage, because kernels on reduced precision are faster, and weights as
+well as activation take less space on disk. Automatic mixed precision (amp) allows to perform the forward pass at float16/bfloat16
+precision, and does a more careful treatment of objects in the backward pass compared
+to naive float16/bfloat16.</p>
+<p>The <a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a> / <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>
+architectures both support automatic mixed precision. There are two modes:
+<code class="docutils literal notranslate"><span class="pre">naive_amp=True</span></code> directly applies amp without any modifications, whereas
+<code class="docutils literal notranslate"><span class="pre">naive_amp=False</span></code> performs only operations on scalars in float16/bfloat16,
+and uses full float32 precision for operations on vectors. The
+<code class="docutils literal notranslate"><span class="pre">naive_amp=False</span></code> path uses a custom
+<a class="reference internal" href="generated/lgatr.utils.autocast.html#lgatr.utils.autocast.minimum_autocast_precision" title="lgatr.utils.autocast.minimum_autocast_precision"><code class="xref py py-class docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a> decorator that can
+be applied on any function to upcast to float32 precision locally.</p>
+<p>However, <strong>currently we do not recommend to use amp</strong> with the
+<a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a> or <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>
+architectures. For tests on jet tagging, we found that networks trained with
+amp achieve significantly lower performance in some cases, to the point that
+the speed and memory gains from amp do not justify the performance drop.
+We are actively working on understanding this better.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="attention_backends.html" class="btn btn-neutral float-left" title="Attention Backends" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="v1_to_v2.html" class="btn btn-neutral float-right" title="From lgatr v1 to v2" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

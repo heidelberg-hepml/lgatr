@@ -1,0 +1,8 @@
+﻿lgatr.layers.slim_layers.SlimBlock
+==================================
+
+.. autoclass:: lgatr.layers.slim_layers.SlimBlock
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

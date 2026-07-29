@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.primitives.attention_backends &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=3469de9b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lgatr.primitives.attention_backends</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lgatr.primitives.attention_backends</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Dynamic attention backend selection.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">importlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">metadata</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">native</span>
+
+<span class="c1"># Backends keyed by their distinguishing kwargs; iteration order is the dispatch priority.</span>
+<span class="n">BACKEND_KWARGS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;varlen&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;cu_seq_q&quot;</span><span class="p">,</span> <span class="s2">&quot;cu_seq_k&quot;</span><span class="p">,</span> <span class="s2">&quot;max_q&quot;</span><span class="p">,</span> <span class="s2">&quot;max_k&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;xformers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;attn_bias&quot;</span><span class="p">,</span> <span class="s2">&quot;op&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;flex&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;score_mod&quot;</span><span class="p">,</span> <span class="s2">&quot;block_mask&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;flash&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;cu_seqlens_q&quot;</span><span class="p">,</span> <span class="s2">&quot;cu_seqlens_k&quot;</span><span class="p">,</span> <span class="s2">&quot;max_seqlen_q&quot;</span><span class="p">,</span> <span class="s2">&quot;max_seqlen_k&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+
+<span class="nd">@lru_cache</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_cuda_available</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether a CUDA device is available (cached; gates CUDA-only backends).&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span>
+
+
+<span class="c1"># Entry points are discovered at import (cheap: no optional backend module is imported yet). Each</span>
+<span class="c1"># optional backend is loaded lazily on first use so that importing lgatr does not pull in</span>
+<span class="c1"># xformers / flash-attn / etc. for users who never touch those backends. The native backend is a</span>
+<span class="c1"># pure-torch shim, so it is imported eagerly and never depends on distribution metadata being</span>
+<span class="c1"># present (which it is not in an uninstalled source checkout).</span>
+<span class="n">_ENTRY_POINTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">ep</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ep</span> <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">entry_points</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="s2">&quot;lgatr.primitives.attention_backends&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="n">_RESOLVED</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;native&quot;</span><span class="p">:</span> <span class="n">native</span><span class="p">}</span>  <span class="c1"># name -&gt; loaded backend module</span>
+<span class="n">_UNAVAILABLE</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># name -&gt; reason it could not be loaded</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_backend</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and cache a backend module by name, or return None if it is unavailable.</span>
+
+<span class="sd">    The result (module or unavailability reason) is cached, so each backend is imported at most</span>
+<span class="sd">    once. ``ImportError`` (missing optional dependency) and CPU-unsupported backends are treated</span>
+<span class="sd">    as unavailable rather than raising.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_RESOLVED</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_RESOLVED</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_UNAVAILABLE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">ep</span> <span class="o">=</span> <span class="n">_ENTRY_POINTS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ep</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_UNAVAILABLE</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;unknown backend&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;xformers&quot;</span><span class="p">,</span> <span class="s2">&quot;flash&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_cuda_available</span><span class="p">():</span>
+        <span class="n">_UNAVAILABLE</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;xformers and flash-attn are not available on CPU&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">ep</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+        <span class="n">_UNAVAILABLE</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">_RESOLVED</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module</span>
+    <span class="k">return</span> <span class="n">module</span>
+
+
+<div class="viewcode-block" id="get_attention_backend">
+<a class="viewcode-back" href="../../../attention_backends.html#lgatr.primitives.attention_backends.get_attention_backend">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_attention_backend</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve the attention backend based on the extra keyword arguments.</span>
+
+<span class="sd">    Implemented backends:</span>
+
+<span class="sd">    - PyTorch native attention: ``torch.nn.functional.scaled_dot_product_attention``</span>
+<span class="sd">    - PyTorch varlen attention: ``torch.nn.attention.varlen.varlen_attn``</span>
+<span class="sd">    - xformers attention: ``xformers.ops.memory_efficient_attention``</span>
+<span class="sd">    - PyTorch flex_attention: ``torch.nn.attention.flex_attention.flex_attention``</span>
+<span class="sd">    - Flash attention (variable sequence length): ``flash_attn.flash_attn_varlen_func``</span>
+
+<span class="sd">    The backend is selected explicitly via ``backend=...`` if provided, otherwise inferred from</span>
+<span class="sd">    backend-specific kwargs (e.g. ``cu_seqlens_*`` triggers flash). Falls back to the native</span>
+<span class="sd">    backend. Backends are imported lazily on first use.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># check if backend is explicitly specified</span>
+    <span class="n">backend</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;backend&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">_resolve_backend</span><span class="p">(</span><span class="n">backend</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">_backend_unavailable_message</span><span class="p">(</span><span class="n">backend</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">attention</span>
+
+    <span class="c1"># automatic fall-back based on other **kwargs</span>
+    <span class="k">for</span> <span class="n">backend_name</span><span class="p">,</span> <span class="n">backend_kwargs</span> <span class="ow">in</span> <span class="n">BACKEND_KWARGS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">backend_kwargs</span><span class="p">):</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">_resolve_backend</span><span class="p">(</span><span class="n">backend_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">_backend_unavailable_message</span><span class="p">(</span><span class="n">backend_name</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">attention</span>
+
+    <span class="c1"># fall-back to native torch attention (always available)</span>
+    <span class="k">return</span> <span class="n">native</span><span class="o">.</span><span class="n">attention</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_backend_unavailable_message</span><span class="p">(</span><span class="n">backend</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a dispatch error naming the missing backend and why it could not be loaded.&quot;&quot;&quot;</span>
+    <span class="n">known</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_ENTRY_POINTS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">|</span> <span class="n">_RESOLVED</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_ENTRY_POINTS</span> <span class="ow">and</span> <span class="n">backend</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_RESOLVED</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Unknown attention backend </span><span class="si">{</span><span class="n">backend</span><span class="si">!r}</span><span class="s2">. Known backends: </span><span class="si">{</span><span class="n">known</span><span class="si">}</span><span class="s2">.&quot;</span>
+    <span class="n">reason</span> <span class="o">=</span> <span class="n">_UNAVAILABLE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">backend</span><span class="p">)</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; (</span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">)&quot;</span> <span class="k">if</span> <span class="n">reason</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Attention backend </span><span class="si">{</span><span class="n">backend</span><span class="si">!r}</span><span class="s2"> is not available.</span><span class="si">{</span><span class="n">detail</span><span class="si">}</span><span class="s2"> Known backends: </span><span class="si">{</span><span class="n">known</span><span class="si">}</span><span class="s2">.&quot;</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

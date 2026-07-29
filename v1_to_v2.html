@@ -1,0 +1,163 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>From lgatr v1 to v2 &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=3469de9b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api.html" />
+    <link rel="prev" title="Efficient implementation" href="efficiency.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">From lgatr v1 to v2</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/v1_to_v2.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="from-lgatr-v1-to-v2">
+<h1>From lgatr v1 to v2<a class="headerlink" href="#from-lgatr-v1-to-v2" title="Link to this heading"></a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">lgatr</span></code> v2 release renames parts of the interface, mostly to make names consistent
+between the <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> and <a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a>
+architectures. The concrete changes are:</p>
+<ul>
+<li><p><a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATr</span></code></a> and <a class="reference internal" href="generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html#lgatr.nets.conditional_slim.ConditionalLGATrSlim" title="lgatr.nets.conditional_slim.ConditionalLGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATrSlim</span></code></a> <code class="docutils literal notranslate"><span class="pre">__init__</span></code>  arguments:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">condition_mv_channels</span></code> → <code class="docutils literal notranslate"><span class="pre">mv_channels_cond</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">condition_v_channels</span></code>  → <code class="docutils literal notranslate"><span class="pre">v_channels_cond</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">condition_s_channels</span></code>  → <code class="docutils literal notranslate"><span class="pre">s_channels_cond</span></code></p></li>
+</ul>
+<p>and <code class="docutils literal notranslate"><span class="pre">forward</span></code> arguments:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">multivectors_condition</span></code> → <code class="docutils literal notranslate"><span class="pre">multivectors_cond</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vectors_condition</span></code>      → <code class="docutils literal notranslate"><span class="pre">vectors_cond</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scalars_condition</span></code>      → <code class="docutils literal notranslate"><span class="pre">scalars_cond</span></code></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="generated/lgatr.layers.mlp.config.MLPConfig.html#lgatr.layers.mlp.config.MLPConfig" title="lgatr.layers.mlp.config.MLPConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MLPConfig</span></code></a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">activation</span></code> → <code class="docutils literal notranslate"><span class="pre">nonlinearity</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">increase_hidden_channels</span></code> → <code class="docutils literal notranslate"><span class="pre">mlp_ratio</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_hidden_layers</span></code> → <code class="docutils literal notranslate"><span class="pre">num_layers_mlp</span></code> (<code class="docutils literal notranslate"><span class="pre">num_layers_mlp</span></code> counts all layers instead of only the hidden ones, so explicit values have to be increased by one if the parameter is specified)</p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="generated/lgatr.layers.attention.config.SelfAttentionConfig.html#lgatr.layers.attention.config.SelfAttentionConfig" title="lgatr.layers.attention.config.SelfAttentionConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">SelfAttentionConfig</span></code></a> and
+<a class="reference internal" href="generated/lgatr.layers.attention.config.CrossAttentionConfig.html#lgatr.layers.attention.config.CrossAttentionConfig" title="lgatr.layers.attention.config.CrossAttentionConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">CrossAttentionConfig</span></code></a>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">increase_hidden_channels</span></code> → <code class="docutils literal notranslate"><span class="pre">attn_ratio</span></code>.</p></li>
+</ul>
+</li>
+<li><p>The global <code class="docutils literal notranslate"><span class="pre">gatr_config</span></code> object is replaced by
+<a class="reference internal" href="generated/lgatr.primitives.config.PrimitivesConfig.html#lgatr.primitives.config.PrimitivesConfig" title="lgatr.primitives.config.PrimitivesConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PrimitivesConfig</span></code></a>, which is passed to each network as
+<code class="docutils literal notranslate"><span class="pre">primitives</span></code>. This way several networks with different settings can coexist. The flags are renamed:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">use_fully_connected_subgroup</span></code> → <code class="docutils literal notranslate"><span class="pre">subgroup</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_bivector</span></code> → <code class="docutils literal notranslate"><span class="pre">bivector</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">use_geometric_product</span></code> → <code class="docutils literal notranslate"><span class="pre">geometric_product</span></code></p></li>
+</ul>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">compile_mode</span></code> and <code class="docutils literal notranslate"><span class="pre">compile_dynamic</span></code> arguments are replaced by a single
+<code class="docutils literal notranslate"><span class="pre">compile_kwargs</span></code> dict that is passed on to <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code>. Note that <code class="docutils literal notranslate"><span class="pre">dynamic</span></code>
+is not enabled by default anymore, use <code class="docutils literal notranslate"><span class="pre">compile_kwargs={&quot;dynamic&quot;:</span> <span class="pre">True}</span></code> to recover
+the v1 behavior.</p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="efficiency.html" class="btn btn-neutral float-left" title="Efficient implementation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

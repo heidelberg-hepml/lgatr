@@ -1,0 +1,381 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=3469de9b"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="lgatr.nets.lgatr.LGATr" href="generated/lgatr.nets.lgatr.LGATr.html" />
+    <link rel="prev" title="From lgatr v1 to v2" href="v1_to_v2.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-networks">L-GATr Networks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html">lgatr.nets.lgatr.LGATr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html">lgatr.nets.conditional_lgatr.ConditionalLGATr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html">lgatr.nets.slim.LGATrSlim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html">lgatr.nets.conditional_slim.ConditionalLGATrSlim</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-layers">L-GATr Layers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.lgatr_block.LGATrBlock.html">lgatr.layers.lgatr_block.LGATrBlock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.html">lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.linear.EquiLinear.html">lgatr.layers.linear.EquiLinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.attention.self_attention.SelfAttention.html">lgatr.layers.attention.self_attention.SelfAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.attention.cross_attention.CrossAttention.html">lgatr.layers.attention.cross_attention.CrossAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.mlp.mlp.GeoMLP.html">lgatr.layers.mlp.mlp.GeoMLP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.mlp.geometric_bilinears.GeometricBilinear.html">lgatr.layers.mlp.geometric_bilinears.GeometricBilinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity.html">lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.layer_norm.EquiLayerNorm.html">lgatr.layers.layer_norm.EquiLayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.dropout.GradeDropout.html">lgatr.layers.dropout.GradeDropout</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-primitives">L-GATr Primitives</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.attention.html">lgatr.primitives.attention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.bilinear.html">lgatr.primitives.bilinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.dropout.html">lgatr.primitives.dropout</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.invariants.html">lgatr.primitives.invariants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.linear.html">lgatr.primitives.linear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.normalization.html">lgatr.primitives.normalization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-configuration-classes">L-GATr Configuration Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.config.PrimitivesConfig.html">lgatr.primitives.config.PrimitivesConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.attention.config.SelfAttentionConfig.html">lgatr.layers.attention.config.SelfAttentionConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.attention.config.CrossAttentionConfig.html">lgatr.layers.attention.config.CrossAttentionConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.mlp.config.MLPConfig.html">lgatr.layers.mlp.config.MLPConfig</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#interface-to-the-geometric-algebra">Interface to the Geometric Algebra</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.scalar.html">lgatr.interface.scalar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.vector.html">lgatr.interface.vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.bivector.html">lgatr.interface.bivector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.axialvector.html">lgatr.interface.axialvector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.pseudoscalar.html">lgatr.interface.pseudoscalar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.interface.spurions.html">lgatr.interface.spurions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-utilities">L-GATr Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.utils.compile.html">lgatr.utils.compile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.primitives.compile.html">lgatr.primitives.compile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.utils.autocast.html">lgatr.utils.autocast</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#l-gatr-slim-layers">L-GATr-slim Layers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimBlock.html">lgatr.layers.slim_layers.SlimBlock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.ConditionalSlimBlock.html">lgatr.layers.slim_layers.ConditionalSlimBlock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimSelfAttention.html">lgatr.layers.slim_layers.SlimSelfAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimCrossAttention.html">lgatr.layers.slim_layers.SlimCrossAttention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimMLP.html">lgatr.layers.slim_layers.SlimMLP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimGLU.html">lgatr.layers.slim_layers.SlimGLU</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimLinear.html">lgatr.layers.slim_layers.SlimLinear</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimRMSNorm.html">lgatr.layers.slim_layers.SlimRMSNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimDropout.html">lgatr.layers.slim_layers.SlimDropout</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
+<section id="l-gatr-networks">
+<h2>L-GATr Networks<a class="headerlink" href="#l-gatr-networks" title="Link to this heading"></a></h2>
+<p>We provide two main L-GATr networks, <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> as a stack of transformer encoders,
+and <a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATr</span></code></a> as a stack of transformer decoders.
+For tasks where conditional inputs are required, you can process the condition with a <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>
+and then include this processed condition using a <a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATr</span></code></a>.
+In addition <a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATrSlim</span></code></a> and <a class="reference internal" href="generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html#lgatr.nets.conditional_slim.ConditionalLGATrSlim" title="lgatr.nets.conditional_slim.ConditionalLGATrSlim"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATrSlim</span></code></a>
+provide more efficient versions of the respective networks using only scalar and vector representations.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.nets.lgatr.LGATr</span></code></a>(num_blocks, ...[, ...])</p></td>
+<td><p>L-GATr network.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.nets.conditional_lgatr.ConditionalLGATr</span></code></a>(...)</p></td>
+<td><p>Conditional L-GATr network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.nets.slim.LGATrSlim.html#lgatr.nets.slim.LGATrSlim" title="lgatr.nets.slim.LGATrSlim"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.nets.slim.LGATrSlim</span></code></a>(num_blocks, ...[, ...])</p></td>
+<td><p>L-GATr-slim network.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html#lgatr.nets.conditional_slim.ConditionalLGATrSlim" title="lgatr.nets.conditional_slim.ConditionalLGATrSlim"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.nets.conditional_slim.ConditionalLGATrSlim</span></code></a>(...)</p></td>
+<td><p>Conditional L-GATr-slim network.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l-gatr-layers">
+<span id="id1"></span><h2>L-GATr Layers<a class="headerlink" href="#l-gatr-layers" title="Link to this heading"></a></h2>
+<p>The <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a> and <a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATr</span></code></a> networks
+have a structure similar to standard transformers. We construct them using variants of the standard
+transformer layers adapted to the geometric algebra framework.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.lgatr_block.LGATrBlock.html#lgatr.layers.lgatr_block.LGATrBlock" title="lgatr.layers.lgatr_block.LGATrBlock"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.lgatr_block.LGATrBlock</span></code></a>(...[, ...])</p></td>
+<td><p>L-GATr encoder block.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.html#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock" title="lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock</span></code></a>(...)</p></td>
+<td><p>L-GATr decoder block.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.linear.EquiLinear.html#lgatr.layers.linear.EquiLinear" title="lgatr.layers.linear.EquiLinear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.linear.EquiLinear</span></code></a>(...[, ...])</p></td>
+<td><p>Linear layer.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.attention.self_attention.SelfAttention.html#lgatr.layers.attention.self_attention.SelfAttention" title="lgatr.layers.attention.self_attention.SelfAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.attention.self_attention.SelfAttention</span></code></a>(...)</p></td>
+<td><p>L-GATr self-attention.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.attention.cross_attention.CrossAttention.html#lgatr.layers.attention.cross_attention.CrossAttention" title="lgatr.layers.attention.cross_attention.CrossAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.attention.cross_attention.CrossAttention</span></code></a>(...)</p></td>
+<td><p>L-GATr cross-attention.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.mlp.mlp.GeoMLP.html#lgatr.layers.mlp.mlp.GeoMLP" title="lgatr.layers.mlp.mlp.GeoMLP"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.mlp.mlp.GeoMLP</span></code></a>(config, primitives)</p></td>
+<td><p>MLP with a geometric product as the first nonlinear mixing step.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.mlp.geometric_bilinears.GeometricBilinear.html#lgatr.layers.mlp.geometric_bilinears.GeometricBilinear" title="lgatr.layers.mlp.geometric_bilinears.GeometricBilinear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.mlp.geometric_bilinears.GeometricBilinear</span></code></a>(...)</p></td>
+<td><p>Pin-equivariant bilinear map that constructs new geometric features via geometric products.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity.html#lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity" title="lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity</span></code></a>([...])</p></td>
+<td><p>Gated nonlinearity on multivectors.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.layer_norm.EquiLayerNorm.html#lgatr.layers.layer_norm.EquiLayerNorm" title="lgatr.layers.layer_norm.EquiLayerNorm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.layer_norm.EquiLayerNorm</span></code></a>([...])</p></td>
+<td><p>Layer normalization for multivectors (and an optional scalar stream).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.dropout.GradeDropout.html#lgatr.layers.dropout.GradeDropout" title="lgatr.layers.dropout.GradeDropout"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.dropout.GradeDropout</span></code></a>([p])</p></td>
+<td><p>Grade-wise dropout on multivectors (and an optional scalar stream).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l-gatr-primitives">
+<h2>L-GATr Primitives<a class="headerlink" href="#l-gatr-primitives" title="Link to this heading"></a></h2>
+<p>The L-GATr primitives implement the core equivariant operations and are called by the L-GATr layers.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.primitives.attention.html#module-lgatr.primitives.attention" title="lgatr.primitives.attention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.attention</span></code></a></p></td>
+<td><p>Equivariant attention.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.primitives.bilinear.html#module-lgatr.primitives.bilinear" title="lgatr.primitives.bilinear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.bilinear</span></code></a></p></td>
+<td><p>Geometric product.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.primitives.dropout.html#module-lgatr.primitives.dropout" title="lgatr.primitives.dropout"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.dropout</span></code></a></p></td>
+<td><p>Grade dropout.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.primitives.invariants.html#module-lgatr.primitives.invariants" title="lgatr.primitives.invariants"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.invariants</span></code></a></p></td>
+<td><p>Invariants: inner product, absolute squared norm, and Pin-invariant utilities.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.primitives.linear.html#module-lgatr.primitives.linear" title="lgatr.primitives.linear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.linear</span></code></a></p></td>
+<td><p>Linear operations on multivectors, in particular linear basis maps.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.primitives.normalization.html#module-lgatr.primitives.normalization" title="lgatr.primitives.normalization"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.normalization</span></code></a></p></td>
+<td><p>Multivector normalization.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l-gatr-configuration-classes">
+<h2>L-GATr Configuration Classes<a class="headerlink" href="#l-gatr-configuration-classes" title="Link to this heading"></a></h2>
+<p>L-GATr uses <code class="docutils literal notranslate"><span class="pre">dataclass</span></code> objects to organize less relevant hyperparameters like number of heads or the MLP nonlinearity.
+The <a class="reference internal" href="generated/lgatr.layers.mlp.config.MLPConfig.html#lgatr.layers.mlp.config.MLPConfig" title="lgatr.layers.mlp.config.MLPConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MLPConfig</span></code></a>, <a class="reference internal" href="generated/lgatr.layers.attention.config.SelfAttentionConfig.html#lgatr.layers.attention.config.SelfAttentionConfig" title="lgatr.layers.attention.config.SelfAttentionConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">SelfAttentionConfig</span></code></a>, <a class="reference internal" href="generated/lgatr.layers.attention.config.CrossAttentionConfig.html#lgatr.layers.attention.config.CrossAttentionConfig" title="lgatr.layers.attention.config.CrossAttentionConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">CrossAttentionConfig</span></code></a>, and <a class="reference internal" href="generated/lgatr.primitives.config.PrimitivesConfig.html#lgatr.primitives.config.PrimitivesConfig" title="lgatr.primitives.config.PrimitivesConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PrimitivesConfig</span></code></a> are all arguments for the <a class="reference internal" href="generated/lgatr.nets.lgatr.LGATr.html#lgatr.nets.lgatr.LGATr" title="lgatr.nets.lgatr.LGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">LGATr</span></code></a>/<a class="reference internal" href="generated/lgatr.nets.conditional_lgatr.ConditionalLGATr.html#lgatr.nets.conditional_lgatr.ConditionalLGATr" title="lgatr.nets.conditional_lgatr.ConditionalLGATr"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConditionalLGATr</span></code></a> modules.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.primitives.config.PrimitivesConfig.html#lgatr.primitives.config.PrimitivesConfig" title="lgatr.primitives.config.PrimitivesConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.config.PrimitivesConfig</span></code></a>([...])</p></td>
+<td><p>Symmetry-group and bilinear-layer toggles for an L-GATr model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.attention.config.SelfAttentionConfig.html#lgatr.layers.attention.config.SelfAttentionConfig" title="lgatr.layers.attention.config.SelfAttentionConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.attention.config.SelfAttentionConfig</span></code></a>([...])</p></td>
+<td><p>Configuration for self-attention.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.attention.config.CrossAttentionConfig.html#lgatr.layers.attention.config.CrossAttentionConfig" title="lgatr.layers.attention.config.CrossAttentionConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.attention.config.CrossAttentionConfig</span></code></a>([...])</p></td>
+<td><p>Configuration for cross-attention.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.mlp.config.MLPConfig.html#lgatr.layers.mlp.config.MLPConfig" title="lgatr.layers.mlp.config.MLPConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.mlp.config.MLPConfig</span></code></a>([...])</p></td>
+<td><p>Geometric-MLP configuration.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="interface-to-the-geometric-algebra">
+<h2>Interface to the Geometric Algebra<a class="headerlink" href="#interface-to-the-geometric-algebra" title="Link to this heading"></a></h2>
+<p>Before we feed data into L-GATr networks and after we extract results, we have to convert between common scalar/vector objects and multivectors.
+This is very simple, we still introduce convenience methods for this step.
+We also include functionality to construct <cite>spurions</cite>, or reference multivectors,
+which can be added as extra items or channels to break equivariance at the input level.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.interface.scalar.html#module-lgatr.interface.scalar" title="lgatr.interface.scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.scalar</span></code></a></p></td>
+<td><p>Embedding and extracting scalars into multivectors.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.interface.vector.html#module-lgatr.interface.vector" title="lgatr.interface.vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.vector</span></code></a></p></td>
+<td><p>Embedding and extracting vectors into multivectors.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.interface.bivector.html#module-lgatr.interface.bivector" title="lgatr.interface.bivector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.bivector</span></code></a></p></td>
+<td><p>Embedding and extracting bivectors into multivectors.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.interface.axialvector.html#module-lgatr.interface.axialvector" title="lgatr.interface.axialvector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.axialvector</span></code></a></p></td>
+<td><p>Embedding and extracting axial vectors into multivectors.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.interface.pseudoscalar.html#module-lgatr.interface.pseudoscalar" title="lgatr.interface.pseudoscalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.pseudoscalar</span></code></a></p></td>
+<td><p>Embedding and extracting pseudoscalars into multivectors.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.interface.spurions.html#module-lgatr.interface.spurions" title="lgatr.interface.spurions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.interface.spurions</span></code></a></p></td>
+<td><p>Tools to include reference multivectors ('spurions') for symmetry breaking.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l-gatr-utilities">
+<h2>L-GATr Utilities<a class="headerlink" href="#l-gatr-utilities" title="Link to this heading"></a></h2>
+<p>Helpers used by the L-GATr networks: a wrapper around <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code> for the <code class="docutils literal notranslate"><span class="pre">compile=True</span></code>
+constructor path, a <a class="reference internal" href="generated/lgatr.primitives.compile.html#lgatr.primitives.compile.warmup_caches" title="lgatr.primitives.compile.warmup_caches"><code class="xref py py-func docutils literal notranslate"><span class="pre">warmup_caches()</span></code></a> helper that pre-populates the
+primitive caches for a given <code class="docutils literal notranslate"><span class="pre">(device,</span> <span class="pre">dtype)</span></code>, and an autocast decorator that pins inputs to a
+minimum precision.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.utils.compile.html#module-lgatr.utils.compile" title="lgatr.utils.compile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.utils.compile</span></code></a></p></td>
+<td><p>Helpers for using L-GATr networks with <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.primitives.compile.html#module-lgatr.primitives.compile" title="lgatr.primitives.compile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.primitives.compile</span></code></a></p></td>
+<td><p>Helpers for using L-GATr primitives with <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.utils.autocast.html#module-lgatr.utils.autocast" title="lgatr.utils.autocast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.utils.autocast</span></code></a></p></td>
+<td><p>Pin inputs to a minimum autocast precision; usable as a decorator.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="l-gatr-slim-layers">
+<h2>L-GATr-slim Layers<a class="headerlink" href="#l-gatr-slim-layers" title="Link to this heading"></a></h2>
+<p>In addition to the full L-GATr network, we provide a slimmed-down version that uses only scalar and vector representations instead of full multivectors.
+This approach allows a more efficient implementation while achieving similar performance on all high-energy physics tasks we have tested so far.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimBlock.html#lgatr.layers.slim_layers.SlimBlock" title="lgatr.layers.slim_layers.SlimBlock"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimBlock</span></code></a>(...[, ...])</p></td>
+<td><p>A single block of the L-GATr-slim network.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.ConditionalSlimBlock.html#lgatr.layers.slim_layers.ConditionalSlimBlock" title="lgatr.layers.slim_layers.ConditionalSlimBlock"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.ConditionalSlimBlock</span></code></a>(...)</p></td>
+<td><p>A single block of the conditional L-GATr-slim network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimSelfAttention.html#lgatr.layers.slim_layers.SlimSelfAttention" title="lgatr.layers.slim_layers.SlimSelfAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimSelfAttention</span></code></a>(...)</p></td>
+<td><p>Self-attention for Lorentz vectors and scalar features.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimCrossAttention.html#lgatr.layers.slim_layers.SlimCrossAttention" title="lgatr.layers.slim_layers.SlimCrossAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimCrossAttention</span></code></a>(...)</p></td>
+<td><p>Cross-attention for Lorentz vectors and scalar features.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimMLP.html#lgatr.layers.slim_layers.SlimMLP" title="lgatr.layers.slim_layers.SlimMLP"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimMLP</span></code></a>(v_channels, ...)</p></td>
+<td><p>Multi-layer perceptron for vector and scalar features.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimGLU.html#lgatr.layers.slim_layers.SlimGLU" title="lgatr.layers.slim_layers.SlimGLU"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimGLU</span></code></a>(...[, ...])</p></td>
+<td><p>Gated linear unit (GLU) for vector and scalar features.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimLinear.html#lgatr.layers.slim_layers.SlimLinear" title="lgatr.layers.slim_layers.SlimLinear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimLinear</span></code></a>(...[, ...])</p></td>
+<td><p>Linear layer for vector and scalar features.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimRMSNorm.html#lgatr.layers.slim_layers.SlimRMSNorm" title="lgatr.layers.slim_layers.SlimRMSNorm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimRMSNorm</span></code></a>(...[, ...])</p></td>
+<td><p>Joint RMS normalization over vector and scalar features.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/lgatr.layers.slim_layers.SlimDropout.html#lgatr.layers.slim_layers.SlimDropout" title="lgatr.layers.slim_layers.SlimDropout"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lgatr.layers.slim_layers.SlimDropout</span></code></a>(...)</p></td>
+<td><p>Dropout for vector and scalar features.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="v1_to_v2.html" class="btn btn-neutral float-left" title="From lgatr v1 to v2" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="generated/lgatr.nets.lgatr.LGATr.html" class="btn btn-neutral float-right" title="lgatr.nets.lgatr.LGATr" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+﻿lgatr.primitives.compile
+========================
+
+.. automodule:: lgatr.primitives.compile
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      warmup_caches
+   

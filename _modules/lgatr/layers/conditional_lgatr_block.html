@@ -1,0 +1,316 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.layers.conditional_lgatr_block &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=3469de9b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lgatr.layers.conditional_lgatr_block</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lgatr.layers.conditional_lgatr_block</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;L-GATr decoder block.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..primitives.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrimitivesConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.misc</span><span class="w"> </span><span class="kn">import</span> <span class="n">residual_add</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.attention</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CrossAttention</span><span class="p">,</span>
+    <span class="n">CrossAttentionConfig</span><span class="p">,</span>
+    <span class="n">SelfAttention</span><span class="p">,</span>
+    <span class="n">SelfAttentionConfig</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.layer_norm</span><span class="w"> </span><span class="kn">import</span> <span class="n">EquiLayerNorm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.mlp.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLPConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.mlp.mlp</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoMLP</span>
+
+
+<div class="viewcode-block" id="ConditionalLGATrBlock">
+<a class="viewcode-back" href="../../../generated/lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.html#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConditionalLGATrBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;L-GATr decoder block.</span>
+
+<span class="sd">    Inputs are first processed by LayerNorm, multi-head geometric self-attention, and a residual</span>
+<span class="sd">    connection. Then the conditions are mixed in via cross-attention with the same overhead as</span>
+<span class="sd">    self-attention. Finally the data goes through another LayerNorm, an item-wise geometric MLP,</span>
+<span class="sd">    and another residual connection.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mv_channels</span>
+<span class="sd">        Number of input and output multivector channels.</span>
+<span class="sd">    s_channels</span>
+<span class="sd">        Number of input and output scalar channels.</span>
+<span class="sd">    mv_channels_cond</span>
+<span class="sd">        Number of condition multivector channels.</span>
+<span class="sd">    s_channels_cond</span>
+<span class="sd">        Number of condition scalar channels. Use 0 for no scalar condition stream.</span>
+<span class="sd">    attention</span>
+<span class="sd">        Self-attention configuration.</span>
+<span class="sd">    crossattention</span>
+<span class="sd">        Cross-attention configuration.</span>
+<span class="sd">    mlp</span>
+<span class="sd">        MLP configuration.</span>
+<span class="sd">    primitives</span>
+<span class="sd">        LGATr primitives configuration.</span>
+<span class="sd">    dropout_prob</span>
+<span class="sd">        Dropout probability.</span>
+<span class="sd">    norm_elementwise_affine</span>
+<span class="sd">        Whether the block :class:`EquiLayerNorm` instances learn an affine gain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mv_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">s_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">mv_channels_cond</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">s_channels_cond</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">attention</span><span class="p">:</span> <span class="n">SelfAttentionConfig</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">,</span>
+        <span class="n">crossattention</span><span class="p">:</span> <span class="n">CrossAttentionConfig</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">,</span>
+        <span class="n">mlp</span><span class="p">:</span> <span class="n">MLPConfig</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">,</span>
+        <span class="n">primitives</span><span class="p">:</span> <span class="n">PrimitivesConfig</span> <span class="o">|</span> <span class="n">Mapping</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">norm_elementwise_affine</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="n">primitives</span> <span class="o">=</span> <span class="n">PrimitivesConfig</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">primitives</span><span class="p">)</span>
+
+        <span class="c1"># Pre-norms: norm1 (self-attn), norm2 (cross-attn query), norm_cond (cross-attn condition),</span>
+        <span class="c1"># norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the</span>
+        <span class="c1"># query and condition normalizations and both follow norm_elementwise_affine.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span> <span class="o">=</span> <span class="n">EquiLayerNorm</span><span class="p">(</span>
+            <span class="n">mv_channels</span><span class="p">,</span> <span class="n">s_channels</span><span class="p">,</span> <span class="n">elementwise_affine</span><span class="o">=</span><span class="n">norm_elementwise_affine</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span> <span class="o">=</span> <span class="n">EquiLayerNorm</span><span class="p">(</span>
+            <span class="n">mv_channels</span><span class="p">,</span> <span class="n">s_channels</span><span class="p">,</span> <span class="n">elementwise_affine</span><span class="o">=</span><span class="n">norm_elementwise_affine</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span> <span class="o">=</span> <span class="n">EquiLayerNorm</span><span class="p">(</span>
+            <span class="n">mv_channels</span><span class="p">,</span> <span class="n">s_channels</span><span class="p">,</span> <span class="n">elementwise_affine</span><span class="o">=</span><span class="n">norm_elementwise_affine</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm_cond</span> <span class="o">=</span> <span class="n">EquiLayerNorm</span><span class="p">(</span>
+            <span class="n">mv_channels_cond</span><span class="p">,</span> <span class="n">s_channels_cond</span><span class="p">,</span> <span class="n">elementwise_affine</span><span class="o">=</span><span class="n">norm_elementwise_affine</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Self-attention layer</span>
+        <span class="n">attention</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="n">SelfAttentionConfig</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">attention</span><span class="p">),</span>
+            <span class="n">in_mv_channels</span><span class="o">=</span><span class="n">mv_channels</span><span class="p">,</span>
+            <span class="n">out_mv_channels</span><span class="o">=</span><span class="n">mv_channels</span><span class="p">,</span>
+            <span class="n">in_s_channels</span><span class="o">=</span><span class="n">s_channels</span><span class="p">,</span>
+            <span class="n">out_s_channels</span><span class="o">=</span><span class="n">s_channels</span><span class="p">,</span>
+            <span class="n">output_init</span><span class="o">=</span><span class="s2">&quot;small&quot;</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attention</span> <span class="o">=</span> <span class="n">SelfAttention</span><span class="p">(</span><span class="n">attention</span><span class="p">,</span> <span class="n">primitives</span><span class="p">)</span>
+
+        <span class="c1"># Cross-attention layer</span>
+        <span class="n">crossattention</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="n">CrossAttentionConfig</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">crossattention</span><span class="p">),</span>
+            <span class="n">q_mv_channels</span><span class="o">=</span><span class="n">mv_channels</span><span class="p">,</span>
+            <span class="n">q_s_channels</span><span class="o">=</span><span class="n">s_channels</span><span class="p">,</span>
+            <span class="n">kv_mv_channels</span><span class="o">=</span><span class="n">mv_channels_cond</span><span class="p">,</span>
+            <span class="n">kv_s_channels</span><span class="o">=</span><span class="n">s_channels_cond</span><span class="p">,</span>
+            <span class="n">out_mv_channels</span><span class="o">=</span><span class="n">mv_channels</span><span class="p">,</span>
+            <span class="n">out_s_channels</span><span class="o">=</span><span class="n">s_channels</span><span class="p">,</span>
+            <span class="n">output_init</span><span class="o">=</span><span class="s2">&quot;small&quot;</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">crossattention</span> <span class="o">=</span> <span class="n">CrossAttention</span><span class="p">(</span><span class="n">crossattention</span><span class="p">,</span> <span class="n">primitives</span><span class="p">)</span>
+
+        <span class="c1"># MLP block</span>
+        <span class="n">mlp</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span>
+            <span class="n">MLPConfig</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">mlp</span><span class="p">),</span>
+            <span class="n">mv_channels</span><span class="o">=</span><span class="n">mv_channels</span><span class="p">,</span>
+            <span class="n">s_channels</span><span class="o">=</span><span class="n">s_channels</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">GeoMLP</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">primitives</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConditionalLGATrBlock.forward">
+<a class="viewcode-back" href="../../../generated/lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.html#lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">multivectors</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">multivectors_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scalars</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">scalars_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">attn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">crossattn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass of the decoder block.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        multivectors</span>
+<span class="sd">            Input multivectors of shape ``(..., items, mv_channels, 16)``.</span>
+<span class="sd">        multivectors_cond</span>
+<span class="sd">            Condition multivectors of shape ``(..., items_cond, mv_channels_cond, 16)``.</span>
+<span class="sd">        scalars</span>
+<span class="sd">            Optional input scalars of shape ``(..., items, s_channels)``. If None, the scalar</span>
+<span class="sd">            stream is bypassed and ``outputs_s`` is None.</span>
+<span class="sd">        scalars_cond</span>
+<span class="sd">            Optional condition scalars of shape ``(..., items_cond, s_channels_cond)``.</span>
+<span class="sd">        attn_kwargs</span>
+<span class="sd">            Optional keyword arguments forwarded to self-attention (e.g. attention masks).</span>
+<span class="sd">        crossattn_kwargs</span>
+<span class="sd">            Optional keyword arguments forwarded to cross-attention (e.g. attention masks).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        outputs_mv</span>
+<span class="sd">            Output multivectors of shape ``(..., items, mv_channels, 16)``.</span>
+<span class="sd">        outputs_s</span>
+<span class="sd">            Output scalars of shape ``(..., items, s_channels)``, or None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">attn_kwargs</span> <span class="o">=</span> <span class="n">attn_kwargs</span> <span class="k">if</span> <span class="n">attn_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">crossattn_kwargs</span> <span class="o">=</span> <span class="n">crossattn_kwargs</span> <span class="k">if</span> <span class="n">crossattn_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+
+        <span class="c1"># Self-attention block: pre layer norm</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">multivectors</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">scalars</span><span class="p">)</span>
+
+        <span class="c1"># Self-attention block: self attention</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attention</span><span class="p">(</span>
+            <span class="n">h_mv</span><span class="p">,</span>
+            <span class="n">scalars</span><span class="o">=</span><span class="n">h_s</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">attn_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Self-attention block: skip connection</span>
+        <span class="n">multivectors</span> <span class="o">=</span> <span class="n">multivectors</span> <span class="o">+</span> <span class="n">h_mv</span>
+        <span class="n">scalars</span> <span class="o">=</span> <span class="n">residual_add</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">h_s</span><span class="p">)</span>
+
+        <span class="c1"># Cross-attention block: pre layer norm</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">multivectors</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">scalars</span><span class="p">)</span>
+        <span class="n">mv_cond</span><span class="p">,</span> <span class="n">s_cond</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm_cond</span><span class="p">(</span><span class="n">multivectors_cond</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">scalars_cond</span><span class="p">)</span>
+
+        <span class="c1"># Cross-attention block: cross attention</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crossattention</span><span class="p">(</span>
+            <span class="n">multivectors_q</span><span class="o">=</span><span class="n">h_mv</span><span class="p">,</span>
+            <span class="n">multivectors_kv</span><span class="o">=</span><span class="n">mv_cond</span><span class="p">,</span>
+            <span class="n">scalars_q</span><span class="o">=</span><span class="n">h_s</span><span class="p">,</span>
+            <span class="n">scalars_kv</span><span class="o">=</span><span class="n">s_cond</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">crossattn_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Cross-attention block: skip connection</span>
+        <span class="n">outputs_mv</span> <span class="o">=</span> <span class="n">multivectors</span> <span class="o">+</span> <span class="n">h_mv</span>
+        <span class="n">outputs_s</span> <span class="o">=</span> <span class="n">residual_add</span><span class="p">(</span><span class="n">scalars</span><span class="p">,</span> <span class="n">h_s</span><span class="p">)</span>
+
+        <span class="c1"># MLP block: pre layer norm</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span><span class="p">(</span><span class="n">outputs_mv</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">outputs_s</span><span class="p">)</span>
+
+        <span class="c1"># MLP block: MLP</span>
+        <span class="n">h_mv</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="p">(</span><span class="n">h_mv</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="n">h_s</span><span class="p">)</span>
+
+        <span class="c1"># MLP block: skip connection</span>
+        <span class="n">outputs_mv</span> <span class="o">=</span> <span class="n">outputs_mv</span> <span class="o">+</span> <span class="n">h_mv</span>
+        <span class="n">outputs_s</span> <span class="o">=</span> <span class="n">residual_add</span><span class="p">(</span><span class="n">outputs_s</span><span class="p">,</span> <span class="n">h_s</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">outputs_mv</span><span class="p">,</span> <span class="n">outputs_s</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

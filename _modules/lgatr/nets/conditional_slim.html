@@ -1,0 +1,360 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.nets.conditional_slim &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=3469de9b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lgatr.nets.conditional_slim</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lgatr.nets.conditional_slim</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Equivariant conditional transformer for vector and scalar data.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">checkpoint</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..layers.slim_layers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConditionalSlimBlock</span><span class="p">,</span>
+    <span class="n">SlimLinear</span><span class="p">,</span>
+    <span class="n">_freeze_dead_tail</span><span class="p">,</span>
+    <span class="n">_require_scalars</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.autocast</span><span class="w"> </span><span class="kn">import</span> <span class="n">naive_amp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.compile</span><span class="w"> </span><span class="kn">import</span> <span class="n">compile_model</span>
+
+
+<div class="viewcode-block" id="ConditionalLGATrSlim">
+<a class="viewcode-back" href="../../../generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html#lgatr.nets.conditional_slim.ConditionalLGATrSlim">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConditionalLGATrSlim</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Conditional L-GATr-slim network.</span>
+
+<span class="sd">    Stacks ``num_blocks`` :class:`ConditionalSlimBlock` modules between initial and final</span>
+<span class="sd">    :class:`SlimLinear` layers.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    num_blocks</span>
+<span class="sd">        Number of Lorentz-transformer blocks.</span>
+<span class="sd">    in_v_channels</span>
+<span class="sd">        Number of input vector channels.</span>
+<span class="sd">    v_channels_cond</span>
+<span class="sd">        Number of conditional vector channels.</span>
+<span class="sd">    out_v_channels</span>
+<span class="sd">        Number of output vector channels.</span>
+<span class="sd">    hidden_v_channels</span>
+<span class="sd">        Number of hidden vector channels.</span>
+<span class="sd">    in_s_channels</span>
+<span class="sd">        Number of input scalar channels.</span>
+<span class="sd">    s_channels_cond</span>
+<span class="sd">        Number of conditional scalar channels.</span>
+<span class="sd">    out_s_channels</span>
+<span class="sd">        Number of output scalar channels.</span>
+<span class="sd">    hidden_s_channels</span>
+<span class="sd">        Number of hidden scalar channels.</span>
+<span class="sd">    num_heads</span>
+<span class="sd">        Number of attention heads.</span>
+<span class="sd">    nonlinearity</span>
+<span class="sd">        Nonlinearity for the MLP layers.</span>
+<span class="sd">    nonlinearity_v</span>
+<span class="sd">        Optional override for the vector-path gate nonlinearity in every GLU. ``None`` falls</span>
+<span class="sd">        back to ``nonlinearity``.</span>
+<span class="sd">    mlp_ratio</span>
+<span class="sd">        Expansion ratio for MLP hidden channels.</span>
+<span class="sd">    attn_ratio</span>
+<span class="sd">        Expansion ratio for attention hidden channels.</span>
+<span class="sd">    num_layers_mlp</span>
+<span class="sd">        Number of layers in each MLP (must be ``&gt;= 2``).</span>
+<span class="sd">    dropout_prob</span>
+<span class="sd">        Dropout probability.</span>
+<span class="sd">    norm_elementwise_affine</span>
+<span class="sd">        Whether the :class:`SlimRMSNorm` instances learn per-channel gains.</span>
+<span class="sd">    checkpoint_blocks</span>
+<span class="sd">        Whether to use gradient checkpointing for the blocks.</span>
+<span class="sd">    naive_amp</span>
+<span class="sd">        Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding</span>
+<span class="sd">        autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and</span>
+<span class="sd">        metric contractions stay fp32 while the scalar GEMMs run in bf16.</span>
+<span class="sd">    compile</span>
+<span class="sd">        Whether to wrap the model with :func:`torch.compile`.</span>
+<span class="sd">    compile_kwargs</span>
+<span class="sd">        Dict forwarded verbatim to :func:`torch.compile` (via</span>
+<span class="sd">        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,</span>
+<span class="sd">        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch&#39;s own defaults.</span>
+<span class="sd">    activation_memory_budget</span>
+<span class="sd">        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when</span>
+<span class="sd">        ``compile=True``. ``None`` (the default) leaves torch&#39;s global setting untouched. Setting</span>
+<span class="sd">        ``1.0`` recomputes only cheap pointwise/reduction ops in the backward pass (torch default);</span>
+<span class="sd">        lower values let the partitioner also recompute compute-intensive ops, ranked by</span>
+<span class="sd">        memory-saved-per-FLOP, trading backward FLOPs for a smaller activation-memory peak. Smaller</span>
+<span class="sd">        values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">in_v_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">v_channels_cond</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">out_v_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_v_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">in_s_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">s_channels_cond</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">out_s_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_s_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">nonlinearity</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gelu&quot;</span><span class="p">,</span>
+        <span class="n">nonlinearity_v</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span>
+        <span class="n">mlp_ratio</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">attn_ratio</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">num_layers_mlp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">norm_elementwise_affine</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">checkpoint_blocks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">naive_amp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="nb">compile</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">compile_kwargs</span><span class="p">:</span> <span class="n">Mapping</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">activation_memory_budget</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_naive_amp</span> <span class="o">=</span> <span class="n">naive_amp</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_in</span> <span class="o">=</span> <span class="n">SlimLinear</span><span class="p">(</span>
+            <span class="n">in_v_channels</span><span class="o">=</span><span class="n">in_v_channels</span><span class="p">,</span>
+            <span class="n">in_s_channels</span><span class="o">=</span><span class="n">in_s_channels</span><span class="p">,</span>
+            <span class="n">out_v_channels</span><span class="o">=</span><span class="n">hidden_v_channels</span><span class="p">,</span>
+            <span class="n">out_s_channels</span><span class="o">=</span><span class="n">hidden_s_channels</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">ConditionalSlimBlock</span><span class="p">(</span>
+                    <span class="n">v_channels</span><span class="o">=</span><span class="n">hidden_v_channels</span><span class="p">,</span>
+                    <span class="n">s_channels</span><span class="o">=</span><span class="n">hidden_s_channels</span><span class="p">,</span>
+                    <span class="n">v_channels_cond</span><span class="o">=</span><span class="n">v_channels_cond</span><span class="p">,</span>
+                    <span class="n">s_channels_cond</span><span class="o">=</span><span class="n">s_channels_cond</span><span class="p">,</span>
+                    <span class="n">num_heads</span><span class="o">=</span><span class="n">num_heads</span><span class="p">,</span>
+                    <span class="n">nonlinearity</span><span class="o">=</span><span class="n">nonlinearity</span><span class="p">,</span>
+                    <span class="n">nonlinearity_v</span><span class="o">=</span><span class="n">nonlinearity_v</span><span class="p">,</span>
+                    <span class="n">mlp_ratio</span><span class="o">=</span><span class="n">mlp_ratio</span><span class="p">,</span>
+                    <span class="n">attn_ratio</span><span class="o">=</span><span class="n">attn_ratio</span><span class="p">,</span>
+                    <span class="n">num_layers_mlp</span><span class="o">=</span><span class="n">num_layers_mlp</span><span class="p">,</span>
+                    <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+                    <span class="n">norm_elementwise_affine</span><span class="o">=</span><span class="n">norm_elementwise_affine</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_blocks</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_out</span> <span class="o">=</span> <span class="n">SlimLinear</span><span class="p">(</span>
+            <span class="n">in_v_channels</span><span class="o">=</span><span class="n">hidden_v_channels</span><span class="p">,</span>
+            <span class="n">in_s_channels</span><span class="o">=</span><span class="n">hidden_s_channels</span><span class="p">,</span>
+            <span class="n">out_v_channels</span><span class="o">=</span><span class="n">out_v_channels</span><span class="p">,</span>
+            <span class="n">out_s_channels</span><span class="o">=</span><span class="n">out_s_channels</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_blocks</span> <span class="o">=</span> <span class="n">checkpoint_blocks</span>
+
+        <span class="c1"># norm3 is the pre-MLP norm; norm2 (cross-attention) stays alive</span>
+        <span class="k">if</span> <span class="n">num_blocks</span><span class="p">:</span>
+            <span class="n">_freeze_dead_tail</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">norm3</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mlp</span><span class="p">,</span> <span class="n">out_v_channels</span><span class="p">,</span> <span class="n">out_s_channels</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">compile</span><span class="p">:</span>
+            <span class="n">compile_model</span><span class="p">(</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="n">compile_kwargs</span><span class="o">=</span><span class="n">compile_kwargs</span><span class="p">,</span>
+                <span class="n">activation_memory_budget</span><span class="o">=</span><span class="n">activation_memory_budget</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="ConditionalLGATrSlim.forward">
+<a class="viewcode-back" href="../../../generated/lgatr.nets.conditional_slim.ConditionalLGATrSlim.html#lgatr.nets.conditional_slim.ConditionalLGATrSlim.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vectors</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">vectors_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scalars</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scalars_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">attn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">crossattn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        vectors</span>
+<span class="sd">            Lorentz vectors of shape ``(..., items, in_v_channels, 4)``.</span>
+<span class="sd">        vectors_cond</span>
+<span class="sd">            Condition Lorentz vectors of shape ``(..., items_cond, v_channels_cond, 4)``.</span>
+<span class="sd">        scalars</span>
+<span class="sd">            Scalar features of shape ``(..., items, in_s_channels)``.</span>
+<span class="sd">        scalars_cond</span>
+<span class="sd">            Condition scalar features of shape ``(..., items_cond, s_channels_cond)``.</span>
+<span class="sd">        attn_kwargs</span>
+<span class="sd">            Optional keyword arguments forwarded to self-attention.</span>
+<span class="sd">        crossattn_kwargs</span>
+<span class="sd">            Optional keyword arguments forwarded to cross-attention.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        outputs_v</span>
+<span class="sd">            Lorentz vectors of shape ``(..., items, out_v_channels, 4)``.</span>
+<span class="sd">        outputs_s</span>
+<span class="sd">            Scalar features of shape ``(..., items, out_s_channels)``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_require_scalars</span><span class="p">(</span><span class="n">scalars</span><span class="o">=</span><span class="n">scalars</span><span class="p">,</span> <span class="n">scalars_cond</span><span class="o">=</span><span class="n">scalars_cond</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">naive_amp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_naive_amp</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span>
+                <span class="n">vectors</span><span class="p">,</span>
+                <span class="n">vectors_cond</span><span class="p">,</span>
+                <span class="n">scalars</span><span class="p">,</span>
+                <span class="n">scalars_cond</span><span class="p">,</span>
+                <span class="n">attn_kwargs</span><span class="o">=</span><span class="n">attn_kwargs</span><span class="p">,</span>
+                <span class="n">crossattn_kwargs</span><span class="o">=</span><span class="n">crossattn_kwargs</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vectors</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">vectors_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scalars</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">scalars_cond</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">attn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">crossattn_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">attn_kwargs</span> <span class="o">=</span> <span class="n">attn_kwargs</span> <span class="k">if</span> <span class="n">attn_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="n">crossattn_kwargs</span> <span class="o">=</span> <span class="n">crossattn_kwargs</span> <span class="k">if</span> <span class="n">crossattn_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+
+        <span class="c1"># hidden layers keep vectors channel-last (..., 4, channels) so the vector linears run</span>
+        <span class="c1"># as flat GEMMs; only the public interface uses (..., channels, 4)</span>
+        <span class="n">h_v</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_in</span><span class="p">(</span><span class="n">vectors</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">scalars</span><span class="p">)</span>
+        <span class="n">vectors_cond</span> <span class="o">=</span> <span class="n">vectors_cond</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_blocks</span><span class="p">:</span>
+                <span class="n">h_v</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="n">checkpoint</span><span class="p">(</span>
+                    <span class="n">block</span><span class="p">,</span>
+                    <span class="n">vectors</span><span class="o">=</span><span class="n">h_v</span><span class="p">,</span>
+                    <span class="n">scalars</span><span class="o">=</span><span class="n">h_s</span><span class="p">,</span>
+                    <span class="n">vectors_cond</span><span class="o">=</span><span class="n">vectors_cond</span><span class="p">,</span>
+                    <span class="n">scalars_cond</span><span class="o">=</span><span class="n">scalars_cond</span><span class="p">,</span>
+                    <span class="n">use_reentrant</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">attn_kwargs</span><span class="o">=</span><span class="n">attn_kwargs</span><span class="p">,</span>
+                    <span class="n">crossattn_kwargs</span><span class="o">=</span><span class="n">crossattn_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">h_v</span><span class="p">,</span> <span class="n">h_s</span> <span class="o">=</span> <span class="n">block</span><span class="p">(</span>
+                    <span class="n">vectors</span><span class="o">=</span><span class="n">h_v</span><span class="p">,</span>
+                    <span class="n">scalars</span><span class="o">=</span><span class="n">h_s</span><span class="p">,</span>
+                    <span class="n">vectors_cond</span><span class="o">=</span><span class="n">vectors_cond</span><span class="p">,</span>
+                    <span class="n">scalars_cond</span><span class="o">=</span><span class="n">scalars_cond</span><span class="p">,</span>
+                    <span class="n">attn_kwargs</span><span class="o">=</span><span class="n">attn_kwargs</span><span class="p">,</span>
+                    <span class="n">crossattn_kwargs</span><span class="o">=</span><span class="n">crossattn_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="n">outputs_v</span><span class="p">,</span> <span class="n">outputs_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_out</span><span class="p">(</span><span class="n">h_v</span><span class="p">,</span> <span class="n">h_s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">outputs_v</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">outputs_s</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

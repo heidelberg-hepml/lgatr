@@ -1,0 +1,132 @@
+API Reference
+=============
+
+L-GATr Networks
+---------------
+
+We provide two main L-GATr networks, :class:`~lgatr.nets.lgatr.LGATr` as a stack of transformer encoders,
+and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` as a stack of transformer decoders.
+For tasks where conditional inputs are required, you can process the condition with a :class:`~lgatr.nets.lgatr.LGATr`
+and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
+In addition :class:`~lgatr.nets.slim.LGATrSlim` and :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`
+provide more efficient versions of the respective networks using only scalar and vector representations.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.nets.lgatr.LGATr
+   lgatr.nets.conditional_lgatr.ConditionalLGATr
+   lgatr.nets.slim.LGATrSlim
+   lgatr.nets.conditional_slim.ConditionalLGATrSlim
+
+.. _l-gatr-layers:
+
+L-GATr Layers
+-------------
+
+The :class:`~lgatr.nets.lgatr.LGATr` and :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` networks
+have a structure similar to standard transformers. We construct them using variants of the standard
+transformer layers adapted to the geometric algebra framework.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.layers.lgatr_block.LGATrBlock
+   lgatr.layers.conditional_lgatr_block.ConditionalLGATrBlock
+   lgatr.layers.linear.EquiLinear
+   lgatr.layers.attention.self_attention.SelfAttention
+   lgatr.layers.attention.cross_attention.CrossAttention
+   lgatr.layers.mlp.mlp.GeoMLP
+   lgatr.layers.mlp.geometric_bilinears.GeometricBilinear
+   lgatr.layers.mlp.nonlinearities.ScalarGatedNonlinearity
+   lgatr.layers.layer_norm.EquiLayerNorm
+   lgatr.layers.dropout.GradeDropout
+
+L-GATr Primitives
+-----------------
+
+The L-GATr primitives implement the core equivariant operations and are called by the L-GATr layers.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.primitives.attention
+   lgatr.primitives.bilinear
+   lgatr.primitives.dropout
+   lgatr.primitives.invariants
+   lgatr.primitives.linear
+   lgatr.primitives.normalization
+
+
+L-GATr Configuration Classes
+----------------------------
+
+L-GATr uses ``dataclass`` objects to organize less relevant hyperparameters like number of heads or the MLP nonlinearity.
+The :class:`~lgatr.layers.mlp.config.MLPConfig`, :class:`~lgatr.layers.attention.config.SelfAttentionConfig`, :class:`~lgatr.layers.attention.config.CrossAttentionConfig`, and :class:`~lgatr.primitives.config.PrimitivesConfig` are all arguments for the :class:`~lgatr.nets.lgatr.LGATr`/:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` modules.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.primitives.config.PrimitivesConfig
+   lgatr.layers.attention.config.SelfAttentionConfig
+   lgatr.layers.attention.config.CrossAttentionConfig
+   lgatr.layers.mlp.config.MLPConfig
+
+Interface to the Geometric Algebra
+----------------------------------
+
+Before we feed data into L-GATr networks and after we extract results, we have to convert between common scalar/vector objects and multivectors.
+This is very simple, we still introduce convenience methods for this step.
+We also include functionality to construct `spurions`, or reference multivectors,
+which can be added as extra items or channels to break equivariance at the input level.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.interface.scalar
+   lgatr.interface.vector
+   lgatr.interface.bivector
+   lgatr.interface.axialvector
+   lgatr.interface.pseudoscalar
+   lgatr.interface.spurions
+
+L-GATr Utilities
+----------------
+
+Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
+constructor path, a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates the
+primitive caches for a given ``(device, dtype)``, and an autocast decorator that pins inputs to a
+minimum precision.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.utils.compile
+   lgatr.primitives.compile
+   lgatr.utils.autocast
+
+L-GATr-slim Layers
+------------------
+
+In addition to the full L-GATr network, we provide a slimmed-down version that uses only scalar and vector representations instead of full multivectors.
+This approach allows a more efficient implementation while achieving similar performance on all high-energy physics tasks we have tested so far.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   lgatr.layers.slim_layers.SlimBlock
+   lgatr.layers.slim_layers.ConditionalSlimBlock
+   lgatr.layers.slim_layers.SlimSelfAttention
+   lgatr.layers.slim_layers.SlimCrossAttention
+   lgatr.layers.slim_layers.SlimMLP
+   lgatr.layers.slim_layers.SlimGLU
+   lgatr.layers.slim_layers.SlimLinear
+   lgatr.layers.slim_layers.SlimRMSNorm
+   lgatr.layers.slim_layers.SlimDropout
