@@ -1,16 +1,14 @@
-"""Equivariant transformer for vector, scalar, and pseudoscalar data."""
+"""Building blocks for the slim-pseudo (vector + scalar + pseudoscalar) L-GATr network."""
 
 import math
 
 import torch
 from torch import nn
 from torch.nn.functional import dropout, dropout1d
-from torch.utils.checkpoint import checkpoint
 
-from ..primitives.attention import scaled_dot_product_attention
 from ..utils.autocast import minimum_autocast_precision
-from ..utils.compile import compile_model
 from ..utils.misc import get_nonlinearity
+from .slim_layers import _call_attention
 
 
 def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -63,10 +61,6 @@ def _post_attention_reshape(
     h_s = h_s.movedim(-2, -3).flatten(-2, -1)
     h_p = h_p.movedim(-2, -3).flatten(-2, -1)
     return h_v, h_s, h_p
-
-
-def _call_attention(*args, **kwargs):
-    return scaled_dot_product_attention(*args, **kwargs)
 
 
 class VectorToPseudoscalar(nn.Module):
@@ -191,20 +185,22 @@ class VectorToTripleProduct(nn.Module):
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
         projected = torch.einsum("...cM,pac->...paM", vectors, self.weight)  # (..., p, 3, 4)
-        ref = self.reference[..., None, :].expand(*projected.shape[:-3], -1, -1, -1)  # (..., p, 1, 4)
+        ref = self.reference[..., None, :].expand(
+            *projected.shape[:-3], -1, -1, -1
+        )  # (..., p, 1, 4)
         stacked = torch.cat([ref, projected], dim=-2)  # (..., p, 4, 4)
         return det4x4(stacked)
 
 
-class Dropout(nn.Module):
-    """Dropout for vector, scalar, and pseudoscalar features.
+class SlimPseudoDropout(nn.Module):
+    """SlimPseudoDropout for vector, scalar, and pseudoscalar features.
 
     For vector features the same dropout mask is applied to all four components of each vector.
 
     Parameters
     ----------
     dropout_prob
-        Dropout probability.
+        SlimPseudoDropout probability.
     """
 
     def __init__(self, dropout_prob: float) -> None:
@@ -245,7 +241,7 @@ class Dropout(nn.Module):
         return outputs_v, outputs_s, outputs_p
 
 
-class RMSNorm(nn.Module):
+class SlimPseudoRMSNorm(nn.Module):
     """Joint RMS normalization over vector, scalar, and pseudoscalar features.
 
     For vectors the absolute value of the squared norm is used; otherwise the squared norm could
@@ -264,7 +260,7 @@ class RMSNorm(nn.Module):
         Small numerical offset to avoid instabilities.
     elementwise_affine
         Whether to apply a learnable per-channel gain. Silently disabled when the channel counts
-        are not provided (e.g. ``RMSNorm()``).
+        are not provided (e.g. ``SlimPseudoRMSNorm()``).
     """
 
     def __init__(
@@ -336,7 +332,7 @@ class RMSNorm(nn.Module):
         return outputs_v, outputs_s, outputs_p
 
 
-class Linear(nn.Module):
+class SlimPseudoLinear(nn.Module):
     """Linear layer for vector, scalar, and pseudoscalar features.
 
     The vector and scalar streams are kept separate; pseudoscalars couple back into the other
@@ -490,7 +486,7 @@ class Linear(nn.Module):
             nn.init.zeros_(self.s_to_p_gate.bias)
 
 
-class GatedLinearUnit(nn.Module):
+class SlimPseudoGLU(nn.Module):
     """Gated linear unit (GLU) for vector, scalar, and pseudoscalar features.
 
     Scalar and pseudoscalar gates are computed from scalar features (parity-even quantities);
@@ -536,7 +532,7 @@ class GatedLinearUnit(nn.Module):
         super().__init__()
         self._out_s_channels = out_s_channels
         self._out_p_channels = out_p_channels
-        self.linear = Linear(
+        self.linear = SlimPseudoLinear(
             in_v_channels=in_v_channels,
             out_v_channels=3 * out_v_channels,
             in_s_channels=in_s_channels,
@@ -593,7 +589,7 @@ class GatedLinearUnit(nn.Module):
         return 0.5 * inner_product(v_gates_1, v_gates_2).unsqueeze(-1)
 
 
-class SelfAttention(nn.Module):
+class SlimPseudoSelfAttention(nn.Module):
     """Self-attention for Lorentz vectors, scalars, and pseudoscalars.
 
     Parameters
@@ -609,7 +605,7 @@ class SelfAttention(nn.Module):
     attn_ratio
         Expansion ratio for the attention hidden channels.
     dropout_prob
-        Dropout probability.
+        SlimPseudoDropout probability.
     """
 
     def __init__(
@@ -631,7 +627,7 @@ class SelfAttention(nn.Module):
 
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
-        self.linear_in = Linear(
+        self.linear_in = SlimPseudoLinear(
             in_v_channels=v_channels,
             out_v_channels=3 * self.hidden_v_channels * self.num_heads,
             in_s_channels=s_channels,
@@ -643,7 +639,7 @@ class SelfAttention(nn.Module):
             cp_triple_product=cp_triple_product,
             cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
-        self.linear_out = Linear(
+        self.linear_out = SlimPseudoLinear(
             in_v_channels=self.hidden_v_channels * self.num_heads,
             out_v_channels=v_channels,
             in_s_channels=self.hidden_s_channels * self.num_heads,
@@ -654,14 +650,14 @@ class SelfAttention(nn.Module):
             cp_triple_product=cp_triple_product,
             cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
-        self.norm = RMSNorm(
+        self.norm = SlimPseudoRMSNorm(
             self.hidden_v_channels,
             self.hidden_s_channels,
             self.hidden_p_channels,
             elementwise_affine=False,
         )
         if dropout_prob is not None:
-            self.dropout = Dropout(dropout_prob)
+            self.dropout = SlimPseudoDropout(dropout_prob)
         else:
             self.dropout = None
 
@@ -740,7 +736,7 @@ class SelfAttention(nn.Module):
         return outputs_v, outputs_s, outputs_p
 
 
-class MLP(nn.Module):
+class SlimPseudoMLP(nn.Module):
     """Multi-layer perceptron for vector, scalar, and pseudoscalar features.
 
     Parameters
@@ -761,7 +757,7 @@ class MLP(nn.Module):
     num_layers
         Total number of layers (must be ``>= 2``).
     dropout_prob
-        Dropout probability.
+        SlimPseudoDropout probability.
     """
 
     def __init__(
@@ -787,7 +783,7 @@ class MLP(nn.Module):
 
         for i in range(num_layers - 1):
             layers.append(
-                GatedLinearUnit(
+                SlimPseudoGLU(
                     in_v_channels=v_channels_list[i],
                     out_v_channels=v_channels_list[i + 1],
                     in_s_channels=s_channels_list[i],
@@ -801,9 +797,9 @@ class MLP(nn.Module):
                 )
             )
             if dropout_prob is not None:
-                layers.append(Dropout(dropout_prob))
+                layers.append(SlimPseudoDropout(dropout_prob))
         layers.append(
-            Linear(
+            SlimPseudoLinear(
                 in_v_channels=v_channels_list[-2],
                 out_v_channels=v_channels_list[-1],
                 in_s_channels=s_channels_list[-2],
@@ -848,7 +844,7 @@ class MLP(nn.Module):
         return h_v, h_s, h_p
 
 
-class LGATrSlimPseudoBlock(nn.Module):
+class SlimPseudoBlock(nn.Module):
     """A single block of the pseudoscalar-extended L-GATr-slim network.
 
     Pre-norm + self-attention + residual, then pre-norm + MLP + residual.
@@ -874,7 +870,7 @@ class LGATrSlimPseudoBlock(nn.Module):
     num_layers_mlp
         Number of layers in the MLP.
     dropout_prob
-        Dropout probability.
+        SlimPseudoDropout probability.
     norm_elementwise_affine
         Whether the pre-norms use a learnable per-channel gain.
     """
@@ -897,14 +893,14 @@ class LGATrSlimPseudoBlock(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.norm1 = RMSNorm(
+        self.norm1 = SlimPseudoRMSNorm(
             v_channels, s_channels, p_channels, elementwise_affine=norm_elementwise_affine
         )
-        self.norm2 = RMSNorm(
+        self.norm2 = SlimPseudoRMSNorm(
             v_channels, s_channels, p_channels, elementwise_affine=norm_elementwise_affine
         )
 
-        self.attention = SelfAttention(
+        self.attention = SlimPseudoSelfAttention(
             v_channels=v_channels,
             s_channels=s_channels,
             p_channels=p_channels,
@@ -915,7 +911,7 @@ class LGATrSlimPseudoBlock(nn.Module):
             cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
         )
 
-        self.mlp = MLP(
+        self.mlp = SlimPseudoMLP(
             v_channels=v_channels,
             s_channels=s_channels,
             p_channels=p_channels,
@@ -973,191 +969,4 @@ class LGATrSlimPseudoBlock(nn.Module):
         outputs_s = outputs_s + h_s
         outputs_p = outputs_p + h_p
 
-        return outputs_v, outputs_s, outputs_p
-
-
-class LGATrSlimPseudo(nn.Module):
-    """L-GATr-slim network with an additional pseudoscalar stream.
-
-    A slimmer L-GATr variant that operates on Lorentz vectors, scalars, and pseudoscalars (no full
-    multivector representation). Stacks ``num_blocks`` :class:`LGATrSlimPseudoBlock` modules between
-    initial and final :class:`Linear` layers. Usually instantiated indirectly via
-    :class:`LGATrSlim` with nonzero pseudoscalar channels.
-
-    Parameters
-    ----------
-    in_v_channels
-        Number of input vector channels.
-    out_v_channels
-        Number of output vector channels.
-    hidden_v_channels
-        Number of hidden vector channels.
-    in_s_channels
-        Number of input scalar channels.
-    out_s_channels
-        Number of output scalar channels.
-    hidden_s_channels
-        Number of hidden scalar channels.
-    in_p_channels
-        Number of input pseudoscalar channels.
-    out_p_channels
-        Number of output pseudoscalar channels.
-    hidden_p_channels
-        Number of hidden pseudoscalar channels.
-    num_blocks
-        Number of Lorentz-transformer blocks.
-    num_heads
-        Number of attention heads.
-    nonlinearity
-        Nonlinearity for the MLP layers.
-    nonlinearity_v
-        Optional override for the vector-path gate nonlinearity in every GLU. ``None`` falls
-        back to ``nonlinearity``.
-    mlp_ratio
-        Expansion ratio for MLP hidden channels.
-    attn_ratio
-        Expansion ratio for attention hidden channels.
-    num_layers_mlp
-        Number of layers in each MLP.
-    dropout_prob
-        Dropout probability.
-    norm_elementwise_affine
-        Whether the block pre-norms use a learnable per-channel gain.
-    checkpoint_blocks
-        Whether to use gradient checkpointing for the blocks.
-    cp_triple_product
-        Enable the lower-rank lab-frame triple-product CP-odd primitive in every linear layer (see
-        :class:`VectorToTripleProduct`). Defaults to ``False``.
-    cp_scalar_pseudo_mixing
-        Enable scalar-context modulation of the pseudoscalar path in every linear layer. Defaults to
-        ``False``.
-    compile
-        Whether to wrap the model with :func:`torch.compile`.
-    **compile_kwargs
-        Forwarded to :func:`lgatr.utils.compile.compile_model` when ``compile=True``;
-        see there for the supported keys (``compile_mode``, ``compile_dynamic``,
-        ``compile_fullgraph``) and their defaults.
-    """
-
-    def __init__(
-        self,
-        in_v_channels: int,
-        out_v_channels: int,
-        hidden_v_channels: int,
-        in_s_channels: int,
-        out_s_channels: int,
-        hidden_s_channels: int,
-        in_p_channels: int,
-        out_p_channels: int,
-        hidden_p_channels: int,
-        num_blocks: int,
-        num_heads: int,
-        nonlinearity: str = "gelu",
-        nonlinearity_v: str | None = "sigmoid",
-        mlp_ratio: int = 2,
-        attn_ratio: int = 1,
-        num_layers_mlp: int = 2,
-        dropout_prob: float | None = None,
-        norm_elementwise_affine: bool = True,
-        checkpoint_blocks: bool = False,
-        cp_triple_product: bool = False,
-        cp_scalar_pseudo_mixing: bool = False,
-        compile: bool = False,
-        **compile_kwargs,
-    ) -> None:
-        super().__init__()
-        self._in_p_channels = in_p_channels
-
-        self.linear_in = Linear(
-            in_v_channels=in_v_channels,
-            in_s_channels=in_s_channels,
-            in_p_channels=in_p_channels,
-            out_v_channels=hidden_v_channels,
-            out_s_channels=hidden_s_channels,
-            out_p_channels=hidden_p_channels,
-            cp_triple_product=cp_triple_product,
-            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
-        )
-
-        self.blocks = nn.ModuleList(
-            [
-                LGATrSlimPseudoBlock(
-                    v_channels=hidden_v_channels,
-                    s_channels=hidden_s_channels,
-                    p_channels=hidden_p_channels,
-                    num_heads=num_heads,
-                    nonlinearity=nonlinearity,
-                    nonlinearity_v=nonlinearity_v,
-                    mlp_ratio=mlp_ratio,
-                    attn_ratio=attn_ratio,
-                    num_layers_mlp=num_layers_mlp,
-                    dropout_prob=dropout_prob,
-                    norm_elementwise_affine=norm_elementwise_affine,
-                    cp_triple_product=cp_triple_product,
-                    cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
-                )
-                for _ in range(num_blocks)
-            ]
-        )
-
-        self.linear_out = Linear(
-            in_v_channels=hidden_v_channels,
-            in_s_channels=hidden_s_channels,
-            in_p_channels=hidden_p_channels,
-            out_v_channels=out_v_channels,
-            out_s_channels=out_s_channels,
-            out_p_channels=out_p_channels,
-            cp_triple_product=cp_triple_product,
-            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
-        )
-        self._checkpoint_blocks = checkpoint_blocks
-
-        if compile:
-            compile_model(self, **compile_kwargs)
-
-    def forward(
-        self,
-        vectors: torch.Tensor,
-        scalars: torch.Tensor,
-        pseudoscalars: torch.Tensor | None = None,
-        **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Forward pass.
-
-        Parameters
-        ----------
-        vectors
-            Lorentz vectors of shape ``(..., items, in_v_channels, 4)``.
-        scalars
-            Scalar features of shape ``(..., items, in_s_channels)``.
-        pseudoscalars
-            Pseudoscalar features of shape ``(..., items, in_p_channels)``. May be ``None`` only
-            when the model expects no input pseudoscalar channels.
-        **attn_kwargs
-            Optional keyword arguments forwarded to attention.
-
-        Returns
-        -------
-        outputs_v
-            Lorentz vectors of shape ``(..., items, out_v_channels, 4)``.
-        outputs_s
-            Scalar features of shape ``(..., items, out_s_channels)``.
-        outputs_p
-            Pseudoscalar features of shape ``(..., items, out_p_channels)``.
-        """
-        if pseudoscalars is None:
-            assert self._in_p_channels == 0, (
-                "Pseudoscalar input cannot be None if the model expects pseudoscalar channels."
-            )
-            pseudoscalars = scalars.new_zeros(*scalars.shape[:-1], 0)
-
-        h_v, h_s, h_p = self.linear_in(vectors, scalars, pseudoscalars)
-
-        for block in self.blocks:
-            if self._checkpoint_blocks:
-                h_v, h_s, h_p = checkpoint(block, h_v, h_s, h_p, use_reentrant=False, **attn_kwargs)
-            else:
-                h_v, h_s, h_p = block(h_v, h_s, h_p, **attn_kwargs)
-
-        outputs_v, outputs_s, outputs_p = self.linear_out(h_v, h_s, h_p)
         return outputs_v, outputs_s, outputs_p

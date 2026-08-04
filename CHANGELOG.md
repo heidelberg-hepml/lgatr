@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `LGATrSlimPseudo` (`lgatr.nets.slim_pseudo`): an `LGATrSlim` variant with a third, pseudoscalar
+  stream, built from the `SlimPseudo*` layers in `lgatr.layers.slim_pseudo_layers`
+- `VectorToPseudoscalar`: parity-odd map from four learned Lorentz vectors to pseudoscalars via
+  `det4x4`, an explicit cofactor expansion whose backward stays finite for linearly dependent
+  vectors (unlike `torch.linalg.det`)
+- `VectorToTripleProduct` and a scalar-to-pseudoscalar gate in `SlimPseudoLinear`, behind the
+  `cp_triple_product` / `cp_scalar_pseudo_mixing` flags (both default `False`, adding no parameters)
+- `LGATrSlim` dispatches to `LGATrSlimPseudo` when pseudoscalar channels are requested
+- Unit tests and documentation for the pseudoscalar-enabled slim network
+
 ## [2.0.0] - 29.07.2026
 
 ### Added
@@ -60,10 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correct attention keywords in `ConditionalLGATrSlim`
 - Import `LGATrSlim` and `ConditionalLGATrSlim` from `lgatr.nets`
 - Improve `LGATrSlim`/`ConditionalLGATrSlim` amp handling
-- `LGATrSlimPseudo` with a dedicated pseudoscalar stream and vector-to-pseudoscalar map
-- Optional pseudoscalar channels in `LGATrSlim`, backed by a new LGATrSlimPseudo architecture
-- Unit tests for `LGATrSlimPseudo`
-- Documentation for pseudoscalar-enabled `LGATrSlim`
 
 ## [1.4.3] - 27.01.2026
 

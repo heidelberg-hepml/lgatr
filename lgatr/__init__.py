@@ -13,8 +13,8 @@ from .layers.mlp.config import MLPConfig
 from .nets.conditional_lgatr import ConditionalLGATr
 from .nets.conditional_slim import ConditionalLGATrSlim
 from .nets.lgatr import LGATr
-from .nets.lgatr_slim_pseudo import LGATrSlimPseudo
 from .nets.slim import LGATrSlim
+from .nets.slim_pseudo import LGATrSlimPseudo
 from .primitives.config import PrimitivesConfig
 from .utils.autocast import naive_amp
 

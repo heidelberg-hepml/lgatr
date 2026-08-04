@@ -23,3 +23,14 @@ from .slim_layers import (
     SlimRMSNorm,
     SlimSelfAttention,
 )
+from .slim_pseudo_layers import (
+    SlimPseudoBlock,
+    SlimPseudoDropout,
+    SlimPseudoGLU,
+    SlimPseudoLinear,
+    SlimPseudoMLP,
+    SlimPseudoRMSNorm,
+    SlimPseudoSelfAttention,
+    VectorToPseudoscalar,
+    VectorToTripleProduct,
+)
