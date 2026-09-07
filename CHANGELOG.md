@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Attention backends no longer support `dtype` argument and automatic downcast to float16/bfloat16
 - Discuss default changes in v1-vs-v2 docs page
 
 ## [2.0.0] - 29.07.2026
