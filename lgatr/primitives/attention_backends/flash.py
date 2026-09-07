@@ -2,8 +2,6 @@
 
 import torch
 
-from ...utils.autocast import autocast_dtype
-
 try:
     from flash_attn import flash_attn_varlen_func
 except ModuleNotFoundError as err:
@@ -20,7 +18,6 @@ def attention(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
-    dtype: torch.dtype | None = None,
     **kwargs,
 ) -> torch.Tensor:
     """Forward to flash-attention's ``flash_attn_varlen_func``.
@@ -37,9 +34,6 @@ def attention(
         Keys of shape ``(batch, head, items_in, channel)``.
     value
         Values of shape ``(batch, head, items_in, channel)``.
-    dtype
-        If specified, cast input tensors to this dtype before passing to flash-attention. If None,
-        use the dtype that autocast would cast to on CUDA.
     **kwargs
         Additional keyword arguments forwarded to ``flash_attn_varlen_func``.
 
@@ -53,13 +47,9 @@ def attention(
     )
 
     if query.dtype not in [torch.float16, torch.bfloat16]:
-        # flash-attention only supports fp16 and bf16
-        if dtype is None:
-            dtype = autocast_dtype("cuda")
-        in_dtype = query.dtype
-        query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
-    else:
-        in_dtype = None
+        raise ValueError(
+            f"query.dtype={query.dtype}, but flash attention only supports float16, bfloat16"
+        )
 
     def reshape(x: torch.Tensor) -> torch.Tensor:
         assert x.shape[0] == 1
@@ -70,7 +60,4 @@ def attention(
     # internally, computing the scale from the original dim and slicing the output back.
     out = flash_attn_varlen_func(query, key, value, **kwargs)
     out = out.transpose(0, 1).unsqueeze(0).contiguous()
-
-    if in_dtype is not None:
-        out = out.to(in_dtype)
     return out

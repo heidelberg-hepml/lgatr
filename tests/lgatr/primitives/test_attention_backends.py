@@ -138,7 +138,8 @@ def test_flash_backend_selection(shape: tuple[int, ...]) -> None:
     # check that result has correct shape
     device = torch.device("cuda")
     shape_sparse, cu_seq, max_seq = _sparsify_shape(shape, device=device)
-    qkv_dense = _random_qkv(shape, device=device)
+    # flash-attn only supports fp16/bf16 and no longer casts for us, so feed it bf16 directly
+    qkv_dense = _random_qkv(shape, dtype=torch.bfloat16, device=device)
     qkv_sparse = tuple(_dense_to_sparse(t, shape) for t in qkv_dense)
     kwargs = {
         "cu_seqlens_q": cu_seq,
@@ -150,10 +151,10 @@ def test_flash_backend_selection(shape: tuple[int, ...]) -> None:
     assert out.shape == shape_sparse
 
     # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa);
-    # flash-attn runs in fp16/bf16, so use low precision against the fp32 reference
+    # flash-attn runs in bf16, so use low precision against the fp32 reference
     default_backend_fn = get_attention_backend()
-    out_default = default_backend_fn(*qkv_dense)
-    out_dense = _sparse_to_dense(out, shape)
+    out_default = default_backend_fn(*(t.float() for t in qkv_dense))
+    out_dense = _sparse_to_dense(out, shape).float()
     torch.testing.assert_close(out_dense, out_default, **MILD_TOLERANCES)
 
 
@@ -210,15 +211,16 @@ def test_varlen_backend_selection(shape: tuple[int, ...]) -> None:
     # check that result has correct shape
     device = torch.device("cuda")
     shape_sparse, cu_seq, max_seq = _sparsify_shape(shape, device=device)
-    qkv_dense = _random_qkv(shape, device=device)
+    # varlen_attn only supports fp16/bf16 and no longer casts for us, so feed it bf16 directly
+    qkv_dense = _random_qkv(shape, dtype=torch.bfloat16, device=device)
     qkv_sparse = tuple(_dense_to_sparse(t, shape) for t in qkv_dense)
     kwargs = {"cu_seq_q": cu_seq, "cu_seq_k": cu_seq, "max_q": max_seq, "max_k": max_seq}
     out = backend_fn(*qkv_sparse, **kwargs)
     assert out.shape == shape_sparse
 
     # check agreement with default attention applied per segment (i.e. dense (B, H, T, D) sdpa);
-    # varlen_attn runs in fp16/bf16, so use low precision against the fp32 reference
+    # varlen_attn runs in bf16, so use low precision against the fp32 reference
     default_backend_fn = get_attention_backend()
-    out_default = default_backend_fn(*qkv_dense)
-    out_dense = _sparse_to_dense(out, shape)
+    out_default = default_backend_fn(*(t.float() for t in qkv_dense))
+    out_dense = _sparse_to_dense(out, shape).float()
     torch.testing.assert_close(out_dense, out_default, **MILD_TOLERANCES)
