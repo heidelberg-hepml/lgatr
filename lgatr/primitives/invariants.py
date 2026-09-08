@@ -15,15 +15,17 @@ _INNER_PRODUCT_FACTORS = torch.tensor(
     device=DEFAULT_DEVICE,
 )
 
-
 @lru_cache
-def _load_inner_product_factors(
+def inner_product_factors(
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
     # Diagonal of the GA metric used by the inner product, shape (16,) (+/-1 entries).
     return _INNER_PRODUCT_FACTORS.to(device=device, dtype=dtype)
 
+
+# Backward-compatible private alias for code that relied on the old name (optional)
+_load_inner_product_factors = inner_product_factors
 
 @lru_cache
 def _load_metric_grades(
