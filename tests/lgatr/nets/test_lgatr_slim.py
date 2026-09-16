@@ -11,7 +11,8 @@ from lgatr.layers.slim_layers import (
     SlimSelfAttention,
 )
 from lgatr.nets.slim import LGATrSlim
-from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
+from lgatr.interface import from_lightcone, get_lightcone_frame, to_lightcone
+from tests.helpers import BATCH_DIMS, STRICT_TOLERANCES, TOLERANCES, check_equivariance
 
 # (in_v, out_v, in_s, out_s), covering the zero-channel edges on every slot.
 CHANNELS = [
@@ -303,3 +304,50 @@ def test_LGATrSlim_equivariance(
     check_equivariance(
         layer, batch_dims=(*BATCH_DIMS, in_v_channels), fn_kwargs=dict(scalars=s), **TOLERANCES
     )
+
+
+def test_LGATrSlim_lightcone_matches_cartesian() -> None:
+    # The light-cone coordinates are an exact change of basis: with the same weights, a network
+    # fed the mapped vectors computes the same function, up to floating-point rounding. Only the
+    # conditioning (and with it the accuracy in low precision) differs.
+    channels = dict(
+        in_v_channels=2,
+        out_v_channels=2,
+        hidden_v_channels=8,
+        in_s_channels=3,
+        out_s_channels=3,
+        hidden_s_channels=8,
+        num_blocks=2,
+        num_heads=2,
+    )
+    torch.manual_seed(0)
+    cartesian = LGATrSlim(**channels).double()
+    with torch.no_grad():
+        # the "small" init of the qkv projection hides most of the attention
+        for block in cartesian.blocks:
+            block.attention.linear_in.weight_v.mul_(10)
+            block.attention.linear_in.linear_s.weight.mul_(10)
+    lightcone = LGATrSlim(**channels, lightcone=True).double()
+    lightcone.load_state_dict(cartesian.state_dict())
+    cartesian.eval()
+    lightcone.eval()
+
+    s = torch.randn(*BATCH_DIMS, channels["in_s_channels"], dtype=torch.float64)
+    v = torch.randn(*BATCH_DIMS, channels["in_v_channels"], 4, dtype=torch.float64)
+    frame = get_lightcone_frame(v.sum(dim=(-3, -2)))[:, None, None]
+
+    results = []
+    for model, vectors in ((cartesian, v), (lightcone, to_lightcone(v, frame))):
+        outputs_v, outputs_s = model(vectors, s)
+        if model is lightcone:
+            outputs_v = from_lightcone(outputs_v, frame)
+        (outputs_v.square().sum() + outputs_s.square().sum()).backward()
+        grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
+        results.append((outputs_v.detach(), outputs_s.detach(), grads))
+
+    (v_cart, s_cart, grads_cart), (v_lc, s_lc, grads_lc) = results
+    torch.testing.assert_close(v_lc, v_cart, **STRICT_TOLERANCES)
+    torch.testing.assert_close(s_lc, s_cart, **STRICT_TOLERANCES)
+    assert grads_lc.keys() == grads_cart.keys()
+    for name in grads_cart:
+        torch.testing.assert_close(grads_lc[name], grads_cart[name], msg=name, **STRICT_TOLERANCES)

@@ -4,6 +4,7 @@ from importlib.metadata import version as _pkg_version
 
 from .interface.axialvector import embed_axialvector, extract_axialvector
 from .interface.bivector import embed_bivector, extract_bivector
+from .interface.lightcone import from_lightcone, get_lightcone_frame, to_lightcone
 from .interface.pseudoscalar import embed_pseudoscalar, extract_pseudoscalar
 from .interface.scalar import embed_scalar, extract_scalar
 from .interface.spurions import get_num_spurions, get_spurions
@@ -38,7 +39,10 @@ __all__ = [
     "extract_pseudoscalar",
     "extract_scalar",
     "extract_vector",
+    "from_lightcone",
+    "get_lightcone_frame",
     "get_num_spurions",
     "get_spurions",
     "naive_amp",
+    "to_lightcone",
 ]

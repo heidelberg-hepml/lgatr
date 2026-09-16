@@ -6,7 +6,13 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.slim_layers import SlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
+from ..layers.slim_layers import (
+    SlimBlock,
+    SlimLinear,
+    _freeze_dead_tail,
+    _require_scalars,
+    _set_lightcone,
+)
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
 
@@ -57,6 +63,15 @@ class LGATrSlim(nn.Module):
         Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
         autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
         metric contractions stay fp32 while the scalar GEMMs run in bf16.
+    lightcone
+        Whether the input vectors are in the light-cone coordinates of
+        :func:`lgatr.interface.lightcone.get_lightcone_frame` rather than Cartesian ones. Every
+        metric contraction then uses the light-cone metric, and attention and the vector GEMMs
+        follow the autocast dtype instead of being pinned to fp32, which is much faster under AMP
+        at unchanged accuracy. In Cartesian coordinates half precision destroys the Minkowski
+        products, so there they stay fp32. The inputs, spurions included, must be mapped with
+        :func:`lgatr.interface.lightcone.to_lightcone`, and vector outputs mapped back with
+        :func:`lgatr.interface.lightcone.from_lightcone`.
     compile
         Whether to wrap the model with :func:`torch.compile`.
     compile_kwargs
@@ -91,6 +106,7 @@ class LGATrSlim(nn.Module):
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         naive_amp: bool = False,
+        lightcone: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
         activation_memory_budget: float | None = None,
@@ -130,6 +146,7 @@ class LGATrSlim(nn.Module):
             out_s_channels=out_s_channels,
         )
         self._checkpoint_blocks = checkpoint_blocks
+        _set_lightcone(self, lightcone)
 
         if num_blocks:
             _freeze_dead_tail(
