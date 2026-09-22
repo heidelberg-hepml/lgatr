@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from lgatr.interface import from_lightcone, get_lightcone_frame, to_lightcone
 from lgatr.layers.slim_layers import (
     SlimBlock,
     SlimDropout,
@@ -11,7 +12,6 @@ from lgatr.layers.slim_layers import (
     SlimSelfAttention,
 )
 from lgatr.nets.slim import LGATrSlim
-from lgatr.interface import from_lightcone, get_lightcone_frame, to_lightcone
 from tests.helpers import BATCH_DIMS, STRICT_TOLERANCES, TOLERANCES, check_equivariance
 
 # (in_v, out_v, in_s, out_s), covering the zero-channel edges on every slot.
@@ -306,10 +306,16 @@ def test_LGATrSlim_equivariance(
     )
 
 
+def _outputs_and_grads(model, *inputs):
+    outputs_v, outputs_s = model(*inputs)
+    (outputs_v.square().sum() + outputs_s.square().sum()).backward()
+    grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
+    return outputs_v.detach(), outputs_s.detach(), grads
+
+
 def test_LGATrSlim_lightcone_matches_cartesian() -> None:
     # The light-cone coordinates are an exact change of basis: with the same weights, a network
-    # fed the mapped vectors computes the same function, up to floating-point rounding. Only the
-    # conditioning (and with it the accuracy in low precision) differs.
+    # fed the mapped vectors computes the same function and gradients, up to rounding.
     channels = dict(
         in_v_channels=2,
         out_v_channels=2,
@@ -320,34 +326,20 @@ def test_LGATrSlim_lightcone_matches_cartesian() -> None:
         num_blocks=2,
         num_heads=2,
     )
-    torch.manual_seed(0)
-    cartesian = LGATrSlim(**channels).double()
-    with torch.no_grad():
+    cartesian = LGATrSlim(**channels).double().eval()
+    for block in cartesian.blocks:
         # the "small" init of the qkv projection hides most of the attention
-        for block in cartesian.blocks:
-            block.attention.linear_in.weight_v.mul_(10)
-            block.attention.linear_in.linear_s.weight.mul_(10)
-    lightcone = LGATrSlim(**channels, lightcone=True).double()
+        block.attention.linear_in.reset_parameters("default")
+    lightcone = LGATrSlim(**channels, lightcone=True).double().eval()
     lightcone.load_state_dict(cartesian.state_dict())
-    cartesian.eval()
-    lightcone.eval()
 
     s = torch.randn(*BATCH_DIMS, channels["in_s_channels"], dtype=torch.float64)
     v = torch.randn(*BATCH_DIMS, channels["in_v_channels"], 4, dtype=torch.float64)
-    frame = get_lightcone_frame(v.sum(dim=(-3, -2)))[:, None, None]
+    frame = get_lightcone_frame(v.sum(dim=(-3, -2)))[..., None, None, :, :]
 
-    results = []
-    for model, vectors in ((cartesian, v), (lightcone, to_lightcone(v, frame))):
-        outputs_v, outputs_s = model(vectors, s)
-        if model is lightcone:
-            outputs_v = from_lightcone(outputs_v, frame)
-        (outputs_v.square().sum() + outputs_s.square().sum()).backward()
-        grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
-        results.append((outputs_v.detach(), outputs_s.detach(), grads))
-
-    (v_cart, s_cart, grads_cart), (v_lc, s_lc, grads_lc) = results
-    torch.testing.assert_close(v_lc, v_cart, **STRICT_TOLERANCES)
-    torch.testing.assert_close(s_lc, s_cart, **STRICT_TOLERANCES)
-    assert grads_lc.keys() == grads_cart.keys()
-    for name in grads_cart:
-        torch.testing.assert_close(grads_lc[name], grads_cart[name], msg=name, **STRICT_TOLERANCES)
+    # the frame is orthogonal, so the loss is the same in both coordinates
+    outputs_v, outputs_s, grads = _outputs_and_grads(cartesian, v, s)
+    outputs_v_lc, outputs_s_lc, grads_lc = _outputs_and_grads(lightcone, to_lightcone(v, frame), s)
+    torch.testing.assert_close(from_lightcone(outputs_v_lc, frame), outputs_v, **STRICT_TOLERANCES)
+    torch.testing.assert_close(outputs_s_lc, outputs_s, **STRICT_TOLERANCES)
+    torch.testing.assert_close(grads_lc, grads, **STRICT_TOLERANCES)

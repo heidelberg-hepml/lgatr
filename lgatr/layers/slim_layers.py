@@ -7,7 +7,6 @@ from torch import nn
 from torch.nn.functional import dropout, dropout1d
 
 from ..primitives.attention import scaled_dot_product_attention
-from ..utils.autocast import minimum_autocast_precision
 from ..utils.misc import get_nonlinearity
 
 
@@ -31,44 +30,24 @@ def _post_attention_reshape(
     return h_v, h_s
 
 
-def _apply_metric(w: torch.Tensor, metric: torch.Tensor, lightcone: bool) -> torch.Tensor:
-    """``eta @ w`` over the Lorentz-component dim (-2) of ``w`` (..., 4, channels).
+def _minkowski_product(
+    a: torch.Tensor, b: torch.Tensor, metric: torch.Tensor, lightcone: bool
+) -> torch.Tensor:
+    """Minkowski product over the component dim (-2), reduced away."""
+    if lightcone:
+        aplus, aminus, aT1, aT2 = a.unbind(-2)
+        bplus, bminus, bT1, bT2 = b.unbind(-2)
+        return aplus * bminus + aminus * bplus - aT1 * bT1 - aT2 * bT2
+    else:
+        return (a * b * metric[..., None]).sum(-2)
 
-    In Cartesian ``(t, x, y, z)`` coordinates ``eta = diag(1, -1, -1, -1)``. In the light-cone
-    coordinates ``(x+, x-, x1, x2)`` of :func:`lgatr.interface.lightcone.get_lightcone_frame`,
-    the metric pairs ``x+`` with ``x-`` and negates the transverse components, so ``eta @ w``
-    swaps the first two components.
-    """
+
+def _apply_metric(w: torch.Tensor, metric: torch.Tensor, lightcone: bool) -> torch.Tensor:
+    """``eta @ w`` over the component dim (-2)."""
     if lightcone:
         return torch.cat([w[..., 1:2, :], w[..., 0:1, :], -w[..., 2:, :]], dim=-2)
-    return w * metric.to(w.dtype)[..., None]
-
-
-def _lightcone_product(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """Light-cone Minkowski product ``a . eta b`` over the component dim (-2), reduced away.
-
-    Written on ``select`` rather than via :func:`_apply_metric`, which would materialize (and
-    save for backward) a permuted copy of ``b``, and not as ``a[..., 0, :]``: that indexing adds
-    a no-op trailing slice whose ``slice_backward`` ``torch.compile`` fuses badly into the
-    q/k/v-gradient layout kernel.
-    """
-    a0, a1, a2, a3 = (a.select(-2, i) for i in range(4))
-    b0, b1, b2, b3 = (b.select(-2, i) for i in range(4))
-    return a0 * b1 + a1 * b0 - a2 * b2 - a3 * b3
-
-
-@minimum_autocast_precision(torch.float32, output="high")
-def _call_attention(*args, **kwargs):
-    return scaled_dot_product_attention(*args, **kwargs)
-
-
-def _set_lightcone(module: nn.Module, lightcone: bool) -> None:
-    """Tell every slim layer in ``module`` which vector coordinates its inputs use."""
-    for submodule in module.modules():
-        if isinstance(
-            submodule, (SlimRMSNorm, SlimLinear, SlimGLU, SlimSelfAttention, SlimCrossAttention)
-        ):
-            submodule._lightcone = lightcone
+    else:
+        return w * metric[..., None]
 
 
 def _freeze_dead_tail(
@@ -153,9 +132,9 @@ class SlimRMSNorm(nn.Module):
         Small numerical offset to avoid instabilities.
     elementwise_affine
         Whether to learn a per-channel gain for the vector and scalar streams.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
-
-    _lightcone = False  # set by the nets' lightcone option
 
     def __init__(
         self,
@@ -163,10 +142,12 @@ class SlimRMSNorm(nn.Module):
         s_channels: int,
         epsilon: float = 0.01,
         elementwise_affine: bool = True,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
         self.epsilon = epsilon
         self.elementwise_affine = elementwise_affine
+        self.lightcone = lightcone
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
         if elementwise_affine:
             self.weight_v = nn.Parameter(torch.ones(v_channels))
@@ -179,7 +160,6 @@ class SlimRMSNorm(nn.Module):
             self.register_parameter("weight_v", None)
             self.register_parameter("weight_s", None)
 
-    @minimum_autocast_precision(torch.float32, output="high")
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -199,10 +179,7 @@ class SlimRMSNorm(nn.Module):
         outputs_s
             Normalized scalar features, same shape as ``scalars``.
         """
-        if self._lightcone:
-            v_squared_norm = _lightcone_product(vectors, vectors).abs()
-        else:
-            v_squared_norm = (vectors.square() * self.metric[..., None]).sum(-2).abs()
+        v_squared_norm = _minkowski_product(vectors, vectors, self.metric, self.lightcone).abs()
         s_squared_norm = scalars.square()
         total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
         mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
@@ -237,8 +214,6 @@ class SlimLinear(nn.Module):
         Initialization scheme for the weights. ``"default"`` or ``"small"`` (smaller weights, used
         for attention projections to improve stability).
     """
-
-    _lightcone = False  # set by the nets' lightcone option
 
     def __init__(
         self,
@@ -276,10 +251,6 @@ class SlimLinear(nn.Module):
         if self.weight_v.numel() == 0:
             self.weight_v.requires_grad_(False)
 
-    @minimum_autocast_precision(torch.float32, output="high")
-    def _linear_v(self, vectors: torch.Tensor) -> torch.Tensor:
-        return nn.functional.linear(vectors, self.weight_v)
-
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -299,11 +270,7 @@ class SlimLinear(nn.Module):
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         """
-        outputs_v = (
-            nn.functional.linear(vectors, self.weight_v)
-            if self._lightcone
-            else self._linear_v(vectors)
-        )
+        outputs_v = nn.functional.linear(vectors, self.weight_v)
         if self.linear_s is not None:
             outputs_s = self.linear_s(scalars)
         else:
@@ -356,9 +323,9 @@ class SlimGLU(nn.Module):
     nonlinearity_v
         Optional override for the vector-path gate nonlinearity. ``None`` falls back to
         ``nonlinearity``.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
-
-    _lightcone = False  # set by the nets' lightcone option
 
     def __init__(
         self,
@@ -368,8 +335,10 @@ class SlimGLU(nn.Module):
         out_s_channels: int,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
+        self.lightcone = lightcone
         self.linear = SlimLinear(
             in_v_channels=in_v_channels,
             out_v_channels=3 * out_v_channels,
@@ -411,12 +380,10 @@ class SlimGLU(nn.Module):
         outputs_s = self.nonlinearity(s_gates) * s_pre
         return outputs_v, outputs_s
 
-    @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
-        if self._lightcone:
-            return 0.5 * _lightcone_product(v_gates_1, v_gates_2).unsqueeze(-2)
-        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric[..., None]).sum(dim=-2, keepdim=True)
+        inner_product = _minkowski_product(v_gates_1, v_gates_2, self.metric, self.lightcone)
+        return 0.5 * inner_product.unsqueeze(-2)
 
 
 class SlimSelfAttention(nn.Module):
@@ -434,9 +401,9 @@ class SlimSelfAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
-
-    _lightcone = False  # set by the nets' lightcone option
 
     def __init__(
         self,
@@ -445,8 +412,10 @@ class SlimSelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
+        self.lightcone = lightcone
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
         self.hidden_s_channels = max(attn_ratio * s_channels // num_heads, 4)
         self.num_heads = num_heads
@@ -472,6 +441,7 @@ class SlimSelfAttention(nn.Module):
             self.hidden_v_channels,
             self.hidden_s_channels,
             elementwise_affine=False,
+            lightcone=lightcone,
         )
         if dropout_prob is not None:
             self.dropout = SlimDropout(dropout_prob)
@@ -498,7 +468,7 @@ class SlimSelfAttention(nn.Module):
         q_v, k_v, v_v = qkv_v.unbind(0)
         q_s, k_s, v_s = qkv_s.unbind(0)
 
-        q_v = _apply_metric(q_v, self.metric, self._lightcone)
+        q_v = _apply_metric(q_v, self.metric, self.lightcone)
 
         q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
@@ -529,10 +499,7 @@ class SlimSelfAttention(nn.Module):
         qkv_v, qkv_s = self.linear_in(vectors, scalars)
 
         q, k, v = self._pre_attention_reshape(qkv_v, qkv_s)
-        # light-cone coordinates keep half-precision attention as accurate as fp32 (see
-        # lgatr.interface.lightcone), so attention is not pinned there and follows autocast
-        attend = scaled_dot_product_attention if self._lightcone else _call_attention
-        out = attend(q, k, v, **attn_kwargs)
+        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
         h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
         outputs_v, outputs_s = self.linear_out(h_v, h_s)
@@ -562,6 +529,8 @@ class SlimMLP(nn.Module):
         Total number of layers (must be ``>= 2``).
     dropout_prob
         Dropout probability.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
 
     def __init__(
@@ -573,6 +542,7 @@ class SlimMLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
         assert num_layers >= 2, f"SlimMLP needs num_layers >= 2, got {num_layers}"
@@ -590,6 +560,7 @@ class SlimMLP(nn.Module):
                     out_s_channels=s_channels_list[i + 1],
                     nonlinearity=nonlinearity,
                     nonlinearity_v=nonlinearity_v,
+                    lightcone=lightcone,
                 )
             )
             if dropout_prob is not None:
@@ -659,6 +630,8 @@ class SlimBlock(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the RMS norms learn a per-channel gain.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
 
     def __init__(
@@ -673,11 +646,16 @@ class SlimBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
 
-        self.norm1 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
-        self.norm2 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        self.norm1 = SlimRMSNorm(
+            v_channels, s_channels, elementwise_affine=norm_elementwise_affine, lightcone=lightcone
+        )
+        self.norm2 = SlimRMSNorm(
+            v_channels, s_channels, elementwise_affine=norm_elementwise_affine, lightcone=lightcone
+        )
 
         self.attention = SlimSelfAttention(
             v_channels=v_channels,
@@ -685,6 +663,7 @@ class SlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            lightcone=lightcone,
         )
 
         self.mlp = SlimMLP(
@@ -695,6 +674,7 @@ class SlimBlock(nn.Module):
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
+            lightcone=lightcone,
         )
 
     def forward(
@@ -758,9 +738,9 @@ class SlimCrossAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
-
-    _lightcone = False  # set by the nets' lightcone option
 
     def __init__(
         self,
@@ -771,8 +751,10 @@ class SlimCrossAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
+        self.lightcone = lightcone
         self.hidden_v_channels = max(attn_ratio * q_v_channels // num_heads, 1)
         self.hidden_s_channels = max(attn_ratio * q_s_channels // num_heads, 4)
         self.num_heads = num_heads
@@ -807,6 +789,7 @@ class SlimCrossAttention(nn.Module):
             self.hidden_v_channels,
             self.hidden_s_channels,
             elementwise_affine=False,
+            lightcone=lightcone,
         )
         if dropout_prob is not None:
             self.dropout = SlimDropout(dropout_prob)
@@ -842,7 +825,7 @@ class SlimCrossAttention(nn.Module):
         k_v, v_v = kv_v.unbind(0)
         k_s, v_s = kv_s.unbind(0)
 
-        q_v = _apply_metric(q_v, self.metric, self._lightcone)
+        q_v = _apply_metric(q_v, self.metric, self.lightcone)
 
         q = torch.cat([q_v.flatten(start_dim=-2), q_s], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s], dim=-1)
@@ -883,10 +866,7 @@ class SlimCrossAttention(nn.Module):
         kv_v, kv_s = self.linear_in_kv(vectors_kv, scalars_kv)
 
         q, k, v = self._pre_attention_reshape(q_v, kv_v, q_s, kv_s)
-        # light-cone coordinates keep half-precision attention as accurate as fp32 (see
-        # lgatr.interface.lightcone), so attention is not pinned there and follows autocast
-        attend = scaled_dot_product_attention if self._lightcone else _call_attention
-        out = attend(q, k, v, **attn_kwargs)
+        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
         h_v, h_s = _post_attention_reshape(out, self.hidden_v_channels)
 
         outputs_v, outputs_s = self.linear_out(h_v, h_s)
@@ -929,6 +909,8 @@ class ConditionalSlimBlock(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the :class:`SlimRMSNorm` instances learn per-channel gains.
+    lightcone
+        Whether vectors are in light-cone coordinates instead of Cartesian ones.
     """
 
     def __init__(
@@ -945,12 +927,19 @@ class ConditionalSlimBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
 
-        self.norm1 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
-        self.norm2 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
-        self.norm3 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        self.norm1 = SlimRMSNorm(
+            v_channels, s_channels, elementwise_affine=norm_elementwise_affine, lightcone=lightcone
+        )
+        self.norm2 = SlimRMSNorm(
+            v_channels, s_channels, elementwise_affine=norm_elementwise_affine, lightcone=lightcone
+        )
+        self.norm3 = SlimRMSNorm(
+            v_channels, s_channels, elementwise_affine=norm_elementwise_affine, lightcone=lightcone
+        )
 
         self.selfattention = SlimSelfAttention(
             v_channels=v_channels,
@@ -958,6 +947,7 @@ class ConditionalSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            lightcone=lightcone,
         )
         self.crossattention = SlimCrossAttention(
             q_v_channels=v_channels,
@@ -967,6 +957,7 @@ class ConditionalSlimBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            lightcone=lightcone,
         )
 
         self.mlp = SlimMLP(
@@ -977,6 +968,7 @@ class ConditionalSlimBlock(nn.Module):
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
+            lightcone=lightcone,
         )
 
     def forward(

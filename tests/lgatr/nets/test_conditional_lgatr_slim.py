@@ -146,9 +146,16 @@ def test_ConditionalLGATrSlim_equivariance(
     )
 
 
+def _outputs_and_grads(model, *inputs):
+    outputs_v, outputs_s = model(*inputs)
+    (outputs_v.square().sum() + outputs_s.square().sum()).backward()
+    grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
+    return outputs_v.detach(), outputs_s.detach(), grads
+
+
 def test_ConditionalLGATrSlim_lightcone_matches_cartesian() -> None:
-    # As for LGATrSlim: the light-cone coordinates are an exact change of basis, so with the same
-    # weights both networks compute the same function, up to floating-point rounding.
+    # The light-cone coordinates are an exact change of basis: with the same weights, a network
+    # fed the mapped vectors computes the same function and gradients, up to rounding.
     channels = dict(
         in_v_channels=2,
         v_channels_cond=2,
@@ -161,17 +168,14 @@ def test_ConditionalLGATrSlim_lightcone_matches_cartesian() -> None:
         num_blocks=2,
         num_heads=2,
     )
-    torch.manual_seed(0)
-    cartesian = ConditionalLGATrSlim(**channels).double()
-    with torch.no_grad():
-        # the "small" init of the qkv projections hides most of the attention
-        for name, param in cartesian.named_parameters():
-            if "attention" in name and name.endswith(("weight_v", "linear_s.weight")):
-                param.mul_(10)
-    lightcone = ConditionalLGATrSlim(**channels, lightcone=True).double()
+    cartesian = ConditionalLGATrSlim(**channels).double().eval()
+    for block in cartesian.blocks:
+        # the "small" init of the q/kv projections hides most of the attention
+        block.selfattention.linear_in.reset_parameters("default")
+        block.crossattention.linear_in_q.reset_parameters("default")
+        block.crossattention.linear_in_kv.reset_parameters("default")
+    lightcone = ConditionalLGATrSlim(**channels, lightcone=True).double().eval()
     lightcone.load_state_dict(cartesian.state_dict())
-    cartesian.eval()
-    lightcone.eval()
 
     items, items_cond = 4, 3
     s = torch.randn(*BATCH_DIMS, items, channels["in_s_channels"], dtype=torch.float64)
@@ -182,23 +186,11 @@ def test_ConditionalLGATrSlim_lightcone_matches_cartesian() -> None:
     )
     frame = get_lightcone_frame(v.sum(dim=(-3, -2)))[..., None, None, :, :]
 
-    results = []
-    for model, vectors, vectors_cond in (
-        (cartesian, v, v_cond),
-        (lightcone, to_lightcone(v, frame), to_lightcone(v_cond, frame)),
-    ):
-        outputs_v, outputs_s = model(
-            vectors=vectors, vectors_cond=vectors_cond, scalars=s, scalars_cond=s_cond
-        )
-        if model is lightcone:
-            outputs_v = from_lightcone(outputs_v, frame)
-        (outputs_v.square().sum() + outputs_s.square().sum()).backward()
-        grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
-        results.append((outputs_v.detach(), outputs_s.detach(), grads))
-
-    (v_cart, s_cart, grads_cart), (v_lc, s_lc, grads_lc) = results
-    torch.testing.assert_close(v_lc, v_cart, **STRICT_TOLERANCES)
-    torch.testing.assert_close(s_lc, s_cart, **STRICT_TOLERANCES)
-    assert grads_lc.keys() == grads_cart.keys()
-    for name in grads_cart:
-        torch.testing.assert_close(grads_lc[name], grads_cart[name], msg=name, **STRICT_TOLERANCES)
+    # the frame is orthogonal, so the loss is the same in both coordinates
+    outputs_v, outputs_s, grads = _outputs_and_grads(cartesian, v, v_cond, s, s_cond)
+    outputs_v_lc, outputs_s_lc, grads_lc = _outputs_and_grads(
+        lightcone, to_lightcone(v, frame), to_lightcone(v_cond, frame), s, s_cond
+    )
+    torch.testing.assert_close(from_lightcone(outputs_v_lc, frame), outputs_v, **STRICT_TOLERANCES)
+    torch.testing.assert_close(outputs_s_lc, outputs_s, **STRICT_TOLERANCES)
+    torch.testing.assert_close(grads_lc, grads, **STRICT_TOLERANCES)

@@ -84,50 +84,42 @@ well as activation take less space on disk. Automatic mixed precision (amp) allo
 precision, and does a more careful treatment of objects in the backward pass compared
 to naive float16/bfloat16.
 
-The :class:`~lgatr.nets.slim.LGATrSlim` / :class:`~lgatr.nets.lgatr.LGATr`
-architectures both support automatic mixed precision. There are two modes:
+The :class:`~lgatr.nets.lgatr.LGATr` architecture supports two amp modes:
 ``naive_amp=True`` directly applies amp without any modifications, whereas
 ``naive_amp=False`` performs only operations on scalars in float16/bfloat16,
-and uses full float32 precision for operations on vectors. The
+and uses full float32 precision for operations on multivectors. The
 ``naive_amp=False`` path uses a custom
 :class:`~lgatr.utils.autocast.minimum_autocast_precision` decorator that can
 be applied on any function to upcast to float32 precision locally.
+The :class:`~lgatr.nets.slim.LGATrSlim` architecture does not pin any operations to float32.
 
 However, **currently we do not recommend to use amp** with the
-:class:`~lgatr.nets.slim.LGATrSlim` or :class:`~lgatr.nets.lgatr.LGATr`
-architectures. For tests on jet tagging, we found that networks trained with
+:class:`~lgatr.nets.lgatr.LGATr` architecture, or with the
+:class:`~lgatr.nets.slim.LGATrSlim` architecture in Cartesian coordinates.
+For tests on jet tagging, we found that networks trained with
 amp achieve significantly lower performance in some cases, to the point that
 the speed and memory gains from amp do not justify the performance drop.
-We are actively working on understanding this better.
-For the slim networks, `Light-cone coordinates`_ below removes the numerical
-cause behind much of this drop.
+We are actively working on understanding this better. For
+:class:`~lgatr.nets.slim.LGATrSlim`, `Light-cone coordinates`_ remove one
+numerical source of this drop.
 
 Light-cone coordinates
 --------------------------------------------
 
 Minkowski products of nearly collinear, nearly massless vectors, as in a jet, are
-small differences of large numbers:
+small differences of large numbers,
 
 .. math::
-    p_i \cdot p_j = E_i E_j (1 - \cos\theta_{ij}) \approx E_i E_j \theta_{ij}^2 / 2 .
+    p_i \cdot p_j = E_i E_j (1 - \cos\theta_{ij}) \approx E_i E_j \theta_{ij}^2 / 2 ,
 
-Rounding the Cartesian components to float16 or bfloat16 therefore destroys the result.
-This is why ``naive_amp=False`` keeps attention, the vector linear layers and the metric
-contractions in float32, and those float32 islands are what eats most of the speedup that
-amp should give.
-
-:func:`~lgatr.interface.lightcone.get_lightcone_frame` removes the cancellation by a change
-of basis. Around a reference direction ``n``, it constructs the orthogonal map ``T`` to
-light-cone coordinates, in which a Lorentz vector ``v = (t, r)`` is stored as
-``x+ = (t + r.n)/sqrt(2)``, ``x- = (t - r.n)/sqrt(2)``, and the two transverse components.
-Since ``T eta T^T`` is again a metric of that form, a network fed ``T v`` for every vector
-computes the same function as one fed ``v``. What changes is the conditioning: the small
-combination ``t - r.n`` is formed once, in float64, and then stored as a number of its own.
-
-The :class:`~lgatr.nets.slim.LGATrSlim` and
-:class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim` networks accept such inputs with
-``lightcone=True``. Attention and the vector GEMMs then follow the autocast dtype instead of
-being pinned to float32.
+so rounding the Cartesian components to float16/bfloat16 destroys them.
+Light-cone coordinates with respect to a reference direction :math:`\hat n`, e.g. the jet
+axis, store the small component :math:`x^- = (t - \vec r \cdot \hat n)/\sqrt{2}` of each
+vector explicitly, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`. The layers only
+mix channels and contract components with the metric, so with ``lightcone=True`` the network
+computes the same function in light-cone coordinates as the Cartesian network, but stays
+accurate in low precision. Every vector input, including spurions and conditions, has to be
+mapped with the same frame, in full precision outside of autocast:
 
 .. code-block:: python
 
@@ -135,16 +127,11 @@ being pinned to float32.
 
     from lgatr import LGATrSlim, from_lightcone, get_lightcone_frame, to_lightcone
 
-    # reference: the summed four-momentum of the items the network sees, e.g. the jet momentum
+    # one frame per jet, broadcast over items and channels
     frame = get_lightcone_frame(jet_momentum)[:, None, None]
 
     net = LGATrSlim(..., lightcone=True)
+    vectors = to_lightcone(vectors, frame)
     with torch.autocast("cuda", dtype=torch.bfloat16):
-        # every vector, including any reference vectors added as extra items, uses the same frame
-        outputs_v, outputs_s = net(to_lightcone(vectors, frame), scalars)
-    outputs_v = from_lightcone(outputs_v, frame)
-
-The frame assumes that the reference has a non-vanishing spatial direction that is not exactly
-along the z axis, which holds for a jet; no fallback is applied otherwise. In a jet-tagging
-setup (8 blocks, batch size 2048, ``compile=True``, RTX 5090) this reduced the step time from
-143 ms with float32-pinned attention to 61 ms, at the accuracy of float32 training.
+        outputs_v, outputs_s = net(vectors, scalars)
+    outputs_v = from_lightcone(outputs_v.float(), frame)

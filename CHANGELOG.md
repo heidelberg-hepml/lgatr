@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `lightcone=False` option for `LGATrSlim`/`ConditionalLGATrSlim`: with vectors in light-cone coordinates, the metric contractions use the light-cone metric, and attention and the vector GEMMs follow the autocast dtype instead of being pinned to float32, which makes AMP much faster at unchanged accuracy
+- `lightcone` option for `LGATrSlim`/`ConditionalLGATrSlim` to take vectors in light-cone coordinates, which keeps Minkowski products of nearly collinear vectors accurate in low precision
 - `get_lightcone_frame`, `to_lightcone` and `from_lightcone` interface to map vectors into and out of light-cone coordinates
 
 ### Changed
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `einops`/`opt_einsum`/`numpy`/`lloca` requirements, now simply `torch>=2.0`
+- `naive_amp` option and float32 precision islands in `LGATrSlim`/`ConditionalLGATrSlim`
 
 ### Fixed
 

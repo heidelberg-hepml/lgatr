@@ -6,14 +6,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.slim_layers import (
-    SlimBlock,
-    SlimLinear,
-    _freeze_dead_tail,
-    _require_scalars,
-    _set_lightcone,
-)
-from ..utils.autocast import naive_amp
+from ..layers.slim_layers import SlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
 from ..utils.compile import compile_model
 
 
@@ -59,19 +52,9 @@ class LGATrSlim(nn.Module):
         Whether the block :class:`SlimRMSNorm` instances learn a per-channel gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
-    naive_amp
-        Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
-        autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
-        metric contractions stay fp32 while the scalar GEMMs run in bf16.
     lightcone
-        Whether the input vectors are in the light-cone coordinates of
-        :func:`lgatr.interface.lightcone.get_lightcone_frame` rather than Cartesian ones. Every
-        metric contraction then uses the light-cone metric, and attention and the vector GEMMs
-        follow the autocast dtype instead of being pinned to fp32, which is much faster under AMP
-        at unchanged accuracy. In Cartesian coordinates half precision destroys the Minkowski
-        products, so there they stay fp32. The inputs, spurions included, must be mapped with
-        :func:`lgatr.interface.lightcone.to_lightcone`, and vector outputs mapped back with
-        :func:`lgatr.interface.lightcone.from_lightcone`.
+        Whether all vector inputs and outputs are in the light-cone coordinates of one
+        shared frame, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`.
     compile
         Whether to wrap the model with :func:`torch.compile`.
     compile_kwargs
@@ -105,14 +88,12 @@ class LGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        naive_amp: bool = False,
         lightcone: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
         activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
-        self._naive_amp = naive_amp
 
         self.linear_in = SlimLinear(
             in_v_channels=in_v_channels,
@@ -134,6 +115,7 @@ class LGATrSlim(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
+                    lightcone=lightcone,
                 )
                 for _ in range(num_blocks)
             ]
@@ -146,7 +128,6 @@ class LGATrSlim(nn.Module):
             out_s_channels=out_s_channels,
         )
         self._checkpoint_blocks = checkpoint_blocks
-        _set_lightcone(self, lightcone)
 
         if num_blocks:
             _freeze_dead_tail(
@@ -182,12 +163,7 @@ class LGATrSlim(nn.Module):
             Scalar features of shape ``(..., items, out_s_channels)``.
         """
         _require_scalars(scalars=scalars)
-        with naive_amp(self._naive_amp):
-            return self._forward(vectors, scalars, **attn_kwargs)
 
-    def _forward(
-        self, vectors: torch.Tensor, scalars: torch.Tensor, **attn_kwargs
-    ) -> tuple[torch.Tensor, torch.Tensor]:
         # hidden layers keep vectors channel-last (..., 4, channels) so the vector linears run
         # as flat GEMMs; only the public interface uses (..., channels, 4)
         h_v, h_s = self.linear_in(vectors.transpose(-2, -1), scalars)
