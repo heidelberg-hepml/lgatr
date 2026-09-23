@@ -1,6 +1,5 @@
 """Invariants: inner product, absolute squared norm, and Pin-invariant utilities."""
 
-import math
 from functools import lru_cache
 
 import torch
@@ -23,22 +22,6 @@ def _load_inner_product_factors(
 ) -> torch.Tensor:
     # Diagonal of the GA metric used by the inner product, shape (16,) (+/-1 entries).
     return _INNER_PRODUCT_FACTORS.to(device=device, dtype=dtype)
-
-
-@lru_cache
-def _load_metric_grades(
-    device: torch.device = DEFAULT_DEVICE,
-    dtype: torch.dtype = DEFAULT_DTYPE,
-) -> torch.Tensor:
-    # GA metric diagonal combined with a grade projection, shape (5, 16): row g holds the metric
-    # entries of grade g and zeros elsewhere.
-    m_grades = torch.zeros(5, 16, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE)
-    offset = 0
-    for k in range(5):
-        d = math.comb(4, k)
-        m_grades[k, offset : offset + d] = _INNER_PRODUCT_FACTORS[offset : offset + d]
-        offset += d
-    return m_grades.to(device=device, dtype=dtype)
 
 
 def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -84,8 +67,13 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
     outputs
         Geometric-algebra norm of ``x``, shape ``(..., 1)``.
     """
-    m = _load_metric_grades(device=x.device, dtype=x.dtype)
-    # Equivalent to ``einsum("... i, ... i, g i -> ... g", x, x, m)``: square ``x``
-    # element-wise, then a single matmul against the metric-grade rows.
-    per_grade = (x * x) @ m.T
-    return per_grade.abs().sum(-1, keepdim=True)
+    # Slice sums rather than a (16, 5) matmul keep this a single fused reduction under
+    # torch.compile, whose backward recomputes it from x instead of saving the per-grade norms.
+    signed = x * x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
+    return (
+        signed[..., 0:1].sum(-1, keepdim=True).abs()
+        + signed[..., 1:5].sum(-1, keepdim=True).abs()
+        + signed[..., 5:11].sum(-1, keepdim=True).abs()
+        + signed[..., 11:15].sum(-1, keepdim=True).abs()
+        + signed[..., 15:16].sum(-1, keepdim=True).abs()
+    )
