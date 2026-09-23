@@ -110,7 +110,9 @@ vector explicitly, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`. T
 mix channels and contract components with the metric, so with ``lightcone=True`` the network
 computes the same function in light-cone coordinates as the Cartesian network, but stays
 accurate in low precision. Every vector input, including spurions and conditions, has to be
-mapped with the same frame, in full precision outside of autocast:
+mapped with the same frame, so spurions are appended to the inputs before the map rather than
+after it. The map itself is pinned to float32 and is safe to call inside an autocast region,
+but the inputs still have to arrive in full precision:
 
 .. code-block:: python
 
