@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `lightcone` option for `LGATrSlim`/`ConditionalLGATrSlim` to take vectors in light-cone coordinates, which keeps Minkowski products of nearly collinear vectors accurate in low precision
+- `lightcone` option in `PrimitivesConfig`, the same for `LGATr`/`ConditionalLGATr` with multivectors
 - `get_lightcone_frame`, `to_lightcone` and `from_lightcone` interface to map vectors into and out of light-cone coordinates, and `get_lightcone_frame_mv`, `to_lightcone_mv` and `from_lightcone_mv` for multivectors
 
 ### Changed
@@ -20,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `abs_squared_norm` sums each grade with slices instead of a matmul, which lowers activation memory under `torch.compile`
 - Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
 - Avoid unnecessary contiguous copies of the queries, keys and values in the xformers attention backend
-- `abs_squared_norm`, `equi_layer_norm` and `sdp_attention` take a required `config` keyword argument, and `EquiLayerNorm` a required `primitives` argument
+- `inner_product`, `abs_squared_norm`, `equi_layer_norm` and `sdp_attention` take a required `config` keyword argument, and `EquiLayerNorm` a required `primitives` argument
 
 ### Removed
 

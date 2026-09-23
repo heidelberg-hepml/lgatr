@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 
+from ..interface.lightcone import get_lightcone_frame, get_lightcone_frame_mv
 from .config import PrimitivesConfig
 
 DEFAULT_DEVICE = torch.device("cpu")
@@ -29,16 +30,40 @@ _DUAL_PERM = _DUAL.abs().argmax(dim=-1)
 _DUAL_SIGN = torch.gather(_DUAL, -1, _DUAL_PERM.unsqueeze(-1)).squeeze(-1)
 assert torch.equal(_DUAL_PERM, torch.arange(16).flip(0)), "sparse linear: bad basis layout"
 
+# In light-cone coordinates, the algebra constants are the Cartesian ones conjugated with the frame
+# lifted to multivectors. Any two light-cone frames differ by a rotation, which leaves the constants
+# invariant, so the frame along z fixes them. In float64 they round to exact integers.
+_LIGHTCONE_FRAME_MV = get_lightcone_frame_mv(
+    get_lightcone_frame(torch.tensor([1.0, 0.0, 0.0, 1.0], dtype=torch.float64))
+)
+# Only the dual basis elements change, the grade projections commute with the frame.
+_BASIS_SUBGROUP_LIGHTCONE = (
+    torch.einsum(
+        "ai,nij,bj->nab", _LIGHTCONE_FRAME_MV, _BASIS_SUBGROUP.double(), _LIGHTCONE_FRAME_MV
+    )
+    .round()
+    .to(DEFAULT_DTYPE)
+)
+_DUAL_LIGHTCONE = _BASIS_SUBGROUP_LIGHTCONE[5:10].sum(dim=0)
+_DUAL_PERM_LIGHTCONE = _DUAL_LIGHTCONE.abs().argmax(dim=-1)
+_DUAL_SIGN_LIGHTCONE = torch.gather(
+    _DUAL_LIGHTCONE, -1, _DUAL_PERM_LIGHTCONE.unsqueeze(-1)
+).squeeze(-1)
+
 
 @lru_cache
 def _compute_pin_equi_linear_basis(
     subgroup: bool = True,
+    lightcone: bool = False,
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
     # Lorentz-equivariant basis of shape (10, 16, 16) for the proper orthochronous subgroup,
     # or (5, 16, 16) for the full Lorentz group.
-    src = _BASIS_SUBGROUP if subgroup else _BASIS_FULL
+    if subgroup:
+        src = _BASIS_SUBGROUP_LIGHTCONE if lightcone else _BASIS_SUBGROUP
+    else:
+        src = _BASIS_FULL  # only grade projections, the same in light-cone coordinates
     return src.to(device=device, dtype=dtype)
 
 
@@ -82,11 +107,22 @@ def _compute_grade_involution(
 
 @lru_cache
 def _compute_dual_sign(
+    lightcone: bool = False,
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> torch.Tensor:
     # Per-position dual-basis signs of shape (16,), cast to (device, dtype).
-    return _DUAL_SIGN.to(device=device, dtype=dtype)
+    sign = _DUAL_SIGN_LIGHTCONE if lightcone else _DUAL_SIGN
+    return sign.to(device=device, dtype=dtype)
+
+
+@lru_cache
+def _compute_lightcone_dual_positions(
+    device: torch.device = DEFAULT_DEVICE,
+) -> tuple[torch.Tensor, ...]:
+    # Per output grade g, the positions the light-cone dual reads within the grade 4-g slice.
+    p = _DUAL_PERM_LIGHTCONE.to(device=device)
+    return p[0:1] - 15, p[1:5] - 11, p[5:11] - 5, p[11:15] - 1, p[15:16]
 
 
 def _equi_linear_dense(
@@ -96,7 +132,9 @@ def _equi_linear_dense(
     # Fold (coeffs, basis) into an effective (out_c, in_c, 16, 16) weight via one GEMM, then
     # contract it with x. That block is 12.5% nonzero (6.25% for the full Lorentz group), so this
     # path does 8-16x the necessary multiply-adds; _equi_linear_sparse trades it for narrow GEMMs.
-    basis = _compute_pin_equi_linear_basis(config.subgroup, device=x.device, dtype=x.dtype)
+    basis = _compute_pin_equi_linear_basis(
+        config.subgroup, config.lightcone, device=x.device, dtype=x.dtype
+    )
     weight = (coeffs @ basis.flatten(-2)).unflatten(-1, (16, 16))
     return torch.einsum("y x i j, ... x j -> ... y i", weight, x)
 
@@ -131,21 +169,27 @@ def _equi_linear_sparse(
 
     if config.subgroup:
         # Basis elements 5..9 are the Hodge dual, mapping grade g -> 4-g by a sign and a position
-        # reversal. Both act on the position dim, which the GEMM treats as batch, so each grade
-        # rides along with its dual partner in one GEMM on the _pair_coeffs weights:
-        # z_g[..., :out_c] is the direct term, z_g[..., out_c:] the dual term.
+        # reversal (a different permutation in light-cone coordinates). Both act on the position
+        # dim, which the GEMM treats as batch, so each grade rides along with its dual partner in
+        # one GEMM on the _pair_coeffs weights: z_g[..., :out_c] is the direct term,
+        # z_g[..., out_c:] the dual term.
         out_c = weights.shape[-2] // 2
-        s = _compute_dual_sign(device=xt.device, dtype=z0.dtype)[:, None, None]
+        s = _compute_dual_sign(config.lightcone, device=xt.device, dtype=z0.dtype)[:, None, None]
 
-        def dual(z):
+        if config.lightcone:
+            positions = _compute_lightcone_dual_positions(device=xt.device)
+
+        def dual(z, grade):
+            if config.lightcone:
+                return z[..., out_c:].index_select(0, positions[grade])
             return z[..., out_c:].flip(0)
 
         zs = (
-            z0[..., :out_c] + s[0:1] * dual(z4),
-            z1[..., :out_c] + s[1:5] * dual(z3),
-            z2[..., :out_c] + s[5:11] * dual(z2),
-            z3[..., :out_c] + s[11:15] * dual(z1),
-            z4[..., :out_c] + s[15:16] * dual(z0),
+            z0[..., :out_c] + s[0:1] * dual(z4, 0),
+            z1[..., :out_c] + s[1:5] * dual(z3, 1),
+            z2[..., :out_c] + s[5:11] * dual(z2, 2),
+            z3[..., :out_c] + s[11:15] * dual(z1, 3),
+            z4[..., :out_c] + s[15:16] * dual(z0, 4),
         )
     else:
         zs = (z0, z1, z2, z3, z4)  # full Lorentz group: grade-preserving basis elements only

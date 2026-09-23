@@ -1,9 +1,16 @@
 import pytest
 import torch
 
+from lgatr.interface import to_lightcone_mv
 from lgatr.primitives import sdp_attention
 from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
+from tests.helpers import (
+    BATCH_DIMS,
+    STRICT_TOLERANCES,
+    TOLERANCES,
+    check_pin_equivariance,
+    random_lightcone_frame,
+)
 
 CONFIG = PrimitivesConfig()
 
@@ -59,3 +66,19 @@ def test_scalar_attention_equivariance() -> None:
     check_pin_equivariance(
         sdp_attention, 3, batch_dims=[data_dims] * 3, fn_kwargs=kwargs, spin=False, **TOLERANCES
     )
+
+
+def test_sdp_attention_lightcone_matches_cartesian() -> None:
+    # The light-cone coordinates are an exact change of basis: the attention logits contract the
+    # metric, so they are unchanged and the outputs are the mapped Cartesian ones.
+    items, channels = 5, 3
+    qkv = [torch.randn(*BATCH_DIMS, items, channels, 16, dtype=torch.float64) for _ in range(3)]
+    qkv_s = [torch.randn(*BATCH_DIMS, items, channels, dtype=torch.float64) for _ in range(3)]
+    frame = random_lightcone_frame(qkv[0])
+
+    outputs, outputs_s = sdp_attention(*qkv, *qkv_s, config=CONFIG)
+    outputs_lc, outputs_s_lc = sdp_attention(
+        *(to_lightcone_mv(x, frame) for x in qkv), *qkv_s, config=PrimitivesConfig(lightcone=True)
+    )
+    torch.testing.assert_close(outputs_lc, to_lightcone_mv(outputs, frame), **STRICT_TOLERANCES)
+    torch.testing.assert_close(outputs_s_lc, outputs_s, **STRICT_TOLERANCES)

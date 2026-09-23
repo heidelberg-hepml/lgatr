@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import torch
 
-from .bilinear import _compute_sparse_gp_indices, _load_geometric_product_tensor
+from .bilinear import (
+    _compute_sparse_gp_indices,
+    _compute_sparse_gp_lightcone_indices,
+    _load_geometric_product_tensor,
+)
 from .invariants import _load_inner_product_factors
 from .linear import (
     _compute_dual_sign,
     _compute_grade_involution,
     _compute_grade_projection_mask,
+    _compute_lightcone_dual_positions,
     _compute_pin_equi_linear_basis,
     _compute_reversal,
 )
@@ -31,12 +36,15 @@ def warmup_caches(device: torch.device | str, dtype: torch.dtype = torch.float32
         Floating-point dtype matching what the model will run in.
     """
     device = torch.device(device)
-    for use_subgroup in (True, False):
-        _compute_pin_equi_linear_basis(use_subgroup, device=device, dtype=dtype)
+    for use_lightcone in (False, True):
+        for use_subgroup in (True, False):
+            _compute_pin_equi_linear_basis(use_subgroup, use_lightcone, device=device, dtype=dtype)
+        _compute_dual_sign(use_lightcone, device=device, dtype=dtype)
+        _load_geometric_product_tensor(use_lightcone, device=device, dtype=dtype)
     _compute_grade_projection_mask(device=device, dtype=dtype)
     _compute_reversal(device=device, dtype=dtype)
     _compute_grade_involution(device=device, dtype=dtype)
-    _compute_dual_sign(device=device, dtype=dtype)
-    _load_geometric_product_tensor(device=device, dtype=dtype)
+    _compute_lightcone_dual_positions(device=device)
     _compute_sparse_gp_indices(device=device, dtype=dtype)
+    _compute_sparse_gp_lightcone_indices(device=device, dtype=dtype)
     _load_inner_product_factors(device=device, dtype=dtype)

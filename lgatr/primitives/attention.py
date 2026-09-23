@@ -4,7 +4,7 @@ import torch
 
 from .attention_backends import get_attention_backend
 from .config import PrimitivesConfig
-from .invariants import _load_inner_product_factors
+from .invariants import _apply_metric
 
 
 def sdp_attention(
@@ -63,7 +63,7 @@ def sdp_attention(
         raise ValueError("q_s, k_s, and v_s must either all be None or all be provided.")
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
-    q = (q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype)).flatten(-2, -1)
+    q = _apply_metric(q_mv, config.lightcone).flatten(-2, -1)
     k = k_mv.flatten(-2, -1)
     num_channels_out = v_mv.shape[-2]
     v = v_mv.flatten(-2, -1)
