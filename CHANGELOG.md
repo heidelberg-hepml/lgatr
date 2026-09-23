@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Attention backends are imported together with `lgatr` again instead of lazily on first use
+- Fix memory leak in `sparse_linear=True` under `torch.compile`
 
 ## [2.0.0] - 29.07.2026
 

@@ -41,9 +41,9 @@ class PrimitivesConfig:
     sparse_linear
         If True, route :func:`equi_linear` through the per-grade kernel that exploits the basis
         sparsity. This has fewer FLOPs than the dense path but uses less optimized kernels (no
-        single fused BLAS GEMM), so on FLOP-rich GPUs (e.g. H100) it is typically slower and
-        heavier than dense; it mainly helps on FLOP-bound hardware. Sparse outputs match the dense
-        path within standard test tolerances but are not bit-identical.
+        single fused BLAS GEMM), so on FLOP-rich GPUs (e.g. H100) it is typically slower than
+        dense; it mainly helps on FLOP-bound hardware. Activation memory is about the same under
+        ``torch.compile``.
     """
 
     subgroup: bool = True
