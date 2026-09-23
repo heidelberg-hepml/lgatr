@@ -1,7 +1,10 @@
 """Unit tests of invariant primitives."""
 
 from lgatr.primitives import abs_squared_norm, inner_product
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_invariance
+
+CONFIG = PrimitivesConfig()
 
 
 def test_inner_product_invariance() -> None:
@@ -11,4 +14,11 @@ def test_inner_product_invariance() -> None:
 
 def test_abs_squared_norm_invariance() -> None:
     # abs_squared_norm is Pin-invariant.
-    check_pin_invariance(abs_squared_norm, 1, batch_dims=BATCH_DIMS, spin=False, **TOLERANCES)
+    check_pin_invariance(
+        abs_squared_norm,
+        1,
+        batch_dims=BATCH_DIMS,
+        fn_kwargs=dict(config=CONFIG),
+        spin=False,
+        **TOLERANCES,
+    )

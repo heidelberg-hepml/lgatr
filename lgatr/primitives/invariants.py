@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import torch
 
+from .config import PrimitivesConfig
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 # Diagonal of the GA metric (signature of the inner product on each multivector grade).
@@ -50,7 +51,7 @@ def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return outputs
 
 
-def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
+def abs_squared_norm(x: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tensor:
     """Compute a positive-semidefinite modification of the squared norm.
 
     Suitable for layer normalization (the standard GA squared norm is not positive semidefinite).
@@ -59,6 +60,8 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
     ----------
     x
         Input multivector of shape ``(..., 16)``.
+    config
+        LGATr primitives configuration.
 
     Returns
     -------

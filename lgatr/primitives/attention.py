@@ -3,6 +3,7 @@
 import torch
 
 from .attention_backends import get_attention_backend
+from .config import PrimitivesConfig
 from .invariants import _load_inner_product_factors
 
 
@@ -13,6 +14,8 @@ def sdp_attention(
     q_s: torch.Tensor | None = None,
     k_s: torch.Tensor | None = None,
     v_s: torch.Tensor | None = None,
+    *,
+    config: PrimitivesConfig,
     **attn_kwargs,
 ) -> tuple[torch.Tensor, torch.Tensor | None]:
     """Equivariant geometric attention based on scaled dot products.
@@ -43,6 +46,8 @@ def sdp_attention(
         Optional scalar keys of shape ``(..., items_in, s_channels)``. Must be None iff ``q_s`` is None.
     v_s
         Optional scalar values of shape ``(..., items_in, s_channels)``. Must be None iff ``q_s`` is None.
+    config
+        LGATr primitives configuration.
     **attn_kwargs
         Optional keyword arguments forwarded to the attention backend.
 

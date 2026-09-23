@@ -2,7 +2,10 @@ import pytest
 import torch
 
 from lgatr.primitives import sdp_attention
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_pin_equivariance
+
+CONFIG = PrimitivesConfig()
 
 
 @pytest.mark.parametrize(
@@ -30,7 +33,7 @@ def test_scalar_attention_shape(
     k_s = torch.randn(*BATCH_DIMS, tokens_in, s_in)
     v_s = torch.randn(*BATCH_DIMS, tokens_in, s_out)
 
-    outputs, outputs_scalar = sdp_attention(q_mv, k_mv, v_mv, q_s, k_s, v_s)
+    outputs, outputs_scalar = sdp_attention(q_mv, k_mv, v_mv, q_s, k_s, v_s, config=CONFIG)
 
     assert outputs.shape == (*BATCH_DIMS, tokens_out, mv_out, 16)
     assert outputs_scalar.shape == (*BATCH_DIMS, tokens_out, s_out)
@@ -39,7 +42,7 @@ def test_scalar_attention_shape(
 def test_sdp_attention_none_scalars() -> None:
     # sdp_attention propagates None when q_s/k_s/v_s are all None.
     q = k = v = torch.randn(2, 3, 4, 16)
-    _, outputs_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None)
+    _, outputs_s = sdp_attention(q, k, v, q_s=None, k_s=None, v_s=None, config=CONFIG)
     assert outputs_s is None
 
 
@@ -51,6 +54,7 @@ def test_scalar_attention_equivariance() -> None:
         q_s=torch.randn(*BATCH_DIMS, item_dim, num_scalars),
         k_s=torch.randn(*BATCH_DIMS, item_dim, num_scalars),
         v_s=torch.randn(*BATCH_DIMS, item_dim, num_scalars),
+        config=CONFIG,
     )
     check_pin_equivariance(
         sdp_attention, 3, batch_dims=[data_dims] * 3, fn_kwargs=kwargs, spin=False, **TOLERANCES

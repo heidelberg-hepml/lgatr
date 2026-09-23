@@ -34,6 +34,7 @@ class CrossAttention(nn.Module):
 
         # Store settings
         self.config = config
+        self.primitives = primitives
 
         self.q_linear = EquiLinear(
             in_mv_channels=config.q_mv_channels,
@@ -67,7 +68,7 @@ class CrossAttention(nn.Module):
         )
 
         # QKV normalization (mirrors self-attention's QKVModule)
-        self.norm = EquiLayerNorm()
+        self.norm = EquiLayerNorm(primitives=primitives)
 
         # Dropout
         self.dropout: nn.Module | None
@@ -173,6 +174,7 @@ class CrossAttention(nn.Module):
             q_s,
             k_s,
             v_s,
+            config=self.primitives,
             **attn_kwargs,
         )
         if self.use_head_scale:
