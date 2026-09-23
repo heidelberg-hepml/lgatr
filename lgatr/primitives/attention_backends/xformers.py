@@ -70,9 +70,9 @@ def attention(
         value = value.expand(*value.shape[:2], query.shape[2], value.shape[3])
 
     # attention kernels require head_dim aligned to 128 bits (4 elements in fp32, 8 in
-    # fp16/bf16); zero-pad to a multiple of 8 to cover every dtype and overwrite scale for correctness.
+    # fp16/bf16); zero-pad to that and overwrite scale for correctness.
     head_dim = query.shape[-1]
-    pad = -head_dim % 8
+    pad = -head_dim % (16 // query.dtype.itemsize)
     if pad:
         query, key, value = (torch.nn.functional.pad(t, (0, pad)) for t in (query, key, value))
 

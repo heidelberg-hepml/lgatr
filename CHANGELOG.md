@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Attention backends no longer support `dtype` argument and automatic downcast to float16/bfloat16
 - Discuss default changes in v1-vs-v2 docs page
+- Improve xformers attention backend padding
+
+### Fixed
+
+- Attention backends are imported together with `lgatr` again instead of lazily on first use
 
 ## [2.0.0] - 29.07.2026
 

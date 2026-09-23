@@ -41,9 +41,9 @@ Without any of them, the native PyTorch backend is used:
    attn_bias = BlockDiagonalMask.from_seqlens(seqlens)
    outputs, outputs_s = net(multivectors, scalars=scalars, attn_bias=attn_bias)
 
-Backends are resolved lazily on first use, so importing ``lgatr`` never pulls in ``xformers``
-or ``flash-attn``. Requesting a backend whose dependency is missing raises a ``ValueError``
-naming the backend and the reason it could not be loaded.
+All installed backends are imported together with ``lgatr``, so that backend selection inside a
+``torch.compile``'d forward never triggers an import. Requesting a backend whose dependency is
+missing raises a ``ValueError`` naming the backend and the reason it could not be loaded.
 
 .. autofunction:: lgatr.primitives.attention_backends.get_attention_backend
 
