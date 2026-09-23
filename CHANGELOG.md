@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve xformers attention backend padding
 - `abs_squared_norm` sums each grade with slices instead of a matmul, which lowers activation memory under `torch.compile`
 - Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
+- Avoid contiguous copies of the queries, keys and values in the xformers attention backend
 
 ### Fixed
 

@@ -62,7 +62,8 @@ def attention(
             "float16, bfloat16, float32"
         )
 
-    # xformers and the attention kernels expect shape (batch, item, head, channel)
+    # xformers and the attention kernels expect shape (batch, item, head, channel); they read
+    # strides directly, so the transposed views are passed on without contiguous copies.
     query, key, value = (t.transpose(1, 2) for t in (query, key, value))
     if key.shape[2] != query.shape[2]:
         # broadcast key/value heads for multi-query / grouped-query attention
@@ -125,7 +126,6 @@ def _attention_compiled(
     compute_lse = torch.is_grad_enabled() and (
         query.requires_grad or key.requires_grad or value.requires_grad
     )
-    query, key, value = query.contiguous(), key.contiguous(), value.contiguous()
     out, _ = _compiled_varlen_fwd(
         query,
         key,
@@ -150,9 +150,9 @@ def _attention_xformers(
 ) -> torch.Tensor:
     """Forward to xformers' ``memory_efficient_attention`` (torch.compile-traceable for fp16/bf16)."""
     out = memory_efficient_attention(
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         attn_bias=attn_bias,
         **kwargs,
     )
@@ -178,9 +178,9 @@ def _compiled_varlen_fwd(
     scale: float | None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     out, lse, _, _, _, _ = torch.ops.aten._efficient_attention_forward(
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         bias=None,
         cu_seqlens_q=seqstart_q,
         cu_seqlens_k=seqstart_k,
@@ -233,9 +233,9 @@ def _compiled_varlen_bwd(
     rng_dummy = torch.zeros((), dtype=torch.int64)
     grad_q, grad_k, grad_v, _ = torch.ops.aten._efficient_attention_backward(
         grad.contiguous(),
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         bias=None,
         out=out.contiguous(),
         cu_seqlens_q=seqstart_q,
