@@ -67,8 +67,7 @@ def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
     outputs
         Geometric-algebra norm of ``x``, shape ``(..., 1)``.
     """
-    # Slice sums rather than a (16, 5) matmul keep this a single fused reduction under
-    # torch.compile, whose backward recomputes it from x instead of saving the per-grade norms.
+    # Per-grade slice sums rather than a single matmul: lower activation memory under compile.
     signed = x * x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
     return (
         signed[..., 0:1].sum(-1, keepdim=True).abs()

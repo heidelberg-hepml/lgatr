@@ -35,15 +35,16 @@ class PrimitivesConfig:
         :class:`ScalarGatedNonlinearity` followed by an :class:`EquiLinear` layer. This is a toy
         switch to explore the effect of the geometric product.
     sparse_gp
-        If True, route :func:`geometric_product` through the gather-and-reduce kernel that exploits
-        the basis sparsity (the dense path otherwise spends most of its FLOPs on zero entries).
-        Under ``torch.compile`` this is both faster and far lighter than the dense product.
+        If True, evaluate :func:`geometric_product` by gathering and reducing only the nonzero
+        basis entries, 6.25% of the dense 3-tensor. Under ``torch.compile`` this is both faster
+        and far lighter than the dense product.
     sparse_linear
-        If True, route :func:`equi_linear` through the per-grade kernel that exploits the basis
-        sparsity. This has fewer FLOPs than the dense path but uses less optimized kernels (no
-        single fused BLAS GEMM), so on FLOP-rich GPUs (e.g. H100) it is typically slower than
-        dense; it mainly helps on FLOP-bound hardware. Activation memory is about the same under
-        ``torch.compile``.
+        If True, route :func:`equi_linear` through the per-grade path that exploits the basis
+        sparsity: five narrow GEMMs on grade slices instead of one large GEMM. This has fewer
+        FLOPs but less efficient kernels, so on FLOP-rich GPUs (e.g. H100) it is typically slower
+        than dense; it mainly helps on FLOP-bound hardware. Activation memory is about the same
+        under ``torch.compile``. Sparse outputs match the dense path within standard test
+        tolerances but are not bit-identical.
     """
 
     subgroup: bool = True

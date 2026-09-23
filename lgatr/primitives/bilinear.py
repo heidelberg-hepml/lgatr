@@ -48,8 +48,8 @@ def _geometric_product_dense(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 
 def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    # out[..., i] = sum_j signs[i, j] * x[..., j] * y[..., indices[i, j]]. torch.compile fuses this
-    # into a single kernel; in eager the (..., 16, 16) gather is materialized instead.
+    # out[..., i] = sum_j signs[i, j] * x[..., j] * y[..., indices[i, j]]. torch.compile fuses
+    # away the (..., 16, 16) gather, which eager materializes.
     indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
     return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
 

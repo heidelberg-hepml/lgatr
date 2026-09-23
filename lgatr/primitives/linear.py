@@ -94,11 +94,10 @@ def _equi_linear_dense(
     x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig
 ) -> torch.Tensor:
     # Equation: out[..., y, i] = sum_{x, a, j} coeffs[y, x, a] * basis[a, i, j] * x[..., x, j]
-    # basis is ~1% nonzero, so this path spends most of its FLOPs on zero entries; the sparse
-    # path skips those at the cost of less optimized kernels (no fused BLAS GEMM).
+    # Fold (coeffs, basis) into an effective (out_c, in_c, 16, 16) weight via one GEMM, then
+    # contract it with x. That block is 12.5% nonzero (6.25% for the full Lorentz group), so this
+    # path does 8-16x the necessary multiply-adds; _equi_linear_sparse trades it for narrow GEMMs.
     basis = _compute_pin_equi_linear_basis(config.subgroup, device=x.device, dtype=x.dtype)
-    # Fold (coeffs, basis) into an effective (out_c, in_c, 16, 16) weight via one GEMM,
-    # then contract that weight with x.
     weight = (coeffs @ basis.flatten(-2)).unflatten(-1, (16, 16))
     return torch.einsum("y x i j, ... x j -> ... y i", weight, x)
 
