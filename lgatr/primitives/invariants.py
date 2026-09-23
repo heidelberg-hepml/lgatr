@@ -4,7 +4,6 @@ from functools import lru_cache
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
 # Diagonal of the GA metric (signature of the inner product on each multivector grade).
@@ -51,7 +50,6 @@ def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return outputs
 
 
-@minimum_autocast_precision(torch.float32)
 def abs_squared_norm(x: torch.Tensor) -> torch.Tensor:
     """Compute a positive-semidefinite modification of the squared norm.
 

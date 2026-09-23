@@ -6,7 +6,6 @@ from pathlib import Path
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
 from .config import PrimitivesConfig
 
 DEFAULT_DEVICE = torch.device("cpu")
@@ -155,7 +154,6 @@ def _equi_linear_sparse(
     return yt.view(16, *x.shape[:-2], yt.shape[-1]).movedim(0, -1).contiguous()
 
 
-@minimum_autocast_precision(torch.float32, output="high")
 def equi_linear(x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tensor:
     """Pin-equivariant linear map ``f(x) = sum_{a,j} coeffs_a W^a_ij x_j``.
 

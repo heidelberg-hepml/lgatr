@@ -84,15 +84,6 @@ well as activation take less space on disk. Automatic mixed precision (amp) allo
 precision, and does a more careful treatment of objects in the backward pass compared
 to naive float16/bfloat16.
 
-The :class:`~lgatr.nets.lgatr.LGATr` architecture supports two amp modes:
-``naive_amp=True`` directly applies amp without any modifications, whereas
-``naive_amp=False`` performs only operations on scalars in float16/bfloat16,
-and uses full float32 precision for operations on multivectors. The
-``naive_amp=False`` path uses a custom
-:class:`~lgatr.utils.autocast.minimum_autocast_precision` decorator that can
-be applied on any function to upcast to float32 precision locally.
-The :class:`~lgatr.nets.slim.LGATrSlim` architecture does not pin any operations to float32.
-
 However, **currently we do not recommend to use amp** with the
 :class:`~lgatr.nets.lgatr.LGATr` architecture, or with the
 :class:`~lgatr.nets.slim.LGATrSlim` architecture in Cartesian coordinates.

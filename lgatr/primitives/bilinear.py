@@ -5,7 +5,6 @@ from pathlib import Path
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
 from .config import PrimitivesConfig
 from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
 
@@ -54,7 +53,6 @@ def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
 
 
-@minimum_autocast_precision(torch.float32, output="high")
 def geometric_product(
     x: torch.Tensor, y: torch.Tensor, *, config: PrimitivesConfig
 ) -> torch.Tensor:

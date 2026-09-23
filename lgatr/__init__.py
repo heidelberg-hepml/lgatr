@@ -16,7 +16,6 @@ from .nets.conditional_slim import ConditionalLGATrSlim
 from .nets.lgatr import LGATr
 from .nets.slim import LGATrSlim
 from .primitives.config import PrimitivesConfig
-from .utils.autocast import naive_amp
 
 __version__ = _pkg_version("lgatr")
 
@@ -43,6 +42,5 @@ __all__ = [
     "get_lightcone_frame",
     "get_num_spurions",
     "get_spurions",
-    "naive_amp",
     "to_lightcone",
 ]

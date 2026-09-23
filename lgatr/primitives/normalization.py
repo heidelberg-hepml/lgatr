@@ -2,11 +2,9 @@
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
 from .invariants import abs_squared_norm
 
 
-@minimum_autocast_precision(torch.float32)
 def equi_layer_norm(
     x: torch.Tensor,
     channel_dim: int = -2,
