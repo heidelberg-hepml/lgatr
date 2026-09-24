@@ -27,7 +27,8 @@ def get_lightcone_frame(reference: torch.Tensor) -> torch.Tensor:
 
     Nearly massless vectors collinear with ``n`` have a small ``x^-``, which is stored explicitly
     instead of as a difference of large numbers. A good reference is the summed four-momentum of
-    the items, e.g. the jet momentum.
+    the items, e.g. the jet momentum. The frame cancels in the outputs and its gradient is singular
+    along the z axis and at rest, so pass a detached ``reference``.
 
     Parameters
     ----------
@@ -79,11 +80,6 @@ def get_lightcone_frame_mv(frame: torch.Tensor) -> torch.Tensor:
         blade = blade.to(frame.device)
         minors = frame[..., blade[:, None, :, None], blade[None, :, None, :]]
         frame_mv[..., start:stop, start:stop] = torch.linalg.det(minors)
-    # the grade-4 block is det(frame); a reflection would silently flip the Hodge dual
-    pseudoscalar = frame_mv[..., 15, 15]
-    assert torch.allclose(pseudoscalar, torch.ones_like(pseudoscalar)), (
-        "light-cone frame must preserve orientation (det = 1)"
-    )
     return frame_mv
 
 

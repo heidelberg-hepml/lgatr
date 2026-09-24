@@ -62,7 +62,8 @@ class ConditionalLGATrSlim(nn.Module):
         Whether to use gradient checkpointing for the blocks.
     lightcone
         Whether all vector inputs (conditions included) and outputs are in the light-cone
-        coordinates of one shared frame, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`.
+        coordinates of one frame per event, see
+        :func:`~lgatr.interface.lightcone.get_lightcone_frame`.
     compile
         Whether to wrap the model with :func:`torch.compile`.
     compile_kwargs
