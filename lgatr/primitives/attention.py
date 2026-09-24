@@ -2,6 +2,7 @@
 
 import torch
 
+from ..utils.autocast import autocast_dtype, autocast_enabled
 from .attention_backends import get_attention_backend
 from .config import PrimitivesConfig
 from .invariants import _apply_metric
@@ -91,7 +92,8 @@ def scaled_dot_product_attention(
     """Execute scaled dot-product attention.
 
     The attention backend is determined dynamically based on the ``attn_kwargs`` provided
-    (see :func:`lgatr.primitives.attention_backends.get_attention_backend`).
+    (see :func:`lgatr.primitives.attention_backends.get_attention_backend`). Under autocast,
+    non-float64 inputs are cast to the autocast dtype of their device.
 
     Parameters
     ----------
@@ -111,4 +113,9 @@ def scaled_dot_product_attention(
     """
     backend = attn_kwargs.pop("backend", None)
     attention_backend = get_attention_backend(backend=backend, **attn_kwargs)
+    device_type = query.device.type
+    if autocast_enabled(device_type) and query.dtype != torch.float64:
+        # non-torch backends ignore autocast
+        dtype = autocast_dtype(device_type)
+        query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
     return attention_backend(query, key, value, **attn_kwargs)

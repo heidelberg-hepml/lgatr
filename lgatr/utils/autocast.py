@@ -10,25 +10,32 @@ import torch
 try:
     torch.is_autocast_enabled("cpu")
 
-    def _autocast_active() -> bool:
-        """Whether CPU or CUDA autocast is enabled."""
-        return torch.is_autocast_enabled("cuda") or torch.is_autocast_enabled("cpu")
-
-    def autocast_dtype(device_type: str = "cuda") -> torch.dtype:
+    def autocast_dtype(device_type: str) -> torch.dtype:
         """Dtype that autocast would cast to on ``device_type``."""
         return torch.get_autocast_dtype(device_type)
 
+    def autocast_enabled(device_type: str) -> bool:
+        """Whether autocast is enabled on ``device_type``; always False except on CPU and CUDA."""
+        return device_type in ("cpu", "cuda") and torch.is_autocast_enabled(device_type)
+
 except TypeError:  # pragma: no cover - torch<2.4 has no device_type argument
 
-    def _autocast_active() -> bool:
-        """Whether CPU or CUDA autocast is enabled."""
-        return torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled()
-
-    def autocast_dtype(device_type: str = "cuda") -> torch.dtype:
+    def autocast_dtype(device_type: str) -> torch.dtype:
         """Dtype that autocast would cast to on ``device_type``."""
         if device_type == "cpu":
             return torch.get_autocast_cpu_dtype()
         return torch.get_autocast_gpu_dtype()
+
+    def autocast_enabled(device_type: str) -> bool:
+        """Whether autocast is enabled on ``device_type``; always False except on CPU and CUDA."""
+        if device_type == "cpu":
+            return torch.is_autocast_cpu_enabled()
+        return device_type == "cuda" and torch.is_autocast_enabled()
+
+
+def _autocast_active() -> bool:
+    """Whether CPU or CUDA autocast is enabled."""
+    return autocast_enabled("cuda") or autocast_enabled("cpu")
 
 
 class minimum_autocast_precision:

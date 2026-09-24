@@ -15,11 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Attention backends no longer support `dtype` argument and automatic downcast to float16/bfloat16
+- Attention backends no longer take a `dtype` argument or downcast inputs themselves
 - Discuss default changes in v1-vs-v2 docs page
 - Improve xformers attention backend padding
 - `abs_squared_norm` sums each grade with slices instead of a matmul, which lowers activation memory under `torch.compile`
-- Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
+- Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions
 - Avoid unnecessary contiguous copies of the queries, keys and values in the xformers attention backend
 - `inner_product`, `abs_squared_norm`, `equi_layer_norm` and `sdp_attention` take a required `config` keyword argument, and `EquiLayerNorm` a required `primitives` argument
 
