@@ -82,13 +82,17 @@ def _geometric_product_dense(x: torch.Tensor, y: torch.Tensor, lightcone: bool) 
 
 def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor, lightcone: bool) -> torch.Tensor:
     # out[..., i] = sum_j signs[i, j] * x[..., j] * y[..., indices[i, j]]. torch.compile fuses
-    # away the (..., 16, 16) gather, which eager materializes.
+    # away the (..., 16, 16) gather, which eager materializes. Its compiled backward is slow in
+    # (b)float16, so gather in at least float32.
+    dtype = torch.promote_types(x.dtype, y.dtype)
+    gather_dtype = torch.promote_types(dtype, torch.float32)
+    x, y = x.to(gather_dtype), y.to(gather_dtype)
     if lightcone:
         # out[..., i] = sum_n signs[i, n] * x[..., xidx[i, n]] * y[..., yidx[i, n]]
         xidx, yidx, signs = _compute_sparse_gp_lightcone_indices(device=x.device, dtype=x.dtype)
-        return (signs * x[..., xidx] * y[..., yidx]).sum(-1)
+        return (signs * x[..., xidx] * y[..., yidx]).sum(-1).to(dtype)
     indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
-    return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
+    return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1).to(dtype)
 
 
 def geometric_product(
