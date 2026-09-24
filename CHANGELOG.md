@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Attention backends no longer support `dtype` argument and automatic downcast to float16/bfloat16
+- Discuss default changes in v1-vs-v2 docs page
+- Improve xformers attention backend padding
+- `abs_squared_norm` sums each grade with slices instead of a matmul, which lowers activation memory under `torch.compile`
+- Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
+- Avoid unnecessary contiguous copies of the queries, keys and values in the xformers attention backend
+
+### Fixed
+
+- Attention backends are imported together with `lgatr` again instead of lazily on first use
+- Fix memory leak in `sparse_linear=True` under `torch.compile`
+- Fix `xformers` and `varlen` attention backends returning the padded head dim under `torch.compile` with dynamic shapes
+
 ## [2.0.0] - 29.07.2026
 
 ### Added

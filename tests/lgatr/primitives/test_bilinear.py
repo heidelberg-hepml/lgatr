@@ -49,8 +49,8 @@ def test_geometric_product_equivariance(sparse_gp: bool) -> None:
 def test_geometric_product_sparse_dense_equivalence_broadcasting(
     x_batch: tuple[int, ...], y_batch: tuple[int, ...]
 ) -> None:
-    # The sparse path must preserve the broadcasting semantics of the dense path, including in
-    # the backward pass (where the sparse path un-broadcasts gradients back to input shapes).
+    # The sparse path must preserve the broadcasting semantics of the dense path, in the forward
+    # and in the backward pass.
     x = torch.randn(*x_batch)
     y = torch.randn(*y_batch)
     x_dense, y_dense = x.clone().requires_grad_(), y.clone().requires_grad_()
