@@ -1,0 +1,13 @@
+﻿lgatr.utils.compile
+===================
+
+.. automodule:: lgatr.utils.compile
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compile_model
+      warmup_after_apply
+   

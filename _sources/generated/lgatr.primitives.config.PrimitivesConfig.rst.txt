@@ -1,0 +1,8 @@
+﻿lgatr.primitives.config.PrimitivesConfig
+========================================
+
+.. autoclass:: lgatr.primitives.config.PrimitivesConfig
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

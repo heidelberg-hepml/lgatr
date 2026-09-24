@@ -1,0 +1,8 @@
+﻿lgatr.nets.conditional_slim.ConditionalLGATrSlim
+================================================
+
+.. autoclass:: lgatr.nets.conditional_slim.ConditionalLGATrSlim
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:

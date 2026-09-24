@@ -1,0 +1,227 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.utils.autocast &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=3469de9b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="lgatr.layers.slim_layers.SlimBlock" href="lgatr.layers.slim_layers.SlimBlock.html" />
+    <link rel="prev" title="lgatr.primitives.compile" href="lgatr.primitives.compile.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-networks">L-GATr Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-layers">L-GATr Layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-primitives">L-GATr Primitives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-configuration-classes">L-GATr Configuration Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#interface-to-the-geometric-algebra">Interface to the Geometric Algebra</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../api.html#l-gatr-utilities">L-GATr Utilities</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="lgatr.utils.compile.html">lgatr.utils.compile</a></li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.primitives.compile.html">lgatr.primitives.compile</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">lgatr.utils.autocast</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#lgatr.utils.autocast.autocast_dtype"><code class="docutils literal notranslate"><span class="pre">autocast_dtype()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lgatr.utils.autocast.minimum_autocast_precision"><code class="docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#lgatr.utils.autocast.naive_amp"><code class="docutils literal notranslate"><span class="pre">naive_amp</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-slim-layers">L-GATr-slim Layers</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">API Reference</a></li>
+      <li class="breadcrumb-item active">lgatr.utils.autocast</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/generated/lgatr.utils.autocast.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-lgatr.utils.autocast">
+<span id="lgatr-utils-autocast"></span><h1>lgatr.utils.autocast<a class="headerlink" href="#module-lgatr.utils.autocast" title="Link to this heading"></a></h1>
+<p>Pin inputs to a minimum autocast precision; usable as a decorator.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#lgatr.utils.autocast.autocast_dtype" title="lgatr.utils.autocast.autocast_dtype"><code class="xref py py-obj docutils literal notranslate"><span class="pre">autocast_dtype</span></code></a>([device_type])</p></td>
+<td><p>Dtype that autocast would cast to on <code class="docutils literal notranslate"><span class="pre">device_type</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#lgatr.utils.autocast.minimum_autocast_precision" title="lgatr.utils.autocast.minimum_autocast_precision"><code class="xref py py-obj docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a>([min_dtype, output])</p></td>
+<td><p>Pin tensors to a minimum precision inside autocast regions.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#lgatr.utils.autocast.naive_amp" title="lgatr.utils.autocast.naive_amp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">naive_amp</span></code></a>([enabled])</p></td>
+<td><p>Disable all <a class="reference internal" href="#lgatr.utils.autocast.minimum_autocast_precision" title="lgatr.utils.autocast.minimum_autocast_precision"><code class="xref py py-class docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a> pinning inside the block.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="lgatr.utils.autocast.autocast_dtype">
+<span class="sig-prename descclassname"><span class="pre">lgatr.utils.autocast.</span></span><span class="sig-name descname"><span class="pre">autocast_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cuda'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/utils/autocast.html#autocast_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.utils.autocast.autocast_dtype" title="Link to this definition"></a></dt>
+<dd><p>Dtype that autocast would cast to on <code class="docutils literal notranslate"><span class="pre">device_type</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dtype</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lgatr.utils.autocast.minimum_autocast_precision">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lgatr.utils.autocast.</span></span><span class="sig-name descname"><span class="pre">minimum_autocast_precision</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'low'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/utils/autocast.html#minimum_autocast_precision"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.utils.autocast.minimum_autocast_precision" title="Link to this definition"></a></dt>
+<dd><p>Pin tensors to a minimum precision inside autocast regions.</p>
+<p>Used as a decorator: <code class="docutils literal notranslate"><span class="pre">&#64;minimum_autocast_precision(torch.float32)</span></code> on a function definition.
+Inside autocast-enabled regions, floating-point inputs below <code class="docutils literal notranslate"><span class="pre">min_dtype</span></code> are cast up to
+<code class="docutils literal notranslate"><span class="pre">min_dtype</span></code>, autocast is disabled for the call, and outputs are optionally cast per the
+<code class="docutils literal notranslate"><span class="pre">output</span></code> argument. Outside autocast regions the decorator is a no-op.</p>
+<p>The <a class="reference internal" href="#lgatr.utils.autocast.naive_amp" title="lgatr.utils.autocast.naive_amp"><code class="xref py py-class docutils literal notranslate"><span class="pre">naive_amp</span></code></a> context manager turns the decorator into a no-op, letting the wrapped
+ops run in the surrounding autocast dtype instead.</p>
+<p>Only floating-point tensors are modified — non-tensors, integer tensors, and boolean tensors
+are left alone.</p>
+<p>Note: AMP is enabled separately for CPU and CUDA. This may behave unexpectedly when both
+devices are used and only one of them has AMP enabled. Instances are not thread-safe; share
+one per thread if used concurrently.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_dtype</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dtype</span></code></span>) – Minimum dtype.</p></li>
+<li><p><strong>output</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code>[<code class="docutils literal notranslate"><span class="pre">'low'</span></code>, <code class="docutils literal notranslate"><span class="pre">'high'</span></code>], <code class="xref py py-class docutils literal notranslate"><span class="pre">dtype</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]</span>) – Specifies which dtype the outputs should be cast to. Only floating-point tensor outputs
+are affected. If <code class="docutils literal notranslate"><span class="pre">&quot;low&quot;</span></code> (default), the lowest precision among <code class="docutils literal notranslate"><span class="pre">min_dtype</span></code> and the
+input dtypes is used. If <code class="docutils literal notranslate"><span class="pre">&quot;high&quot;</span></code>, the highest-precision input dtype is used. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, outputs are not modified. If a <code class="docutils literal notranslate"><span class="pre">torch.dtype</span></code>, that dtype is used. In the
+<code class="docutils literal notranslate"><span class="pre">&quot;low&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;high&quot;</span></code> modes, outputs are left alone when there are no floating-point
+inputs to derive a dtype from.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="lgatr.utils.autocast.minimum_autocast_precision.cast">
+<span class="sig-name descname"><span class="pre">cast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/utils/autocast.html#minimum_autocast_precision.cast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.utils.autocast.minimum_autocast_precision.cast" title="Link to this definition"></a></dt>
+<dd><p>Upcast a floating-point tensor to at least <code class="docutils literal notranslate"><span class="pre">min_dtype</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Any</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="lgatr.utils.autocast.naive_amp">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">lgatr.utils.autocast.</span></span><span class="sig-name descname"><span class="pre">naive_amp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/utils/autocast.html#naive_amp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.utils.autocast.naive_amp" title="Link to this definition"></a></dt>
+<dd><p>Disable all <a class="reference internal" href="#lgatr.utils.autocast.minimum_autocast_precision" title="lgatr.utils.autocast.minimum_autocast_precision"><code class="xref py py-class docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a> pinning inside the block.</p>
+<p>While active, the fp32 precision islands created by the <a class="reference internal" href="#lgatr.utils.autocast.minimum_autocast_precision" title="lgatr.utils.autocast.minimum_autocast_precision"><code class="xref py py-class docutils literal notranslate"><span class="pre">minimum_autocast_precision</span></code></a>
+decorator are bypassed and the wrapped ops run in the surrounding autocast dtype (e.g. bf16).
+Restores the previous state on exit; safe to nest.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>enabled</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></span>) – Whether to enable naive-AMP mode. <code class="docutils literal notranslate"><span class="pre">False</span></code> leaves the current state untouched, making
+<code class="docutils literal notranslate"><span class="pre">naive_amp(False)</span></code> a no-op that still nests cleanly (it never overrides an outer
+<code class="docutils literal notranslate"><span class="pre">naive_amp</span></code>).</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="lgatr.primitives.compile.html" class="btn btn-neutral float-left" title="lgatr.primitives.compile" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="lgatr.layers.slim_layers.SlimBlock.html" class="btn btn-neutral float-right" title="lgatr.layers.slim_layers.SlimBlock" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

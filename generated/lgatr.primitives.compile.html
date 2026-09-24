@@ -1,0 +1,167 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lgatr.primitives.compile &mdash; L-GATr 0.0.post1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=3469de9b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="lgatr.utils.autocast" href="lgatr.utils.autocast.html" />
+    <link rel="prev" title="lgatr.utils.compile" href="lgatr.utils.compile.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            L-GATr
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Usage</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart L-GATr</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart_slim.html">Quickstart L-GATr-slim</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../geometric_algebra.html">Spacetime Geometric Algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../symmetry_breaking.html">Lorentz Symmetry Breaking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../attention_backends.html">Attention Backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../efficiency.html">Efficient implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../v1_to_v2.html">From lgatr v1 to v2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-networks">L-GATr Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-layers">L-GATr Layers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-primitives">L-GATr Primitives</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-configuration-classes">L-GATr Configuration Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#interface-to-the-geometric-algebra">Interface to the Geometric Algebra</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../api.html#l-gatr-utilities">L-GATr Utilities</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="lgatr.utils.compile.html">lgatr.utils.compile</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">lgatr.primitives.compile</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#lgatr.primitives.compile.warmup_caches"><code class="docutils literal notranslate"><span class="pre">warmup_caches()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="lgatr.utils.autocast.html">lgatr.utils.autocast</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#l-gatr-slim-layers">L-GATr-slim Layers</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">L-GATr</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">API Reference</a></li>
+      <li class="breadcrumb-item active">lgatr.primitives.compile</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/generated/lgatr.primitives.compile.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-lgatr.primitives.compile">
+<span id="lgatr-primitives-compile"></span><h1>lgatr.primitives.compile<a class="headerlink" href="#module-lgatr.primitives.compile" title="Link to this heading"></a></h1>
+<p>Helpers for using L-GATr primitives with <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code>.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#lgatr.primitives.compile.warmup_caches" title="lgatr.primitives.compile.warmup_caches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">warmup_caches</span></code></a>(device[, dtype])</p></td>
+<td><p>Pre-populate L-GATr's primitive caches for a given device and dtype.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="lgatr.primitives.compile.warmup_caches">
+<span class="sig-prename descclassname"><span class="pre">lgatr.primitives.compile.</span></span><span class="sig-name descname"><span class="pre">warmup_caches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">device</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">torch.float32</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/lgatr/primitives/compile.html#warmup_caches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#lgatr.primitives.compile.warmup_caches" title="Link to this definition"></a></dt>
+<dd><p>Pre-populate L-GATr’s primitive caches for a given device and dtype.</p>
+<p>Without warming, the first call for a new <code class="docutils literal notranslate"><span class="pre">(device,</span> <span class="pre">dtype)</span></code> pair triggers host-to-device
+copies that partition the captured graph under <code class="xref py py-func docutils literal notranslate"><span class="pre">torch.compile()</span></code> with
+<code class="docutils literal notranslate"><span class="pre">mode=&quot;reduce-overhead&quot;</span></code>. Calling this helper once per <code class="docutils literal notranslate"><span class="pre">(device,</span> <span class="pre">dtype)</span></code> before
+compiling avoids the partition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>device</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">device</span></code> | <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>) – Target device, either a <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.device</span></code> or a string like <code class="docutils literal notranslate"><span class="pre">&quot;cuda&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>.</p></li>
+<li><p><strong>dtype</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">dtype</span></code></span>) – Floating-point dtype matching what the model will run in.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="lgatr.utils.compile.html" class="btn btn-neutral float-left" title="lgatr.utils.compile" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="lgatr.utils.autocast.html" class="btn btn-neutral float-right" title="lgatr.utils.autocast" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Jonas Spinner, Víctor Bresó-Pla.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+﻿lgatr.layers.slim_layers.SlimDropout
+====================================
+
+.. autoclass:: lgatr.layers.slim_layers.SlimDropout
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:
