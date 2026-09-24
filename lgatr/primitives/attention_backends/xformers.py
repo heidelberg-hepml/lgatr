@@ -95,7 +95,7 @@ def attention(
         out = forward(query, key, value, attn_bias=attn_bias, **kwargs)
 
     if pad:
-        out = out[..., :head_dim]
+        out = out.narrow(-1, 0, head_dim)
     return out.transpose(1, 2).contiguous()
 
 
