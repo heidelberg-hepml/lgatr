@@ -63,8 +63,9 @@ def attention(
         )
 
     # xformers and the attention kernels expect shape (batch, item, head, channel); they read
-    # strides directly, so the transposed views are passed on without contiguous copies.
+    # strides directly and only need a unit channel stride
     query, key, value = (t.transpose(1, 2) for t in (query, key, value))
+    query, key, value = (t if t.stride(-1) == 1 else t.contiguous() for t in (query, key, value))
     if key.shape[2] != query.shape[2]:
         # broadcast key/value heads for multi-query / grouped-query attention
         key = key.expand(*key.shape[:2], query.shape[2], key.shape[3])

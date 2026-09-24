@@ -160,6 +160,24 @@ def test_flash_backend_selection(shape: tuple[int, ...]) -> None:
 
 @pytest.mark.skipif(
     not _xformers_available or not torch.cuda.is_available(),
+    reason="xformers requires the xformers package and CUDA",
+)
+@pytest.mark.parametrize("compile", [False, True])
+def test_xformers_strided_channels(compile: bool) -> None:
+    # Inputs whose channel dim is not contiguous still match the default backend.
+    from lgatr.primitives.attention_backends.xformers import attention
+
+    b, h, t, d = SHAPES[0]
+    qkv = [
+        torch.randn(b, h, d, t, dtype=torch.float16, device="cuda").transpose(-1, -2)
+        for _ in range(3)
+    ]
+    backend_fn = torch.compile(attention, fullgraph=True) if compile else attention
+    torch.testing.assert_close(backend_fn(*qkv), torch_sdpa(*qkv), **MILD_TOLERANCES)
+
+
+@pytest.mark.skipif(
+    not _xformers_available or not torch.cuda.is_available(),
     reason="xformers compiled path requires xformers and CUDA",
 )
 @pytest.mark.parametrize("shape", SHAPES)
