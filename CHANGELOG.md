@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Attention backends are imported together with `lgatr` again instead of lazily on first use
 - Fix memory leak in `sparse_linear=True` under `torch.compile`
-- Fix `xformers` and `varlen` attention backends returning the padded head dim under `torch.compile` with dynamic shapes
+- Fix `xformers` and `varlen` attention backends returning the padded head dim or failing to compile with dynamic head dims
+- Fix compiled `xformers` training in float16/bfloat16 with self-attention block-diagonal masks
 
 ## [2.0.0] - 29.07.2026
 

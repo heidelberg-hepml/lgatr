@@ -1,5 +1,7 @@
 """xformers memory-efficient attention backend."""
 
+import dataclasses
+
 import torch
 
 try:
@@ -91,6 +93,14 @@ def attention(
         # memory_efficient_attention; only the untraceable fp32 cutlass fallback is run under
         # torch.compiler.disable() (a clean graph break rather than a trace failure).
         traceable = query.dtype in (torch.float16, torch.bfloat16)
+        if (
+            traceable
+            and torch.compiler.is_compiling()
+            and type(attn_bias) in _CUSTOM_MASK_TYPE
+            and attn_bias.k_seqinfo is attn_bias.q_seqinfo
+        ):
+            # rebuild in-graph, else the shared seqinfo fails dynamo's duplicate-tensor guard
+            attn_bias = dataclasses.replace(attn_bias)
         forward = _attention_xformers if traceable else _attention_disabled
         out = forward(query, key, value, attn_bias=attn_bias, **kwargs)
 
