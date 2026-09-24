@@ -90,9 +90,9 @@ However, **currently we do not recommend to use amp** with the
 For tests on jet tagging, we found that networks trained with
 amp achieve significantly lower performance in some cases, to the point that
 the speed and memory gains from amp do not justify the performance drop.
-We are actively working on understanding this better. For
-:class:`~lgatr.nets.slim.LGATrSlim`, `Light-cone coordinates`_ remove one
-numerical source of this drop.
+We are actively working on understanding this better.
+`Light-cone coordinates`_ remove one source of error in low precision, for both
+:class:`~lgatr.nets.lgatr.LGATr` and :class:`~lgatr.nets.slim.LGATrSlim`.
 
 Light-cone coordinates
 --------------------------------------------
