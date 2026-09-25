@@ -1,26 +1,26 @@
-"""Building blocks for the slim-pseudo (vector + scalar + pseudoscalar) L-GATr network."""
+"""Building blocks for the slim-pseudo (vector + scalar + pseudoscalar) L-GATr network.
+
+Every layer is its :mod:`~lgatr.layers.slim_layers` counterpart plus a pseudoscalar stream that
+is treated like the scalars. The streams only couple through :class:`SlimPseudoMixing`, inserted
+once per :class:`SlimPseudoBlock`, and through attention and the pseudoscalar gates, which are
+computed from scalars.
+"""
 
 import math
 
 import torch
 from torch import nn
-from torch.nn.functional import dropout, dropout1d
+from torch.nn.functional import dropout
 
 from ..utils.autocast import minimum_autocast_precision
 from ..utils.misc import get_nonlinearity
-from .slim_layers import _call_attention
-
-
-def inner_product(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Minkowski inner product over the last (four-vector) dimension, signature ``(+, -, -, -)``."""
-    time = x[..., 0] * y[..., 0]
-    space = (x[..., 1:] * y[..., 1:]).sum(dim=-1)
-    return time - space
-
-
-def squared_norm(x: torch.Tensor) -> torch.Tensor:
-    """Squared Minkowski pseudonorm over the last (four-vector) dimension."""
-    return inner_product(x, x)
+from .slim_layers import (
+    SlimDropout,
+    SlimLinear,
+    SlimRMSNorm,
+    _call_attention,
+    _post_attention_reshape,
+)
 
 
 def _det3x3(m: torch.Tensor) -> torch.Tensor:
@@ -48,22 +48,6 @@ def det4x4(m: torch.Tensor, compress: bool = True) -> torch.Tensor:
     if compress:
         det = torch.asinh(det)
     return det
-
-
-def _post_attention_reshape(
-    out: torch.Tensor, hidden_v_channels: int, hidden_s_channels: int
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Split the concatenated attention output into vector, scalar, and pseudoscalar streams."""
-    v_end = hidden_v_channels * 4
-    s_end = v_end + hidden_s_channels
-    h_v = out[..., :v_end].unflatten(-1, (hidden_v_channels, 4))
-    h_s = out[..., v_end:s_end]
-    h_p = out[..., s_end:]
-
-    h_v = h_v.movedim(-3, -4).flatten(-3, -2)
-    h_s = h_s.movedim(-2, -3).flatten(-2, -1)
-    h_p = h_p.movedim(-2, -3).flatten(-2, -1)
-    return h_v, h_s, h_p
 
 
 class VectorToPseudoscalar(nn.Module):
@@ -109,31 +93,25 @@ class VectorToPseudoscalar(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, in_v_channels)``.
 
         Returns
         -------
         pseudoscalars
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
-        projected = torch.einsum("...cM,pac->...paM", vectors, self.weight)
+        projected = torch.einsum("...Mc,pac->...paM", vectors, self.weight)
         return det4x4(projected, compress=self._det_compress)
 
 
-class SlimPseudoDropout(nn.Module):
-    """SlimPseudoDropout for vector, scalar, and pseudoscalar features.
-
-    For vector features the same dropout mask is applied to all four components of each vector.
+class SlimPseudoDropout(SlimDropout):
+    """:class:`~lgatr.layers.slim_layers.SlimDropout` with an additional pseudoscalar stream.
 
     Parameters
     ----------
     dropout_prob
-        SlimPseudoDropout probability.
+        Dropout probability.
     """
-
-    def __init__(self, dropout_prob: float) -> None:
-        super().__init__()
-        self._dropout_prob = dropout_prob
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor
@@ -143,7 +121,7 @@ class SlimPseudoDropout(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
         pseudoscalars
@@ -158,37 +136,28 @@ class SlimPseudoDropout(nn.Module):
         outputs_p
             Pseudoscalar features with dropout, same shape as ``pseudoscalars``.
         """
+        outputs_v, outputs_s = super().forward(vectors, scalars)
         if not self.training or self._dropout_prob == 0.0:
-            return vectors, scalars, pseudoscalars
-
-        # have to reshape vectors because dropout1d constrains input shape
-        flat_v = vectors.reshape(-1, 4)
-        outputs_v = dropout1d(flat_v, p=self._dropout_prob, training=True).reshape(vectors.shape)
-        outputs_s = dropout(scalars, p=self._dropout_prob, training=True)
+            return outputs_v, outputs_s, pseudoscalars
         outputs_p = dropout(pseudoscalars, p=self._dropout_prob, training=True)
         return outputs_v, outputs_s, outputs_p
 
 
-class SlimPseudoRMSNorm(nn.Module):
+class SlimPseudoRMSNorm(SlimRMSNorm):
     """Joint RMS normalization over vector, scalar, and pseudoscalar features.
-
-    For vectors the absolute value of the squared norm is used; otherwise the squared norm could
-    be negative under the Lorentz metric. With ``elementwise_affine`` a learnable per-channel gain
-    is applied after normalization, which requires the channel counts to be known at construction.
 
     Parameters
     ----------
     v_channels
-        Number of vector channels. Required for the learnable gain; ``None`` disables affine.
+        Number of vector channels.
     s_channels
-        Number of scalar channels. Required for the learnable gain; ``None`` disables affine.
+        Number of scalar channels.
     p_channels
-        Number of pseudoscalar channels. Required for the learnable gain; ``None`` disables affine.
+        Number of pseudoscalar channels.
     epsilon
         Small numerical offset to avoid instabilities.
     elementwise_affine
-        Whether to apply a learnable per-channel gain. Silently disabled when the channel counts
-        are not provided (e.g. ``SlimPseudoRMSNorm()``).
+        Whether to learn a per-channel gain for each stream.
     split_norm
         Whether to normalize the vector, scalar, and pseudoscalar streams with three separate
         factors instead of one shared factor. Empty streams are passed through unchanged.
@@ -196,35 +165,24 @@ class SlimPseudoRMSNorm(nn.Module):
 
     def __init__(
         self,
-        v_channels: int | None = None,
-        s_channels: int | None = None,
-        p_channels: int | None = None,
+        v_channels: int,
+        s_channels: int,
+        p_channels: int,
         epsilon: float = 0.01,
         elementwise_affine: bool = True,
         split_norm: bool = False,
     ) -> None:
-        super().__init__()
-        self.epsilon = epsilon
+        super().__init__(v_channels, s_channels, epsilon, elementwise_affine)
         self.split_norm = split_norm
-        self.elementwise_affine = elementwise_affine and None not in (
-            v_channels,
-            s_channels,
-            p_channels,
-        )
-        if self.elementwise_affine:
-            self.weight_v = nn.Parameter(torch.ones(v_channels))
-            self.weight_s = nn.Parameter(torch.ones(s_channels))
+        if elementwise_affine:
             self.weight_p = nn.Parameter(torch.ones(p_channels))
             # zero-size params get grads only sometimes under compile, breaking DDP
-            for weight in (self.weight_v, self.weight_s, self.weight_p):
-                if weight.numel() == 0:
-                    weight.requires_grad_(False)
+            if self.weight_p.numel() == 0:
+                self.weight_p.requires_grad_(False)
         else:
-            self.register_parameter("weight_v", None)
-            self.register_parameter("weight_s", None)
             self.register_parameter("weight_p", None)
 
-    @minimum_autocast_precision(torch.float32)
+    @minimum_autocast_precision(torch.float32, output="high")
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -233,7 +191,7 @@ class SlimPseudoRMSNorm(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
         pseudoscalars
@@ -248,46 +206,41 @@ class SlimPseudoRMSNorm(nn.Module):
         outputs_p
             Normalized pseudoscalar features, same shape as ``pseudoscalars``.
         """
-        v_squared_norm = squared_norm(vectors).abs()
+        v_squared_norm = (vectors.square() * self.metric[..., None]).sum(-2).abs()
         s_squared_norm = scalars.square()
         p_squared_norm = pseudoscalars.square()
 
         if self.split_norm:
             # max(n, 1) keeps a zero-channel stream from dividing by zero; its output stays empty
-            v_norm = torch.rsqrt(v_squared_norm.sum(-1) / max(vectors.shape[-2], 1) + self.epsilon)
-            s_norm = torch.rsqrt(s_squared_norm.sum(-1) / max(scalars.shape[-1], 1) + self.epsilon)
-            p_norm = torch.rsqrt(
-                p_squared_norm.sum(-1) / max(pseudoscalars.shape[-1], 1) + self.epsilon
+            v_norm, s_norm, p_norm = (
+                torch.rsqrt(x.sum(-1) / max(x.shape[-1], 1) + self.epsilon)
+                for x in (v_squared_norm, s_squared_norm, p_squared_norm)
             )
-
-            outputs_v = vectors * v_norm[..., None, None]
-            outputs_s = scalars * s_norm[..., None]
-            outputs_p = pseudoscalars * p_norm[..., None]
         else:
-            total_features = vectors.shape[-2] + scalars.shape[-1] + pseudoscalars.shape[-1]
+            total_features = (
+                v_squared_norm.shape[-1] + s_squared_norm.shape[-1] + p_squared_norm.shape[-1]
+            )
             sum_squared_norms = (
                 v_squared_norm.sum(-1) + s_squared_norm.sum(-1) + p_squared_norm.sum(-1)
             )
-            norm = torch.rsqrt(sum_squared_norms / total_features + self.epsilon)
+            v_norm = s_norm = p_norm = torch.rsqrt(
+                sum_squared_norms / total_features + self.epsilon
+            )
 
-            outputs_v = vectors * norm[..., None, None]
-            outputs_s = scalars * norm[..., None]
-            outputs_p = pseudoscalars * norm[..., None]
-
+        outputs_v = vectors * v_norm[..., None, None]
+        outputs_s = scalars * s_norm[..., None]
+        outputs_p = pseudoscalars * p_norm[..., None]
         if self.elementwise_affine:
-            outputs_v = outputs_v * self.weight_v[..., None]
+            outputs_v = outputs_v * self.weight_v
             outputs_s = outputs_s * self.weight_s
             outputs_p = outputs_p * self.weight_p
         return outputs_v, outputs_s, outputs_p
 
 
 class SlimPseudoLinear(nn.Module):
-    """Linear layer for vector, scalar, and pseudoscalar features.
+    """:class:`~lgatr.layers.slim_layers.SlimLinear` plus a separate pseudoscalar linear map.
 
-    The vector and scalar streams are kept separate; pseudoscalars couple back into the other
-    streams in the only parity-consistent ways: a parity-odd vector-to-pseudoscalar contribution
-    feeds the pseudoscalar output (via :class:`VectorToPseudoscalar`), and a parity-even
-    contribution from squared pseudoscalars feeds the scalar output.
+    The three streams are kept separate; mixing happens in :class:`SlimPseudoMixing`.
 
     Parameters
     ----------
@@ -304,12 +257,11 @@ class SlimPseudoLinear(nn.Module):
     out_p_channels
         Number of output pseudoscalar channels.
     bias
-        Whether to include a bias term in the scalar linear layer.
+        Whether to include a bias term in the scalar linear layer. The pseudoscalar map never has
+        one, since a bias would break parity.
     initialization
         Initialization scheme for the weights. ``"default"`` or ``"small"`` (smaller weights, used
         for attention projections to improve stability).
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
     """
 
     def __init__(
@@ -322,30 +274,24 @@ class SlimPseudoLinear(nn.Module):
         out_p_channels: int,
         bias: bool = True,
         initialization: str = "default",
-        det_compress: bool = True,
     ) -> None:
         super().__init__()
-        self._in_v_channels = in_v_channels
-        self._out_v_channels = out_v_channels
-        self._in_s_channels = in_s_channels
-        self._out_s_channels = out_s_channels
         self._in_p_channels = in_p_channels
-        self._out_p_channels = out_p_channels
-        self._bias = bias
 
-        self.weight_v = nn.Parameter(torch.empty((out_v_channels, in_v_channels)))
-        self.linear_s = nn.Linear(in_s_channels, out_s_channels, bias=bias)
-        self.p_to_s = nn.Linear(in_p_channels, out_s_channels, bias=False)
-        self.linear_p = nn.Linear(in_p_channels, out_p_channels, bias=False)
-        self.vector_to_p = VectorToPseudoscalar(
-            in_v_channels, out_p_channels, det_compress=det_compress
+        self.linear_vs = SlimLinear(
+            in_v_channels=in_v_channels,
+            out_v_channels=out_v_channels,
+            in_s_channels=in_s_channels,
+            out_s_channels=out_s_channels,
+            bias=bias,
+            initialization=initialization,
         )
-
-        self.reset_parameters(initialization)
+        self.linear_p = nn.Linear(in_p_channels, out_p_channels, bias=False)
+        self._reset_p(initialization)
 
         # zero-size params get grads only sometimes under compile, breaking DDP
-        if self.weight_v.numel() == 0:
-            self.weight_v.requires_grad_(False)
+        if self.linear_p.weight.numel() == 0:
+            self.linear_p.weight.requires_grad_(False)
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor
@@ -355,7 +301,7 @@ class SlimPseudoLinear(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, in_v_channels)``.
         scalars
             Scalar features of shape ``(..., in_s_channels)``.
         pseudoscalars
@@ -364,57 +310,84 @@ class SlimPseudoLinear(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., out_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, out_v_channels)``.
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         outputs_p
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
-        outputs_v = nn.functional.linear(vectors.mT, self.weight_v).mT
-        outputs_s = self.linear_s(scalars) + self.p_to_s(pseudoscalars.square())
+        outputs_v, outputs_s = self.linear_vs(vectors, scalars)
         outputs_p = self.linear_p(pseudoscalars)
-        if self.vector_to_p is not None:
-            outputs_p = outputs_p + self.vector_to_p(vectors)
         return outputs_v, outputs_s, outputs_p
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
         """Re-initialize the weights with the given scheme."""
-        if initialization == "default":
-            v_factor = additional_factor
-            s_factor = additional_factor
-            p_factor = additional_factor
-        elif initialization == "small":
-            v_factor = 0.1 * additional_factor
-            s_factor = 0.1 * additional_factor
-            p_factor = 0.1 * additional_factor
-        else:
-            raise ValueError(f"Unknown initialization: {initialization}")
+        self.linear_vs.reset_parameters(initialization, additional_factor)
+        self._reset_p(initialization, additional_factor)
 
-        if self.weight_v.numel() > 0:
-            fan_in = max(self._in_v_channels, 1)
-            bound = v_factor / math.sqrt(fan_in)
-            nn.init.uniform_(self.weight_v, a=-bound, b=bound)
-
-        fan_in = max(self._in_s_channels, 1)
-        bound = s_factor / math.sqrt(fan_in)
-        nn.init.uniform_(self.linear_s.weight, a=-bound, b=bound)
-        if self.linear_s.bias is not None:
-            nn.init.zeros_(self.linear_s.bias)
-
-        fan_in = max(self._in_p_channels, 1)
-        bound = p_factor / math.sqrt(fan_in)
+    def _reset_p(self, initialization: str, additional_factor: float = 1.0) -> None:
+        factor = 0.1 * additional_factor if initialization == "small" else additional_factor
+        bound = factor / math.sqrt(max(self._in_p_channels, 1))
         nn.init.uniform_(self.linear_p.weight, a=-bound, b=bound)
+
+
+class SlimPseudoMixing(nn.Module):
+    """The only layer that mixes the vector, scalar, and pseudoscalar streams.
+
+    Vectors feed the pseudoscalars through :class:`VectorToPseudoscalar` (parity-odd), and squared
+    pseudoscalars feed the scalars (parity-even). The layer returns updates for the scalar and
+    pseudoscalar streams; vectors are left untouched.
+
+    Parameters
+    ----------
+    v_channels
+        Number of vector channels.
+    s_channels
+        Number of scalar channels.
+    p_channels
+        Number of pseudoscalar channels.
+    det_compress
+        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
+    """
+
+    def __init__(
+        self, v_channels: int, s_channels: int, p_channels: int, det_compress: bool = True
+    ) -> None:
+        super().__init__()
+        self.vector_to_p = VectorToPseudoscalar(v_channels, p_channels, det_compress=det_compress)
+        self.p_to_s = nn.Linear(p_channels, s_channels, bias=False)
+        bound = 1.0 / math.sqrt(max(p_channels, 1))
         nn.init.uniform_(self.p_to_s.weight, a=-bound, b=bound)
-        if self.vector_to_p is not None:
-            self.vector_to_p.reset_parameters(p_factor)
+
+    def forward(
+        self, vectors: torch.Tensor, pseudoscalars: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Compute the cross-stream updates.
+
+        Parameters
+        ----------
+        vectors
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
+        pseudoscalars
+            Pseudoscalar features of shape ``(..., p_channels)``.
+
+        Returns
+        -------
+        outputs_s
+            Scalar update of shape ``(..., s_channels)``.
+        outputs_p
+            Pseudoscalar update of shape ``(..., p_channels)``.
+        """
+        outputs_s = self.p_to_s(pseudoscalars.square())
+        outputs_p = self.vector_to_p(vectors)
+        return outputs_s, outputs_p
 
 
 class SlimPseudoGLU(nn.Module):
-    """Gated linear unit (GLU) for vector, scalar, and pseudoscalar features.
+    """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
-    Scalar and pseudoscalar gates are computed from scalar features (parity-even quantities);
-    vector gates are computed from Lorentz inner products of (transformed) vector features. Gating
-    a parity-odd pseudoscalar pre-activation with a parity-even gate keeps the output parity-odd.
+    The pseudoscalar gates are computed from scalar features; gating a parity-odd pre-activation
+    with a parity-even gate keeps the output parity-odd.
 
     Parameters
     ----------
@@ -437,8 +410,6 @@ class SlimPseudoGLU(nn.Module):
     nonlinearity_v
         Optional override for the vector-path gate nonlinearity. ``None`` falls back to
         ``nonlinearity``.
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
     """
 
     def __init__(
@@ -451,7 +422,6 @@ class SlimPseudoGLU(nn.Module):
         out_p_channels: int,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
-        det_compress: bool = True,
     ) -> None:
         super().__init__()
         self._out_s_channels = out_s_channels
@@ -463,12 +433,12 @@ class SlimPseudoGLU(nn.Module):
             out_s_channels=2 * out_s_channels + out_p_channels,
             in_p_channels=in_p_channels,
             out_p_channels=out_p_channels,
-            det_compress=det_compress,
         )
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
             get_nonlinearity(nonlinearity_v) if nonlinearity_v is not None else self.nonlinearity
         )
+        self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor
@@ -478,7 +448,7 @@ class SlimPseudoGLU(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., in_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, in_v_channels)``.
         scalars
             Scalar features of shape ``(..., in_s_channels)``.
         pseudoscalars
@@ -487,17 +457,17 @@ class SlimPseudoGLU(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., out_v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, out_v_channels)``.
         outputs_s
             Scalar features of shape ``(..., out_s_channels)``.
         outputs_p
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
         v_full, s_full, p_pre = self.linear(vectors, scalars, pseudoscalars)
-        v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-2)
-        s_pre = s_full[..., : self._out_s_channels]
-        s_gates = s_full[..., self._out_s_channels : 2 * self._out_s_channels]
-        p_gates = s_full[..., 2 * self._out_s_channels :]
+        v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-1)
+        s_pre, s_gates, p_gates = s_full.split(
+            [self._out_s_channels, self._out_s_channels, self._out_p_channels], dim=-1
+        )
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
@@ -509,11 +479,14 @@ class SlimPseudoGLU(nn.Module):
     @minimum_autocast_precision(torch.float32)
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
         # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
-        return 0.5 * inner_product(v_gates_1, v_gates_2).unsqueeze(-1)
+        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric[..., None]).sum(dim=-2, keepdim=True)
 
 
 class SlimPseudoSelfAttention(nn.Module):
     """Self-attention for Lorentz vectors, scalars, and pseudoscalars.
+
+    Pseudoscalars enter queries, keys, and values like scalars; their contribution to the
+    attention logits is a product of two pseudoscalars and therefore parity-even.
 
     Parameters
     ----------
@@ -528,11 +501,9 @@ class SlimPseudoSelfAttention(nn.Module):
     attn_ratio
         Expansion ratio for the attention hidden channels.
     dropout_prob
-        SlimPseudoDropout probability.
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
+        Dropout probability.
     split_norm
-        Whether the QK-norm normalizes the three streams separately.
+        Whether the QKV-norm normalizes the three streams separately.
     """
 
     def __init__(
@@ -543,7 +514,6 @@ class SlimPseudoSelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
-        det_compress: bool = True,
         split_norm: bool = False,
     ) -> None:
         super().__init__()
@@ -552,7 +522,6 @@ class SlimPseudoSelfAttention(nn.Module):
         self.hidden_p_channels = max(attn_ratio * p_channels // num_heads, 1)
         self.num_heads = num_heads
 
-        self.metric: torch.Tensor
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
         self.linear_in = SlimPseudoLinear(
@@ -564,7 +533,6 @@ class SlimPseudoSelfAttention(nn.Module):
             out_p_channels=3 * self.hidden_p_channels * self.num_heads,
             bias=False,
             initialization="small",
-            det_compress=det_compress,
         )
         self.linear_out = SlimPseudoLinear(
             in_v_channels=self.hidden_v_channels * self.num_heads,
@@ -574,7 +542,6 @@ class SlimPseudoSelfAttention(nn.Module):
             in_p_channels=self.hidden_p_channels * self.num_heads,
             out_p_channels=p_channels,
             initialization="small",
-            det_compress=det_compress,
         )
         self.norm = SlimPseudoRMSNorm(
             self.hidden_v_channels,
@@ -592,9 +559,9 @@ class SlimPseudoSelfAttention(nn.Module):
         self, qkv_v: torch.Tensor, qkv_s: torch.Tensor, qkv_p: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         qkv_v = (
-            qkv_v.unflatten(-2, (3, self.hidden_v_channels, self.num_heads))
-            .movedim(-4, 0)
-            .movedim(-2, -4)
+            qkv_v.unflatten(-1, (3, self.hidden_v_channels, self.num_heads))
+            .movedim(-3, 0)
+            .movedim(-1, -4)
         )
         qkv_s = (
             qkv_s.unflatten(-1, (3, self.hidden_s_channels, self.num_heads))
@@ -614,7 +581,7 @@ class SlimPseudoSelfAttention(nn.Module):
         q_s, k_s, v_s = qkv_s.unbind(0)
         q_p, k_p, v_p = qkv_p.unbind(0)
 
-        q_v = q_v * self.metric.to(q_v.dtype)
+        q_v = q_v * self.metric.to(q_v.dtype)[..., None]
 
         q = torch.cat([q_v.flatten(start_dim=-2), q_s, q_p], dim=-1)
         k = torch.cat([k_v.flatten(start_dim=-2), k_s, k_p], dim=-1)
@@ -633,7 +600,7 @@ class SlimPseudoSelfAttention(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
         pseudoscalars
@@ -644,7 +611,7 @@ class SlimPseudoSelfAttention(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         outputs_p
@@ -654,7 +621,9 @@ class SlimPseudoSelfAttention(nn.Module):
 
         q, k, v = self._pre_attention_reshape(qkv_v, qkv_s, qkv_p)
         out = _call_attention(q, k, v, **attn_kwargs)
-        h_v, h_s, h_p = _post_attention_reshape(out, self.hidden_v_channels, self.hidden_s_channels)
+        s_end = 4 * self.hidden_v_channels + self.hidden_s_channels
+        h_v, h_s = _post_attention_reshape(out[..., :s_end], self.hidden_v_channels)
+        h_p = out[..., s_end:].movedim(-2, -3).flatten(-2, -1)
 
         outputs_v, outputs_s, outputs_p = self.linear_out(h_v, h_s, h_p)
 
@@ -680,13 +649,11 @@ class SlimPseudoMLP(nn.Module):
     nonlinearity_v
         Optional override for the vector-path gate nonlinearity in each GLU.
     mlp_ratio
-        Expansion ratio for hidden channels.
+        Expansion ratio for hidden vector and scalar channels.
     num_layers
         Total number of layers (must be ``>= 2``).
     dropout_prob
-        SlimPseudoDropout probability.
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
+        Dropout probability.
     """
 
     def __init__(
@@ -699,10 +666,9 @@ class SlimPseudoMLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
-        det_compress: bool = True,
     ) -> None:
         super().__init__()
-        assert num_layers >= 2
+        assert num_layers >= 2, f"SlimPseudoMLP needs num_layers >= 2, got {num_layers}"
         layers: list[nn.Module] = []
 
         v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
@@ -720,7 +686,6 @@ class SlimPseudoMLP(nn.Module):
                     out_p_channels=p_channels_list[i + 1],
                     nonlinearity=nonlinearity,
                     nonlinearity_v=nonlinearity_v,
-                    det_compress=det_compress,
                 )
             )
             if dropout_prob is not None:
@@ -733,7 +698,6 @@ class SlimPseudoMLP(nn.Module):
                 out_s_channels=s_channels_list[-1],
                 in_p_channels=p_channels_list[-2],
                 out_p_channels=p_channels_list[-1],
-                det_compress=det_compress,
             )
         )
 
@@ -747,7 +711,7 @@ class SlimPseudoMLP(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., s_channels)``.
         pseudoscalars
@@ -756,7 +720,7 @@ class SlimPseudoMLP(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., v_channels, 4)``.
+            Lorentz vectors of shape ``(..., 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., s_channels)``.
         outputs_p
@@ -773,7 +737,8 @@ class SlimPseudoMLP(nn.Module):
 class SlimPseudoBlock(nn.Module):
     """A single block of the pseudoscalar-extended L-GATr-slim network.
 
-    Pre-norm + self-attention + residual, then pre-norm + MLP + residual.
+    Pre-norm + self-attention + residual, then pre-norm + :class:`SlimPseudoMixing` + residual,
+    then pre-norm + MLP + residual.
 
     Parameters
     ----------
@@ -794,11 +759,11 @@ class SlimPseudoBlock(nn.Module):
     attn_ratio
         Expansion ratio for attention hidden channels.
     num_layers_mlp
-        Number of layers in the MLP.
+        Number of layers in the MLP (must be ``>= 2``).
     dropout_prob
-        SlimPseudoDropout probability.
+        Dropout probability.
     norm_elementwise_affine
-        Whether the pre-norms use a learnable per-channel gain.
+        Whether the RMS norms learn a per-channel gain.
     det_compress
         Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
     split_norm
@@ -823,19 +788,12 @@ class SlimPseudoBlock(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.norm1 = SlimPseudoRMSNorm(
-            v_channels,
-            s_channels,
-            p_channels,
-            elementwise_affine=norm_elementwise_affine,
-            split_norm=split_norm,
-        )
-        self.norm2 = SlimPseudoRMSNorm(
-            v_channels,
-            s_channels,
-            p_channels,
-            elementwise_affine=norm_elementwise_affine,
-            split_norm=split_norm,
+        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine, split_norm=split_norm)
+        self.norm1 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
+        self.norm2 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
+        # no gain: the mixing weights absorb it, and the scalar gain would get no gradient
+        self.norm_mix = SlimPseudoRMSNorm(
+            v_channels, s_channels, p_channels, elementwise_affine=False, split_norm=split_norm
         )
 
         self.attention = SlimPseudoSelfAttention(
@@ -845,8 +803,14 @@ class SlimPseudoBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
-            det_compress=det_compress,
             split_norm=split_norm,
+        )
+
+        self.mixing = SlimPseudoMixing(
+            v_channels=v_channels,
+            s_channels=s_channels,
+            p_channels=p_channels,
+            det_compress=det_compress,
         )
 
         self.mlp = SlimPseudoMLP(
@@ -858,7 +822,6 @@ class SlimPseudoBlock(nn.Module):
             mlp_ratio=mlp_ratio,
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
-            det_compress=det_compress,
         )
 
     def forward(
@@ -873,7 +836,7 @@ class SlimPseudoBlock(nn.Module):
         Parameters
         ----------
         vectors
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         scalars
             Scalar features of shape ``(..., items, s_channels)``.
         pseudoscalars
@@ -884,7 +847,7 @@ class SlimPseudoBlock(nn.Module):
         Returns
         -------
         outputs_v
-            Lorentz vectors of shape ``(..., items, v_channels, 4)``.
+            Lorentz vectors of shape ``(..., items, 4, v_channels)``.
         outputs_s
             Scalar features of shape ``(..., items, s_channels)``.
         outputs_p
@@ -897,6 +860,13 @@ class SlimPseudoBlock(nn.Module):
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
         outputs_p = pseudoscalars + h_p
+
+        h_v, _, h_p = self.norm_mix(outputs_v, outputs_s, outputs_p)
+
+        h_s, h_p = self.mixing(h_v, h_p)
+
+        outputs_s = outputs_s + h_s
+        outputs_p = outputs_p + h_p
 
         h_v, h_s, h_p = self.norm2(outputs_v, outputs_s, outputs_p)
 

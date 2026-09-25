@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `VectorToPseudoscalar`: parity-odd map from four learned Lorentz vectors to pseudoscalars via
   `det4x4`, an explicit cofactor expansion whose backward stays finite for linearly dependent
   vectors (unlike `torch.linalg.det`)
+- `SlimPseudoMixing`: the only cross-stream layer of `LGATrSlimPseudo`, once per block between
+  attention and MLP (vectors to pseudoscalars via `VectorToPseudoscalar`, squared pseudoscalars to
+  scalars); all other `SlimPseudo*` layers match their slim counterparts, including the
+  `(..., 4, channels)` hidden vector layout
 - `LGATrSlim` dispatches to `LGATrSlimPseudo` when pseudoscalar channels are requested
 - Unit tests and documentation for the pseudoscalar-enabled slim network
 

@@ -140,4 +140,5 @@ The pseudoscalar-extended slim variant keeps the same lightweight structure whil
    lgatr.layers.slim_pseudo_layers.SlimPseudoGLU
    lgatr.layers.slim_pseudo_layers.SlimPseudoLinear
    lgatr.layers.slim_pseudo_layers.SlimPseudoRMSNorm
+   lgatr.layers.slim_pseudo_layers.SlimPseudoMixing
    lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar

@@ -45,7 +45,10 @@ You can construct a simple :class:`~lgatr.nets.slim.LGATrSlim` model as follows:
 If your task requires an explicit parity-odd scalar channel, use
 :class:`~lgatr.nets.slim.LGATrSlim` with nonzero pseudoscalar channel arguments. Construction then
 dispatches to :class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`, which carries a third,
-pseudoscalar stream alongside the vector and scalar streams:
+pseudoscalar stream alongside the vector and scalar streams. All layers act on the streams like
+their slim counterparts; the streams mix once per block in
+:class:`~lgatr.layers.slim_pseudo_layers.SlimPseudoMixing` (vectors to pseudoscalars through a
+learned determinant, squared pseudoscalars to scalars):
 
 .. code-block:: python
 

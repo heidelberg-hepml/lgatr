@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.slim_layers import _require_scalars
+from ..layers.slim_layers import _freeze_dead_tail, _require_scalars
 from ..layers.slim_pseudo_layers import SlimPseudoBlock, SlimPseudoLinear
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
@@ -20,9 +20,11 @@ class LGATrSlimPseudo(nn.Module):
     initial and final :class:`SlimPseudoLinear` layers. Usually instantiated indirectly via
     :class:`~lgatr.nets.slim.LGATrSlim` with nonzero pseudoscalar channels.
 
-    Unlike :class:`~lgatr.nets.slim.LGATrSlim`, the hidden layers keep vectors in the
-    ``(..., channels, 4)`` layout, because the parity-odd primitives contract over the four-vector
-    index.
+    All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
+    treated like the scalars. The streams only mix in one
+    :class:`~lgatr.layers.slim_pseudo_layers.SlimPseudoMixing` layer per block (vectors to
+    pseudoscalars through a learned determinant, squared pseudoscalars to scalars), and through
+    attention and the scalar-computed pseudoscalar gates.
 
     Parameters
     ----------
@@ -66,7 +68,7 @@ class LGATrSlimPseudo(nn.Module):
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     det_compress
-        Whether the vector-to-pseudoscalar determinant is compressed with :func:`torch.asinh`.
+        Whether the mixing-layer determinant is compressed with :func:`torch.asinh`.
     split_norm
         Whether the norms normalize the vector, scalar, and pseudoscalar streams separately
         instead of with one shared factor.
@@ -128,7 +130,6 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=hidden_v_channels,
             out_s_channels=hidden_s_channels,
             out_p_channels=hidden_p_channels,
-            det_compress=det_compress,
         )
 
         self.blocks = nn.ModuleList(
@@ -159,14 +160,17 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=out_v_channels,
             out_s_channels=out_s_channels,
             out_p_channels=out_p_channels,
-            det_compress=det_compress,
         )
-        # up to the first attention every vector channel spans only the in_v_channels inputs,
-        # so with fewer than 4 of them these determinants vanish identically
-        if in_v_channels < 4:
-            self.linear_in.vector_to_p = None
-            self.blocks[0].attention.linear_in.vector_to_p = None
         self._checkpoint_blocks = checkpoint_blocks
+
+        if num_blocks:
+            # the pseudoscalar gates come from the scalar linears, so those stay alive with out_p
+            _freeze_dead_tail(
+                self.blocks[-1].norm2,
+                self.blocks[-1].mlp,
+                out_v_channels,
+                max(out_s_channels, out_p_channels),
+            )
 
         if compile:
             compile_model(
@@ -222,7 +226,8 @@ class LGATrSlimPseudo(nn.Module):
             )
             pseudoscalars = scalars.new_zeros(*scalars.shape[:-1], 0)
 
-        h_v, h_s, h_p = self.linear_in(vectors, scalars, pseudoscalars)
+        # hidden layers keep vectors channel-last (..., 4, channels) as in LGATrSlim
+        h_v, h_s, h_p = self.linear_in(vectors.transpose(-2, -1), scalars, pseudoscalars)
 
         for block in self.blocks:
             if self._checkpoint_blocks:
@@ -231,4 +236,4 @@ class LGATrSlimPseudo(nn.Module):
                 h_v, h_s, h_p = block(h_v, h_s, h_p, **attn_kwargs)
 
         outputs_v, outputs_s, outputs_p = self.linear_out(h_v, h_s, h_p)
-        return outputs_v, outputs_s, outputs_p
+        return outputs_v.transpose(-2, -1), outputs_s, outputs_p
