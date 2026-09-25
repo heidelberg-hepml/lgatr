@@ -21,8 +21,8 @@ coefficients, i.e. a matrix for linear and a 3-tensor for bilinear, non-equivari
 networks allow arbitrary entries for the coefficients, whereas equivariant networks
 constrain the list such that coefficients agree or certain coefficients are zero.
 When expressing the :class:`~lgatr.nets.lgatr.LGATr` linear and tensor product
-(bilinear) operations as coefficient lists, then the list has over 90% zeros for
-the linear layers, and over 99% for the bilinear layers. One can either implement them
+(bilinear) operations as coefficient lists, then the list has 87.5% zeros for
+the linear layers, and 93.75% for the bilinear layers. One can either implement them
 as `dense` operations that use the efficient GEMM matrix multiplication kernels but with
 many zero-coefficients, or as `sparse` operations that do not spend compute on
 zero-multiplications but use less efficient kernels. The linear and bilinear

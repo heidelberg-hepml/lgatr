@@ -29,7 +29,6 @@ def attention(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
-    dtype: torch.dtype | None = None,
     attn_bias=None,
     **kwargs,
 ) -> torch.Tensor:
@@ -43,9 +42,6 @@ def attention(
         Keys of shape ``(batch, head, items_in, channel)``.
     value
         Values of shape ``(batch, head, items_in, channel)``.
-    dtype
-        If specified, cast input tensors to this dtype before passing to attention. Useful to
-        trigger flash-attention.
     attn_bias
         Optional attention bias, e.g. an ``xformers.ops.fmha.attn_bias.BlockDiagonalMask``.
     **kwargs
@@ -59,21 +55,30 @@ def attention(
     assert query.ndim == 4, (
         "xformers constrains attention input shape to (batch, head, items, channel)."
     )
-    # xformers and the attention kernels expect shape (batch, item, head, channel)
+
+    if query.dtype not in [torch.float16, torch.bfloat16, torch.float32]:
+        raise ValueError(
+            f"query.dtype={query.dtype}, but xformers attention only supports "
+            "float16, bfloat16, float32"
+        )
+
+    # xformers and the attention kernels expect shape (batch, item, head, channel); they read
+    # strides directly and only need a unit channel stride
     query, key, value = (t.transpose(1, 2) for t in (query, key, value))
+    query, key, value = (t if t.stride(-1) == 1 else t.contiguous() for t in (query, key, value))
     if key.shape[2] != query.shape[2]:
         # broadcast key/value heads for multi-query / grouped-query attention
         key = key.expand(*key.shape[:2], query.shape[2], key.shape[3])
         value = value.expand(*value.shape[:2], query.shape[2], value.shape[3])
 
     # attention kernels require head_dim aligned to 128 bits (4 elements in fp32, 8 in
-    # fp16/bf16); zero-pad to a multiple of 8 to cover every dtype and overwrite scale for correctness.
+    # fp16/bf16); zero-pad to that and overwrite scale for correctness.
     head_dim = query.shape[-1]
-    pad = -head_dim % 8
+    pad = -head_dim % (16 // query.dtype.itemsize)
     if pad:
         query, key, value = (torch.nn.functional.pad(t, (0, pad)) for t in (query, key, value))
 
-    if torch.compiler.is_compiling() and _fp32_custom_op_supported(query, dtype, attn_bias, kwargs):
+    if torch.compiler.is_compiling() and _fp32_custom_op_supported(query, attn_bias, kwargs):
         # fp32 uses xformers' cutlass kernel, which torch.compile cannot trace; route it
         # through the custom ops below instead.
         out = _attention_compiled(
@@ -85,28 +90,22 @@ def attention(
         # fp16/bf16 kernels are torch.compile-traceable, so trace straight through
         # memory_efficient_attention; only the untraceable fp32 cutlass fallback is run under
         # torch.compiler.disable() (a clean graph break rather than a trace failure).
-        compute_dtype = dtype if dtype is not None else query.dtype
-        traceable = compute_dtype in (torch.float16, torch.bfloat16)
+        traceable = query.dtype in (torch.float16, torch.bfloat16)
         forward = _attention_xformers if traceable else _attention_disabled
-        out = forward(query, key, value, dtype=dtype, attn_bias=attn_bias, **kwargs)
+        out = forward(query, key, value, attn_bias=attn_bias, **kwargs)
 
     if pad:
-        out = out[..., :head_dim]
+        out = out.narrow(-1, 0, head_dim)
     return out.transpose(1, 2).contiguous()
 
 
-def _fp32_custom_op_supported(query, dtype, attn_bias, kwargs) -> bool:
+def _fp32_custom_op_supported(query, attn_bias, kwargs) -> bool:
     """Whether the fp32 custom-op path reproduces ``memory_efficient_attention`` exactly.
 
     Only fp32 needs it (fp16/bf16 kernels are torch.compile-traceable directly); also requires a
     basic ``attn_bias`` type and no extra kwargs.
     """
-    return (
-        dtype is None
-        and query.dtype == torch.float32
-        and type(attn_bias) in _CUSTOM_MASK_TYPE
-        and not kwargs
-    )
+    return query.dtype == torch.float32 and type(attn_bias) in _CUSTOM_MASK_TYPE and not kwargs
 
 
 def _attention_compiled(
@@ -128,7 +127,6 @@ def _attention_compiled(
     compute_lse = torch.is_grad_enabled() and (
         query.requires_grad or key.requires_grad or value.requires_grad
     )
-    query, key, value = query.contiguous(), key.contiguous(), value.contiguous()
     out, _ = _compiled_varlen_fwd(
         query,
         key,
@@ -148,24 +146,18 @@ def _attention_xformers(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
-    dtype: torch.dtype | None = None,
     attn_bias=None,
     **kwargs,
 ) -> torch.Tensor:
     """Forward to xformers' ``memory_efficient_attention`` (torch.compile-traceable for fp16/bf16)."""
-    if dtype is not None:
-        in_dtype = query.dtype
-        query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
-
     out = memory_efficient_attention(
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         attn_bias=attn_bias,
         **kwargs,
     )
-
-    return out.to(in_dtype) if dtype is not None else out
+    return out
 
 
 # fp32 cutlass attention is not torch.compile-traceable; this disabled variant turns it into a
@@ -187,9 +179,9 @@ def _compiled_varlen_fwd(
     scale: float | None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     out, lse, _, _, _, _ = torch.ops.aten._efficient_attention_forward(
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         bias=None,
         cu_seqlens_q=seqstart_q,
         cu_seqlens_k=seqstart_k,
@@ -242,9 +234,9 @@ def _compiled_varlen_bwd(
     rng_dummy = torch.zeros((), dtype=torch.int64)
     grad_q, grad_k, grad_v, _ = torch.ops.aten._efficient_attention_backward(
         grad.contiguous(),
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
+        query,
+        key,
+        value,
         bias=None,
         out=out.contiguous(),
         cu_seqlens_q=seqstart_q,

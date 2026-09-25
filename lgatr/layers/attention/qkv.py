@@ -104,7 +104,7 @@ class QKVModule(nn.Module):
                 -1, (3, self.config.hidden_s_channels, self.config.num_heads)
             ).movedim((-3, -1), (0, -3))
 
-        # One fused norm over the stacked qkv (the leading qkv axis is just another batch dim for
+        # One norm call over the stacked qkv (the leading qkv axis is just another batch dim for
         # the channel-wise norm, so this equals normalizing q, k, v separately).
         qkv_mv, qkv_s = self.norm_qkv(qkv_mv, scalars=qkv_s)
 

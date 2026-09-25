@@ -1,7 +1,6 @@
 """Dynamic attention backend selection."""
 
 from collections.abc import Callable
-from functools import lru_cache
 from importlib import metadata
 
 import torch
@@ -17,49 +16,17 @@ BACKEND_KWARGS: dict[str, list[str]] = {
 }
 
 
-@lru_cache
-def _cuda_available() -> bool:
-    """Whether a CUDA device is available (cached; gates CUDA-only backends)."""
-    return torch.cuda.is_available()
-
-
-# Entry points are discovered at import (cheap: no optional backend module is imported yet). Each
-# optional backend is loaded lazily on first use so that importing lgatr does not pull in
-# xformers / flash-attn / etc. for users who never touch those backends. The native backend is a
-# pure-torch shim, so it is imported eagerly and never depends on distribution metadata being
-# present (which it is not in an uninstalled source checkout).
-_ENTRY_POINTS = {
-    ep.name: ep for ep in metadata.entry_points(group="lgatr.primitives.attention_backends")
-}
-_RESOLVED: dict[str, object] = {"native": native}  # name -> loaded backend module
+# Every installed backend is imported here, at import time
+_REGISTRY: dict[str, object] = {"native": native}  # name -> backend module
 _UNAVAILABLE: dict[str, str] = {}  # name -> reason it could not be loaded
-
-
-def _resolve_backend(name: str) -> object | None:
-    """Load and cache a backend module by name, or return None if it is unavailable.
-
-    The result (module or unavailability reason) is cached, so each backend is imported at most
-    once. ``ImportError`` (missing optional dependency) and CPU-unsupported backends are treated
-    as unavailable rather than raising.
-    """
-    if name in _RESOLVED:
-        return _RESOLVED[name]
-    if name in _UNAVAILABLE:
-        return None
-    ep = _ENTRY_POINTS.get(name)
-    if ep is None:
-        _UNAVAILABLE[name] = "unknown backend"
-        return None
-    if name in ("xformers", "flash") and not _cuda_available():
-        _UNAVAILABLE[name] = "xformers and flash-attn are not available on CPU"
-        return None
+for ep in metadata.entry_points(group="lgatr.primitives.attention_backends"):
+    if ep.name in ("xformers", "flash") and not torch.cuda.is_available():
+        _UNAVAILABLE[ep.name] = "xformers and flash-attn are not available on CPU"
+        continue
     try:
-        module = ep.load()
+        _REGISTRY[ep.name] = ep.load()
     except ImportError as err:
-        _UNAVAILABLE[name] = str(err)
-        return None
-    _RESOLVED[name] = module
-    return module
+        _UNAVAILABLE[ep.name] = str(err)
 
 
 def get_attention_backend(**kwargs) -> Callable:
@@ -75,23 +42,21 @@ def get_attention_backend(**kwargs) -> Callable:
 
     The backend is selected explicitly via ``backend=...`` if provided, otherwise inferred from
     backend-specific kwargs (e.g. ``cu_seqlens_*`` triggers flash). Falls back to the native
-    backend. Backends are imported lazily on first use.
+    backend.
     """
     # check if backend is explicitly specified
     backend = kwargs.get("backend", None)
     if backend is not None:
-        module = _resolve_backend(backend)
-        if module is None:
+        if backend not in _REGISTRY:
             raise ValueError(_backend_unavailable_message(backend))
-        return module.attention
+        return _REGISTRY[backend].attention
 
     # automatic fall-back based on other **kwargs
     for backend_name, backend_kwargs in BACKEND_KWARGS.items():
         if any(kwargs.get(k) is not None for k in backend_kwargs):
-            module = _resolve_backend(backend_name)
-            if module is None:
+            if backend_name not in _REGISTRY:
                 raise ValueError(_backend_unavailable_message(backend_name))
-            return module.attention
+            return _REGISTRY[backend_name].attention
 
     # fall-back to native torch attention (always available)
     return native.attention
@@ -99,8 +64,8 @@ def get_attention_backend(**kwargs) -> Callable:
 
 def _backend_unavailable_message(backend: str) -> str:
     """Build a dispatch error naming the missing backend and why it could not be loaded."""
-    known = ", ".join(sorted(_ENTRY_POINTS.keys() | _RESOLVED.keys()))
-    if backend not in _ENTRY_POINTS and backend not in _RESOLVED:
+    known = ", ".join(sorted(_REGISTRY.keys() | _UNAVAILABLE.keys()))
+    if backend not in _REGISTRY and backend not in _UNAVAILABLE:
         return f"Unknown attention backend {backend!r}. Known backends: {known}."
     reason = _UNAVAILABLE.get(backend)
     detail = f" ({reason})" if reason else ""

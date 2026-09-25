@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from .bilinear import _compute_sparse_gp_indices, _load_geometric_product_tensor
-from .invariants import _load_inner_product_factors, _load_metric_grades
+from .invariants import _load_inner_product_factors
 from .linear import (
     _compute_dual_sign,
     _compute_grade_involution,
@@ -40,4 +40,3 @@ def warmup_caches(device: torch.device | str, dtype: torch.dtype = torch.float32
     _load_geometric_product_tensor(device=device, dtype=dtype)
     _compute_sparse_gp_indices(device=device, dtype=dtype)
     _load_inner_product_factors(device=device, dtype=dtype)
-    _load_metric_grades(device=device, dtype=dtype)

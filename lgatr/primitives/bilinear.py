@@ -47,63 +47,11 @@ def _geometric_product_dense(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return outer.flatten(-2, -1) @ gp.flatten(1, 2).T
 
 
-def _unbroadcast(grad: torch.Tensor, shape: torch.Size) -> torch.Tensor:
-    # Undo broadcasting: sum the batch dims that were expanded (the trailing 16 never is).
-    if grad.shape == shape:
-        return grad
-    extra = grad.dim() - len(shape)
-    if extra:
-        grad = grad.sum(dim=tuple(range(extra)))
-    dims = [i for i, s in enumerate(shape) if s == 1 and grad.shape[i] != 1]
-    return grad.sum(dim=dims, keepdim=True) if dims else grad
-
-
-class _GeometricProductSparse(torch.autograd.Function):
-    # out[..., i] = sum_j signs[i, j] * x[..., j] * y[..., indices[i, j]]. Bilinear, so the
-    # gradients are the same sparse contraction; saving only (x, y) keeps this lighter than dense.
-    # The setup_context style plus generate_vmap_rule keeps torch.func transforms (vmap, grad,
-    # jacrev) working; forward-mode AD (jacfwd/jvp) would additionally need a jvp rule.
-
-    generate_vmap_rule = True
-
-    @staticmethod
-    def forward(x, y):
-        indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
-        # Fused gather-multiply-sum rather than a batched (..., 16, 16) @ (..., 16, 1) matmul: the
-        # matmul must materialize the 16x16 operand, while this fuses to a single kernel under
-        # torch.compile (no 16x16 buffer), which is both faster and far lighter on GPU.
-        return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
-
-    @staticmethod
-    def setup_context(ctx, inputs, output):
-        ctx.save_for_backward(*inputs)
-
-    @staticmethod
-    def backward(ctx, grad_out):
-        x, y = ctx.saved_tensors
-        indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
-        # The sign folds below are in-place on freshly gathered tensors, which is safe under
-        # double backward (no other node saves them).
-        grad_x = grad_y = None
-        if ctx.needs_input_grad[0]:
-            # grad_x[..., j] = sum_i grad_out[..., i] * signs[i, j] * y[..., indices[i, j]]
-            m = signs * y[..., indices]
-            grad_x = _unbroadcast((grad_out.unsqueeze(-1) * m).sum(-2), x.shape)
-            del m  # free the (..., 16, 16) temp before grad_y allocates its own
-        if ctx.needs_input_grad[1]:
-            # grad_y[..., k] = sum_{i, j : indices[i, j] = k} grad_out[..., i] * signs[i, j] * x[..., j]
-            p = grad_out.unsqueeze(-1) * x.unsqueeze(-2)
-            p.mul_(signs)
-            grad_y = grad_out.new_zeros(p.shape[:-2] + (16,))
-            # index_add_ is CUDA-nondeterministic, but beats the deterministic gather+matmul
-            # alternative by ~10% on CPU and ~5% on CUDA.
-            grad_y.index_add_(-1, indices.reshape(-1), p.flatten(-2, -1))
-            grad_y = _unbroadcast(grad_y, y.shape)
-        return grad_x, grad_y
-
-
 def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    return _GeometricProductSparse.apply(x, y)
+    # out[..., i] = sum_j signs[i, j] * x[..., j] * y[..., indices[i, j]]. torch.compile fuses
+    # away the (..., 16, 16) gather, which eager materializes.
+    indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
+    return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1)
 
 
 @minimum_autocast_precision(torch.float32, output="high")

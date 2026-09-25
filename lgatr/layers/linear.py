@@ -189,7 +189,7 @@ class EquiLinear(nn.Module):
 
         if self.mvs2s is not None:
             if self.primitives.subgroup:
-                # Slice + cat instead of advanced indexing: same memory, no gather kernel.
+                # Slice + cat instead of advanced indexing: no gather, no scatter-add backward.
                 mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
                 outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
             else:
