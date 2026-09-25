@@ -32,5 +32,4 @@ from .slim_pseudo_layers import (
     SlimPseudoRMSNorm,
     SlimPseudoSelfAttention,
     VectorToPseudoscalar,
-    VectorToTripleProduct,
 )

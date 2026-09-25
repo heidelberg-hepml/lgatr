@@ -65,12 +65,11 @@ class LGATrSlimPseudo(nn.Module):
         Whether the block :class:`SlimPseudoRMSNorm` instances learn a per-channel gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
-    cp_triple_product
-        Enable the lower-rank lab-frame triple-product CP-odd primitive in every linear layer (see
-        :class:`~lgatr.layers.slim_pseudo_layers.VectorToTripleProduct`). Defaults to ``False``.
-    cp_scalar_pseudo_mixing
-        Enable scalar-context modulation of the pseudoscalar path in every linear layer. Defaults
-        to ``False``.
+    det_compress
+        Whether the vector-to-pseudoscalar determinant is compressed with :func:`torch.asinh`.
+    split_norm
+        Whether the norms normalize the vector, scalar, and pseudoscalar streams separately
+        instead of with one shared factor.
     naive_amp
         Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
         autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
@@ -111,8 +110,8 @@ class LGATrSlimPseudo(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        cp_triple_product: bool = False,
-        cp_scalar_pseudo_mixing: bool = False,
+        det_compress: bool = True,
+        split_norm: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
@@ -129,8 +128,7 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=hidden_v_channels,
             out_s_channels=hidden_s_channels,
             out_p_channels=hidden_p_channels,
-            cp_triple_product=cp_triple_product,
-            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
+            det_compress=det_compress,
         )
 
         self.blocks = nn.ModuleList(
@@ -147,8 +145,8 @@ class LGATrSlimPseudo(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
-                    cp_triple_product=cp_triple_product,
-                    cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
+                    det_compress=det_compress,
+                    split_norm=split_norm,
                 )
                 for _ in range(num_blocks)
             ]
@@ -161,9 +159,13 @@ class LGATrSlimPseudo(nn.Module):
             out_v_channels=out_v_channels,
             out_s_channels=out_s_channels,
             out_p_channels=out_p_channels,
-            cp_triple_product=cp_triple_product,
-            cp_scalar_pseudo_mixing=cp_scalar_pseudo_mixing,
+            det_compress=det_compress,
         )
+        # up to the first attention every vector channel spans only the in_v_channels inputs,
+        # so with fewer than 4 of them these determinants vanish identically
+        if in_v_channels < 4:
+            self.linear_in.vector_to_p = None
+            self.blocks[0].attention.linear_in.vector_to_p = None
         self._checkpoint_blocks = checkpoint_blocks
 
         if compile:
