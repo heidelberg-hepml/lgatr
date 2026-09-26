@@ -5,9 +5,18 @@ import operator
 import pytest
 import torch
 
+from lgatr.interface import to_lightcone_mv
 from lgatr.primitives.bilinear import geometric_product
 from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import BATCH_DIMS, TOLERANCES, check_against_clifford, check_pin_equivariance
+from tests.helpers import (
+    BATCH_DIMS,
+    STRICT_TOLERANCES,
+    TOLERANCES,
+    check_against_clifford,
+    check_pin_equivariance,
+    outputs_and_input_grads,
+    random_lightcone_frame,
+)
 
 
 @pytest.mark.parametrize("sparse_gp", [False, True])
@@ -66,3 +75,23 @@ def test_geometric_product_sparse_dense_equivalence_broadcasting(
     assert y_sparse.grad.shape == y.shape
     torch.testing.assert_close(x_sparse.grad, x_dense.grad, **TOLERANCES)
     torch.testing.assert_close(y_sparse.grad, y_dense.grad, **TOLERANCES)
+
+
+@pytest.mark.parametrize("sparse_gp", [False, True])
+def test_geometric_product_lightcone_matches_cartesian(sparse_gp: bool) -> None:
+    # The light-cone coordinates are an exact change of basis, so the outputs and gradients are
+    # the mapped Cartesian ones. The frame is orthogonal, so the loss is the same in both.
+    x = torch.randn(*BATCH_DIMS, 16, dtype=torch.float64)
+    y = torch.randn(*BATCH_DIMS, 16, dtype=torch.float64)
+    frame = random_lightcone_frame(x)
+    config = PrimitivesConfig(sparse_gp=sparse_gp)
+    config_lc = PrimitivesConfig(sparse_gp=sparse_gp, lightcone=True)
+
+    cartesian = outputs_and_input_grads(lambda x, y: geometric_product(x, y, config=config), x, y)
+    lightcone = outputs_and_input_grads(
+        lambda x, y: geometric_product(x, y, config=config_lc),
+        to_lightcone_mv(x, frame),
+        to_lightcone_mv(y, frame),
+    )
+    for expected, got in zip(cartesian, lightcone, strict=True):
+        torch.testing.assert_close(got, to_lightcone_mv(expected, frame), **STRICT_TOLERANCES)

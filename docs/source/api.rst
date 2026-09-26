@@ -83,6 +83,8 @@ Before we feed data into L-GATr networks and after we extract results, we have t
 This is very simple, we still introduce convenience methods for this step.
 We also include functionality to construct `spurions`, or reference multivectors,
 which can be added as extra items or channels to break equivariance at the input level.
+Finally, :mod:`lgatr.interface.lightcone` maps Lorentz vectors and multivectors into light-cone
+coordinates, for the ``lightcone=True`` option of the networks.
 
 .. autosummary::
    :toctree: generated/
@@ -94,14 +96,16 @@ which can be added as extra items or channels to break equivariance at the input
    lgatr.interface.axialvector
    lgatr.interface.pseudoscalar
    lgatr.interface.spurions
+   lgatr.interface.lightcone
 
 L-GATr Utilities
 ----------------
 
 Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
-constructor path, a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates the
-primitive caches for a given ``(device, dtype)``, and an autocast decorator that pins inputs to a
-minimum precision.
+constructor path, and a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates
+the primitive caches for a given ``(device, dtype)``. :mod:`lgatr.utils.autocast` additionally
+offers a decorator that pins inputs to a minimum precision. Within L-GATr it is only used by the
+light-cone coordinate maps in :mod:`lgatr.interface.lightcone`, which have to stay in float32.
 
 .. autosummary::
    :toctree: generated/

@@ -84,18 +84,61 @@ well as activation take less space on disk. Automatic mixed precision (amp) allo
 precision, and does a more careful treatment of objects in the backward pass compared
 to naive float16/bfloat16.
 
-The :class:`~lgatr.nets.slim.LGATrSlim` / :class:`~lgatr.nets.lgatr.LGATr`
-architectures both support automatic mixed precision. There are two modes:
-``naive_amp=True`` directly applies amp without any modifications, whereas
-``naive_amp=False`` performs only operations on scalars in float16/bfloat16,
-and uses full float32 precision for operations on vectors. The
-``naive_amp=False`` path uses a custom
-:class:`~lgatr.utils.autocast.minimum_autocast_precision` decorator that can
-be applied on any function to upcast to float32 precision locally.
-
 However, **currently we do not recommend to use amp** with the
-:class:`~lgatr.nets.slim.LGATrSlim` or :class:`~lgatr.nets.lgatr.LGATr`
-architectures. For tests on jet tagging, we found that networks trained with
+:class:`~lgatr.nets.lgatr.LGATr` architecture, or with the
+:class:`~lgatr.nets.slim.LGATrSlim` architecture in Cartesian coordinates.
+For tests on jet tagging, we found that networks trained with
 amp achieve significantly lower performance in some cases, to the point that
 the speed and memory gains from amp do not justify the performance drop.
 We are actively working on understanding this better.
+`Light-cone coordinates`_ remove one source of error in low precision, for both
+:class:`~lgatr.nets.lgatr.LGATr` and :class:`~lgatr.nets.slim.LGATrSlim`.
+
+Light-cone coordinates
+--------------------------------------------
+
+Minkowski products of nearly collinear, nearly massless vectors, as in a jet, are
+small differences of large numbers,
+
+.. math::
+    p_i \cdot p_j = E_i E_j (1 - \cos\theta_{ij}) \approx E_i E_j \theta_{ij}^2 / 2 ,
+
+so rounding the Cartesian components to float16/bfloat16 destroys them.
+Light-cone coordinates with respect to a reference direction :math:`\hat n`, e.g. the jet
+axis, store the small component :math:`x^- = (t - \vec r \cdot \hat n)/\sqrt{2}` of each
+vector explicitly, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`. With
+``lightcone=True`` the network computes the same function as the Cartesian network with the same
+weights, but stays accurate in low precision. Every vector input, including spurions and
+conditions, has to be mapped with the same frame, so spurions are appended to the inputs before
+the map rather than after it. The map itself is pinned to float32 and is safe to call inside an
+autocast region, but the inputs still have to arrive in full precision:
+
+.. code-block:: python
+
+    import torch
+
+    from lgatr import LGATrSlim, from_lightcone, get_lightcone_frame, to_lightcone
+
+    # one frame per jet, broadcast over items and channels
+    frame = get_lightcone_frame(jet_momentum)[:, None, None]
+
+    net = LGATrSlim(..., lightcone=True)
+    vectors = to_lightcone(vectors, frame)
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        outputs_v, outputs_s = net(vectors, scalars)
+    outputs_v = from_lightcone(outputs_v.float(), frame)
+
+For :class:`~lgatr.nets.lgatr.LGATr` the option is ``PrimitivesConfig(lightcone=True)``, and the
+multivectors are mapped with :func:`~lgatr.interface.lightcone.to_lightcone_mv`:
+
+.. code-block:: python
+
+    from lgatr import LGATr, PrimitivesConfig, from_lightcone_mv, get_spurions, to_lightcone_mv
+
+    net = LGATr(..., primitives=PrimitivesConfig(lightcone=True))
+    spurions = get_spurions(device=multivectors.device, dtype=multivectors.dtype)
+    spurions = spurions.expand(*multivectors.shape[:-2], -1, -1)
+    multivectors = to_lightcone_mv(torch.cat((multivectors, spurions), dim=-2), frame)
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        outputs_mv, outputs_s = net(multivectors, scalars)
+    outputs_mv = from_lightcone_mv(outputs_mv.float(), frame)

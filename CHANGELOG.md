@@ -7,20 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- `lightcone` option for `LGATrSlim`/`ConditionalLGATrSlim` to take vectors in light-cone coordinates, which keeps Minkowski products of nearly collinear vectors accurate in low precision
+- `lightcone` option in `PrimitivesConfig`, the same for `LGATr`/`ConditionalLGATr` with multivectors
+- `get_lightcone_frame`, `to_lightcone` and `from_lightcone` interface to map vectors into and out of light-cone coordinates, and `get_lightcone_frame_mv`, `to_lightcone_mv` and `from_lightcone_mv` for multivectors
+
 ### Changed
 
-- Attention backends no longer support `dtype` argument and automatic downcast to float16/bfloat16
+- Attention backends no longer take a `dtype` argument or downcast inputs themselves
 - Discuss default changes in v1-vs-v2 docs page
 - Improve xformers attention backend padding
 - `abs_squared_norm` sums each grade with slices instead of a matmul, which lowers activation memory under `torch.compile`
-- Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
+- Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions
 - Avoid unnecessary contiguous copies of the queries, keys and values in the xformers attention backend
+- `inner_product`, `abs_squared_norm`, `equi_layer_norm` and `sdp_attention` take a required `config` keyword argument, and `EquiLayerNorm` a required `primitives` argument
+
+### Removed
+
+- `naive_amp` option of all networks, the `naive_amp` context manager, and the float32 precision islands in the primitives and in `LGATrSlim`/`ConditionalLGATrSlim`
 
 ### Fixed
 
 - Attention backends are imported together with `lgatr` again instead of lazily on first use
 - Fix memory leak in `sparse_linear=True` under `torch.compile`
-- Fix `xformers` and `varlen` attention backends returning the padded head dim under `torch.compile` with dynamic shapes
+- Fix `xformers` and `varlen` attention backends returning the padded head dim or failing to compile with dynamic head dims
+- Fix compiled `xformers` training in float16/bfloat16 with self-attention block-diagonal masks
 
 ## [2.0.0] - 29.07.2026
 
