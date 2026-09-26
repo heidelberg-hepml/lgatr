@@ -32,11 +32,18 @@ _GP_LIGHTCONE = (
     .to(DEFAULT_DTYPE)
     .contiguous()
 )
-# Unlike above, fixing (i, j) can give zero or two k (e.g. e+ e- = 1 + e+^e-), so store the x index
-# j and the y index k of each of the 16 terms per output i.
-assert torch.equal((_GP_LIGHTCONE != 0).sum(dim=(1, 2)), torch.full((16,), 16))
-_GP_LIGHTCONE_XIDX, _GP_LIGHTCONE_YIDX = _GP_LIGHTCONE.nonzero()[:, 1:].view(16, 16, 2).unbind(-1)
-_GP_LIGHTCONE_SIGNS = _GP_LIGHTCONE[_GP_LIGHTCONE != 0].view(16, 16)
+# Unlike above, gp[i, j, :] can have two nonzeros, at a blade and its product with e+- (e.g.
+# e+ e- = 1 + e+-). Extending y by y_a - y_b and y_a + y_b for these pairs (a, b) leaves one.
+_GP_LIGHTCONE_PAIRS = torch.tensor([[0, 3, 4, 10], [5, 11, 12, 15]])
+_A, _B = torch.eye(16)[_GP_LIGHTCONE_PAIRS]
+_Y_EXT = torch.cat([torch.eye(16), _A - _B, _A + _B])
+_GP_ROWS = _GP_LIGHTCONE.unsqueeze(-2)
+_GP_LIGHTCONE_EXT = (_GP_ROWS == _Y_EXT).all(-1).float() - (_GP_ROWS == -_Y_EXT).all(-1).float()
+assert torch.equal(_GP_LIGHTCONE_EXT @ _Y_EXT, _GP_LIGHTCONE)
+_GP_LIGHTCONE_INDICES = _GP_LIGHTCONE_EXT.abs().argmax(dim=-1)
+_GP_LIGHTCONE_SIGNS = torch.gather(
+    _GP_LIGHTCONE_EXT, -1, _GP_LIGHTCONE_INDICES.unsqueeze(-1)
+).squeeze(-1)
 
 
 @lru_cache
@@ -52,23 +59,18 @@ def _load_geometric_product_tensor(
 
 @lru_cache
 def _compute_sparse_gp_indices(
-    device: torch.device = DEFAULT_DEVICE,
-    dtype: torch.dtype = DEFAULT_DTYPE,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    # (indices, signs) of shape (16, 16) each, cast to (device, dtype).
-    return _GP_INDICES.to(device=device), _GP_SIGNS.to(device=device, dtype=dtype)
-
-
-@lru_cache
-def _compute_sparse_gp_lightcone_indices(
+    lightcone: bool = False,
     device: torch.device = DEFAULT_DEVICE,
     dtype: torch.dtype = DEFAULT_DTYPE,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    # (x indices, y indices, signs) of shape (16, 16) each, cast to (device, dtype).
+    # (indices, signs) of shape (16, 16), cast to (device, dtype), and the light-cone pairs.
+    indices, signs = (
+        (_GP_LIGHTCONE_INDICES, _GP_LIGHTCONE_SIGNS) if lightcone else (_GP_INDICES, _GP_SIGNS)
+    )
     return (
-        _GP_LIGHTCONE_XIDX.to(device=device),
-        _GP_LIGHTCONE_YIDX.to(device=device),
-        _GP_LIGHTCONE_SIGNS.to(device=device, dtype=dtype),
+        indices.to(device=device),
+        signs.to(device=device, dtype=dtype),
+        _GP_LIGHTCONE_PAIRS.to(device=device),
     )
 
 
@@ -87,11 +89,10 @@ def _geometric_product_sparse(x: torch.Tensor, y: torch.Tensor, lightcone: bool)
     dtype = torch.promote_types(x.dtype, y.dtype)
     gather_dtype = torch.promote_types(dtype, torch.float32)
     x, y = x.to(gather_dtype), y.to(gather_dtype)
+    indices, signs, (a, b) = _compute_sparse_gp_indices(lightcone, device=x.device, dtype=x.dtype)
     if lightcone:
-        # out[..., i] = sum_n signs[i, n] * x[..., xidx[i, n]] * y[..., yidx[i, n]]
-        xidx, yidx, signs = _compute_sparse_gp_lightcone_indices(device=x.device, dtype=x.dtype)
-        return (signs * x[..., xidx] * y[..., yidx]).sum(-1).to(dtype)
-    indices, signs = _compute_sparse_gp_indices(device=x.device, dtype=x.dtype)
+        ya, yb = y[..., a], y[..., b]
+        y = torch.cat([y, ya - yb, ya + yb], dim=-1)
     return (signs * y[..., indices] * x.unsqueeze(-2)).sum(-1).to(dtype)
 
 

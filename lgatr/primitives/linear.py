@@ -6,7 +6,7 @@ from pathlib import Path
 
 import torch
 
-from ..interface.lightcone import get_lightcone_frame, get_lightcone_frame_mv
+from ..interface.lightcone import _GRADE_SLICES, get_lightcone_frame, get_lightcone_frame_mv
 from .config import PrimitivesConfig
 
 DEFAULT_DEVICE = torch.device("cpu")
@@ -30,13 +30,11 @@ _DUAL_PERM = _DUAL.abs().argmax(dim=-1)
 _DUAL_SIGN = torch.gather(_DUAL, -1, _DUAL_PERM.unsqueeze(-1)).squeeze(-1)
 assert torch.equal(_DUAL_PERM, torch.arange(16).flip(0)), "sparse linear: bad basis layout"
 
-# In light-cone coordinates, the algebra constants are the Cartesian ones conjugated with the frame
-# lifted to multivectors. Any two light-cone frames differ by a rotation, which leaves the constants
-# invariant, so the frame along z fixes them. In float64 they round to exact integers.
+# Light-cone constants are the Cartesian ones conjugated with the multivector frame. Any two
+# light-cone frames differ by a rotation, which leaves the constants invariant, so use the one along z.
 _LIGHTCONE_FRAME_MV = get_lightcone_frame_mv(
     get_lightcone_frame(torch.tensor([1.0, 0.0, 0.0, 1.0], dtype=torch.float64))
 )
-# Only the dual basis elements change, the grade projections commute with the frame.
 _BASIS_SUBGROUP_LIGHTCONE = (
     torch.einsum(
         "ai,nij,bj->nab", _LIGHTCONE_FRAME_MV, _BASIS_SUBGROUP.double(), _LIGHTCONE_FRAME_MV
@@ -49,6 +47,10 @@ _DUAL_PERM_LIGHTCONE = _DUAL_LIGHTCONE.abs().argmax(dim=-1)
 _DUAL_SIGN_LIGHTCONE = torch.gather(
     _DUAL_LIGHTCONE, -1, _DUAL_PERM_LIGHTCONE.unsqueeze(-1)
 ).squeeze(-1)
+# Per output grade g, the positions the dual reads within the grade 4-g slice (starting at 16 - hi).
+_DUAL_POSITIONS_LIGHTCONE = tuple(
+    tuple((_DUAL_PERM_LIGHTCONE[lo:hi] - (16 - hi)).tolist()) for lo, hi in _GRADE_SLICES
+)
 
 
 @lru_cache
@@ -116,15 +118,6 @@ def _compute_dual_sign(
     return sign.to(device=device, dtype=dtype)
 
 
-@lru_cache
-def _compute_lightcone_dual_positions(
-    device: torch.device = DEFAULT_DEVICE,
-) -> tuple[torch.Tensor, ...]:
-    # Per output grade g, the positions the light-cone dual reads within the grade 4-g slice.
-    p = _DUAL_PERM_LIGHTCONE.to(device=device)
-    return p[0:1] - 15, p[1:5] - 11, p[5:11] - 5, p[11:15] - 1, p[15:16]
-
-
 def _equi_linear_dense(
     x: torch.Tensor, coeffs: torch.Tensor, *, config: PrimitivesConfig
 ) -> torch.Tensor:
@@ -176,12 +169,10 @@ def _equi_linear_sparse(
         out_c = weights.shape[-2] // 2
         s = _compute_dual_sign(config.lightcone, device=xt.device, dtype=z0.dtype)[:, None, None]
 
-        if config.lightcone:
-            positions = _compute_lightcone_dual_positions(device=xt.device)
-
         def dual(z, grade):
             if config.lightcone:
-                return z[..., out_c:].index_select(0, positions[grade])
+                slabs = z[..., out_c:].split(1)
+                return torch.cat([slabs[p] for p in _DUAL_POSITIONS_LIGHTCONE[grade]])
             return z[..., out_c:].flip(0)
 
         zs = (

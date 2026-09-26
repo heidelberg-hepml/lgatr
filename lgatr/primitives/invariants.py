@@ -5,13 +5,23 @@ from functools import lru_cache
 import torch
 
 from .config import PrimitivesConfig
-from .linear import DEFAULT_DEVICE, DEFAULT_DTYPE
+from .linear import _LIGHTCONE_FRAME_MV, DEFAULT_DEVICE, DEFAULT_DTYPE
 
 # Diagonal of the GA metric (signature of the inner product on each multivector grade).
 _INNER_PRODUCT_FACTORS = torch.tensor(
     [1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1],
     dtype=DEFAULT_DTYPE,
     device=DEFAULT_DEVICE,
+)
+# In light-cone coordinates, the metric is a signed permutation.
+_LIGHTCONE_METRIC = (
+    _LIGHTCONE_FRAME_MV @ _INNER_PRODUCT_FACTORS.double().diag() @ _LIGHTCONE_FRAME_MV.T
+).round()
+_LIGHTCONE_METRIC_PERM = _LIGHTCONE_METRIC.abs().argmax(dim=-1)
+_LIGHTCONE_METRIC_SIGNS = (
+    torch.gather(_LIGHTCONE_METRIC, -1, _LIGHTCONE_METRIC_PERM.unsqueeze(-1))
+    .squeeze(-1)
+    .to(DEFAULT_DTYPE)
 )
 
 
@@ -24,27 +34,21 @@ def _load_inner_product_factors(
     return _INNER_PRODUCT_FACTORS.to(device=device, dtype=dtype)
 
 
+@lru_cache
+def _load_lightcone_metric(
+    device: torch.device = DEFAULT_DEVICE,
+    dtype: torch.dtype = DEFAULT_DTYPE,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    # (permutation, signs) of shape (16,) each of the light-cone metric, cast to (device, dtype).
+    perm = _LIGHTCONE_METRIC_PERM.to(device=device)
+    return perm, _LIGHTCONE_METRIC_SIGNS.to(device=device, dtype=dtype)
+
+
 def _apply_metric(x: torch.Tensor, lightcone: bool) -> torch.Tensor:
     """GA metric applied to multivectors over the component dim (-1)."""
     if lightcone:
-        # The components are 1, (+, -, 1, 2), (+-, +1, +2, -1, -2, 12), (+-1, +-2, +12, -12), +-12.
-        # The metric swaps each blade containing e+ but not e- with its partner containing e-.
-        return torch.cat(
-            [
-                x[..., 0:1],
-                x[..., 2:3],
-                x[..., 1:2],
-                -x[..., 3:5],
-                -x[..., 5:6],
-                -x[..., 8:10],
-                -x[..., 6:8],
-                x[..., 10:13],
-                x[..., 14:15],
-                x[..., 13:14],
-                -x[..., 15:16],
-            ],
-            dim=-1,
-        )
+        perm, signs = _load_lightcone_metric(device=x.device, dtype=x.dtype)
+        return x[..., perm] * signs
     return x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
 
 
@@ -94,8 +98,22 @@ def abs_squared_norm(x: torch.Tensor, *, config: PrimitivesConfig) -> torch.Tens
     outputs
         Geometric-algebra norm of ``x``, shape ``(..., 1)``.
     """
+    if config.lightcone:
+        # Components 1, (+, -, 1, 2), (+-, +1, +2, -1, -2, 12), (+-1, +-2, +12, -12), +-12.
+        sq = x * x
+        return (
+            sq[..., 0:1]
+            + (2 * x[..., 1:2] * x[..., 2:3] - sq[..., 3:5].sum(-1, keepdim=True)).abs()
+            + (
+                sq[..., 10:11]
+                - sq[..., 5:6]
+                - 2 * (x[..., 6:8] * x[..., 8:10]).sum(-1, keepdim=True)
+            ).abs()
+            + (sq[..., 11:13].sum(-1, keepdim=True) + 2 * x[..., 13:14] * x[..., 14:15]).abs()
+            + sq[..., 15:16]
+        )
     # Per-grade slice sums rather than a single matmul: lower activation memory under compile.
-    signed = x * _apply_metric(x, config.lightcone)
+    signed = x * x * _load_inner_product_factors(device=x.device, dtype=x.dtype)
     return (
         signed[..., 0:1].sum(-1, keepdim=True).abs()
         + signed[..., 1:5].sum(-1, keepdim=True).abs()
