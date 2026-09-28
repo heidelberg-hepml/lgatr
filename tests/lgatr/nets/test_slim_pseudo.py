@@ -112,10 +112,9 @@ def test_SlimPseudoDropout_equivariance(dropout_prob: float) -> None:
     check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
-@pytest.mark.parametrize("split_norm", [False, True])
-def test_SlimPseudoRMSNorm_equivariance(split_norm: bool) -> None:
+def test_SlimPseudoRMSNorm_equivariance() -> None:
     v_channels, s_channels, p_channels = 6, 4, 3
-    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=split_norm)
+    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels)
 
     v = torch.randn(*BATCH_DIMS, 4, v_channels)
     s = torch.randn(*BATCH_DIMS, s_channels)
@@ -135,65 +134,51 @@ def test_SlimPseudoRMSNorm_equivariance(split_norm: bool) -> None:
     check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
-def test_SlimPseudoRMSNorm_split_norm_per_stream() -> None:
-    v_channels, s_channels, p_channels = 6, 4, 3
-    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=True)
-    v = torch.randn(*BATCH_DIMS, 4, v_channels)
-    s = torch.randn(*BATCH_DIMS, s_channels)
-    p = torch.randn(*BATCH_DIMS, p_channels)
-
-    # each stream is normalized by its own rms, independently of the other two
-    _, outputs_s, outputs_p = layer(v, s, p)
-    s_norm = torch.rsqrt(s.square().mean(-1) + layer.epsilon)
-    p_norm = torch.rsqrt(p.square().mean(-1) + layer.epsilon)
-    torch.testing.assert_close(outputs_s, s * s_norm[..., None] * layer.weight_s, **TOLERANCES)
-    torch.testing.assert_close(outputs_p, p * p_norm[..., None] * layer.weight_p, **TOLERANCES)
+# a determinant matrix from tt_smeft training on which the LU-based torch.linalg.det and slogdet
+# returned nan in forward (CUDA) and backward (CUDA and CPU): tiny x, y columns, true det ~ 1e-71
+TINY_COLUMNS = torch.tensor(
+    [
+        [37.52278137207031, 3.299284385960694e-32, 1.6856340667609992e-32, -37.17301940917969],
+        [-1.6546334028244019, 1.3128639430905247e-32, 6.707539008420934e-33, 1.7902863025665283],
+        [9.82723617553711, -3.8580473971636125e-33, -1.9711106207740674e-33, -9.874394416809082],
+        [4.620525360107422, 1.9366667628508528e-32, 9.894601740507707e-33, -4.461886405944824],
+    ]
+)
 
 
-def test_SlimPseudoRMSNorm_split_norm_changes_output() -> None:
-    # split_norm must be honoured by forward; it used to be a dead forward-only argument.
-    v_channels, s_channels, p_channels = 6, 4, 3
-    v = torch.randn(*BATCH_DIMS, 4, v_channels)
-    s = 10.0 * torch.randn(*BATCH_DIMS, s_channels)
-    p = torch.randn(*BATCH_DIMS, p_channels)
-
-    shared = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=False)
-    split = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=True)
-
-    for shared_out, split_out in zip(shared(v, s, p), split(v, s, p), strict=True):
-        assert not torch.allclose(shared_out, split_out, **TOLERANCES)
-
-
-@pytest.mark.parametrize("v_channels,s_channels,p_channels", [(6, 4, 0), (0, 4, 3), (6, 0, 0)])
-def test_SlimPseudoRMSNorm_split_norm_handles_empty_streams(
-    v_channels: int, s_channels: int, p_channels: int
-) -> None:
-    # a zero-channel stream must pass through rather than divide by zero
-    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=True)
-    v = torch.randn(*BATCH_DIMS, 4, v_channels)
-    s = torch.randn(*BATCH_DIMS, s_channels)
-    p = torch.randn(*BATCH_DIMS, p_channels)
-
-    for output in layer(v, s, p):
-        assert torch.isfinite(output).all()
-
-
-@pytest.mark.parametrize("compress", [False, True])
-def test_det4x4_flips_under_parity(compress: bool) -> None:
-    # asinh is odd, so compression preserves the parity-oddness of the determinant
+def test_det4x4_matches_linalg_det_and_flips_under_parity() -> None:
     m = torch.randn(*BATCH_DIMS, 4, 4)
-    parity_m = parity(m, -1)
-
-    torch.testing.assert_close(
-        det4x4(parity_m, compress=compress), -det4x4(m, compress=compress), **TOLERANCES
-    )
+    torch.testing.assert_close(det4x4(m), torch.linalg.det(m.double()).float(), **TOLERANCES)
+    torch.testing.assert_close(det4x4(parity(m, -1)), -det4x4(m), **TOLERANCES)
 
 
-def test_det4x4_compress_changes_output() -> None:
-    m = torch.randn(*BATCH_DIMS, 4, 4)
-    raw = det4x4(m, compress=False)
-    assert not torch.allclose(raw, det4x4(m, compress=True), **TOLERANCES)
-    torch.testing.assert_close(det4x4(m, compress=True), torch.asinh(raw), **TOLERANCES)
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="no GPU")
+        ),
+    ],
+)
+def test_det4x4_finite_on_tiny_columns(device: str) -> None:
+    m = TINY_COLUMNS.to(device).expand(64, 4, 4).clone().requires_grad_(True)
+    det = det4x4(m)
+    det.sum().backward()
+
+    assert torch.isfinite(det).all()
+    assert torch.isfinite(m.grad).all()
+    torch.testing.assert_close(det, torch.zeros_like(det), atol=1e-30, rtol=0)
+
+
+def test_VectorToPseudoscalar_singular_input_has_finite_gradient() -> None:
+    # three input channels span at most three dimensions, so every determinant is zero
+    layer = VectorToPseudoscalar(in_v_channels=3, out_p_channels=2)
+    vectors = torch.randn(*BATCH_DIMS, 4, 3, requires_grad=True)
+    layer(vectors).sum().backward()
+
+    assert torch.isfinite(vectors.grad).all()
+    assert torch.isfinite(layer.weight.grad).all()
 
 
 def test_SlimPseudoMixing_equivariance() -> None:
@@ -218,30 +203,6 @@ def test_SlimPseudoMixing_equivariance() -> None:
     for _ in range(2):
         transform = RandomLorentzTransform(vector_dim=-2)
         torch.testing.assert_close(fn(transform(v), p), fn(v, p), **TOLERANCES)
-
-
-def test_det_compress_reaches_mixing() -> None:
-    kwargs = dict(
-        num_blocks=2,
-        in_v_channels=1,
-        out_v_channels=0,
-        hidden_v_channels=8,
-        in_s_channels=4,
-        out_s_channels=2,
-        hidden_s_channels=8,
-        num_heads=2,
-        in_p_channels=2,
-        out_p_channels=1,
-        hidden_p_channels=4,
-    )
-    torch.manual_seed(0)
-    compressed = LGATrSlimPseudo(**kwargs, det_compress=True)
-    torch.manual_seed(0)
-    raw = LGATrSlimPseudo(**kwargs, det_compress=False)
-    for block in compressed.blocks:
-        assert block.mixing.vector_to_p._det_compress
-    for block in raw.blocks:
-        assert not block.mixing.vector_to_p._det_compress
 
 
 def test_LGATrSlimPseudo_one_mixing_per_block() -> None:
@@ -281,37 +242,6 @@ def test_SlimPseudoLinear_matches_SlimLinear(
     slim_v, slim_s = slim(v, s)
     torch.testing.assert_close(outputs_v, slim_v)
     torch.testing.assert_close(outputs_s, slim_s)
-
-
-def test_LGATrSlimPseudo_split_norm_equivariance() -> None:
-    layer = LGATrSlimPseudo(
-        num_blocks=2,
-        in_v_channels=3,
-        out_v_channels=2,
-        hidden_v_channels=16,
-        in_s_channels=4,
-        out_s_channels=2,
-        hidden_s_channels=8,
-        num_heads=2,
-        in_p_channels=2,
-        out_p_channels=1,
-        hidden_p_channels=4,
-        split_norm=True,
-    )
-    layer.eval()
-    assert layer.blocks[0].norm1.split_norm
-    assert layer.blocks[0].norm2.split_norm
-    assert layer.blocks[0].norm_mix.split_norm
-    assert layer.blocks[0].attention.norm.split_norm
-
-    v = torch.randn(*BATCH_DIMS, 3, 4)
-    s = torch.randn(*BATCH_DIMS, 4)
-    p = torch.randn(*BATCH_DIMS, 2)
-
-    check_equivariance(
-        layer, batch_dims=(*BATCH_DIMS, 3), fn_kwargs=dict(scalars=s, pseudoscalars=p), **TOLERANCES
-    )
-    check_parity_equivariance(layer, v, s, p, vector_dim=-1, **TOLERANCES)
 
 
 @pytest.mark.parametrize("in_v,out_v,in_s,out_s,in_p,out_p,nonlinearity", GLU_CASES)

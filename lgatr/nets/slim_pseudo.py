@@ -67,11 +67,6 @@ class LGATrSlimPseudo(nn.Module):
         Whether the block :class:`SlimPseudoRMSNorm` instances learn a per-channel gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
-    det_compress
-        Whether the mixing-layer determinant is compressed with :func:`torch.asinh`.
-    split_norm
-        Whether the norms normalize the vector, scalar, and pseudoscalar streams separately
-        instead of with one shared factor.
     naive_amp
         Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
         autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
@@ -112,8 +107,6 @@ class LGATrSlimPseudo(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        det_compress: bool = True,
-        split_norm: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
         compile_kwargs: Mapping | None = None,
@@ -146,8 +139,6 @@ class LGATrSlimPseudo(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
-                    det_compress=det_compress,
-                    split_norm=split_norm,
                 )
                 for _ in range(num_blocks)
             ]

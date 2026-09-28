@@ -32,22 +32,20 @@ def _det3x3(m: torch.Tensor) -> torch.Tensor:
     )
 
 
-def det4x4(m: torch.Tensor, compress: bool = True) -> torch.Tensor:
-    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion.
+def det4x4(m: torch.Tensor) -> torch.Tensor:
+    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion in fp64.
 
-    Unlike :func:`torch.linalg.det`, whose backward is ``det(A) * inv(A).mT`` and therefore
-    diverges to ``inf``/``nan`` when ``A`` is singular (i.e. linearly dependent four-vectors), the
-    explicit polynomial expansion has a smooth, bounded gradient everywhere.
-    With the optional `compress` argument, the determinant is passed through :func:`torch.asinh`,
-    which is odd hence respects the symmetry.
+    The expansion is a polynomial, so forward and backward stay finite for any finite input.
+    LU-based :func:`torch.linalg.det` and :func:`torch.linalg.slogdet` return ``inf``/``nan`` on
+    CUDA for nearly singular matrices with tiny (~1e-32) columns, which occur in training. fp64
+    avoids the cancellation of the expansion for nearly dependent vectors.
     """
-    det = m.new_zeros(m.shape[:-2])
+    m64 = m.double()
+    det = m64.new_zeros(m.shape[:-2])
     for j in range(4):
-        minor = torch.cat([m[..., 1:, :j], m[..., 1:, j + 1 :]], dim=-1)
-        det = det + ((-1.0) ** j) * m[..., 0, j] * _det3x3(minor)
-    if compress:
-        det = torch.asinh(det)
-    return det
+        minor = torch.cat([m64[..., 1:, :j], m64[..., 1:, j + 1 :]], dim=-1)
+        det = det + ((-1.0) ** j) * m64[..., 0, j] * _det3x3(minor)
+    return det.to(m.dtype)
 
 
 class VectorToPseudoscalar(nn.Module):
@@ -64,15 +62,12 @@ class VectorToPseudoscalar(nn.Module):
         Number of input vector channels.
     out_p_channels
         Number of output pseudoscalar channels.
-    det_compress
-        Whether to pass the determinant through :func:`torch.asinh`.
     """
 
-    def __init__(self, in_v_channels: int, out_p_channels: int, det_compress: bool = True) -> None:
+    def __init__(self, in_v_channels: int, out_p_channels: int) -> None:
         super().__init__()
         self._in_v_channels = in_v_channels
         self._out_p_channels = out_p_channels
-        self._det_compress = det_compress
         self.weight = nn.Parameter(torch.empty(out_p_channels, 4, in_v_channels))
         self.reset_parameters()
 
@@ -101,7 +96,7 @@ class VectorToPseudoscalar(nn.Module):
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
         projected = torch.einsum("...Mc,pac->...paM", vectors, self.weight)
-        return det4x4(projected, compress=self._det_compress)
+        return det4x4(projected)
 
 
 class SlimPseudoDropout(SlimDropout):
@@ -158,9 +153,6 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         Small numerical offset to avoid instabilities.
     elementwise_affine
         Whether to learn a per-channel gain for each stream.
-    split_norm
-        Whether to normalize the vector, scalar, and pseudoscalar streams with three separate
-        factors instead of one shared factor. Empty streams are passed through unchanged.
     """
 
     def __init__(
@@ -170,10 +162,8 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         p_channels: int,
         epsilon: float = 0.01,
         elementwise_affine: bool = True,
-        split_norm: bool = False,
     ) -> None:
         super().__init__(v_channels, s_channels, epsilon, elementwise_affine)
-        self.split_norm = split_norm
         if elementwise_affine:
             self.weight_p = nn.Parameter(torch.ones(p_channels))
             # zero-size params get grads only sometimes under compile, breaking DDP
@@ -210,26 +200,15 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         s_squared_norm = scalars.square()
         p_squared_norm = pseudoscalars.square()
 
-        if self.split_norm:
-            # max(n, 1) keeps a zero-channel stream from dividing by zero; its output stays empty
-            v_norm, s_norm, p_norm = (
-                torch.rsqrt(x.sum(-1) / max(x.shape[-1], 1) + self.epsilon)
-                for x in (v_squared_norm, s_squared_norm, p_squared_norm)
-            )
-        else:
-            total_features = (
-                v_squared_norm.shape[-1] + s_squared_norm.shape[-1] + p_squared_norm.shape[-1]
-            )
-            sum_squared_norms = (
-                v_squared_norm.sum(-1) + s_squared_norm.sum(-1) + p_squared_norm.sum(-1)
-            )
-            v_norm = s_norm = p_norm = torch.rsqrt(
-                sum_squared_norms / total_features + self.epsilon
-            )
+        total_features = (
+            v_squared_norm.shape[-1] + s_squared_norm.shape[-1] + p_squared_norm.shape[-1]
+        )
+        sum_squared_norms = v_squared_norm.sum(-1) + s_squared_norm.sum(-1) + p_squared_norm.sum(-1)
+        norm = torch.rsqrt(sum_squared_norms / total_features + self.epsilon)
 
-        outputs_v = vectors * v_norm[..., None, None]
-        outputs_s = scalars * s_norm[..., None]
-        outputs_p = pseudoscalars * p_norm[..., None]
+        outputs_v = vectors * norm[..., None, None]
+        outputs_s = scalars * norm[..., None]
+        outputs_p = pseudoscalars * norm[..., None]
         if self.elementwise_affine:
             outputs_v = outputs_v * self.weight_v
             outputs_s = outputs_s * self.weight_s
@@ -346,15 +325,11 @@ class SlimPseudoMixing(nn.Module):
         Number of scalar channels.
     p_channels
         Number of pseudoscalar channels.
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
     """
 
-    def __init__(
-        self, v_channels: int, s_channels: int, p_channels: int, det_compress: bool = True
-    ) -> None:
+    def __init__(self, v_channels: int, s_channels: int, p_channels: int) -> None:
         super().__init__()
-        self.vector_to_p = VectorToPseudoscalar(v_channels, p_channels, det_compress=det_compress)
+        self.vector_to_p = VectorToPseudoscalar(v_channels, p_channels)
         self.p_to_s = nn.Linear(p_channels, s_channels, bias=False)
         bound = 1.0 / math.sqrt(max(p_channels, 1))
         nn.init.uniform_(self.p_to_s.weight, a=-bound, b=bound)
@@ -502,8 +477,6 @@ class SlimPseudoSelfAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
-    split_norm
-        Whether the QKV-norm normalizes the three streams separately.
     """
 
     def __init__(
@@ -514,7 +487,6 @@ class SlimPseudoSelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
-        split_norm: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -548,7 +520,6 @@ class SlimPseudoSelfAttention(nn.Module):
             self.hidden_s_channels,
             self.hidden_p_channels,
             elementwise_affine=False,
-            split_norm=split_norm,
         )
         if dropout_prob is not None:
             self.dropout = SlimPseudoDropout(dropout_prob)
@@ -764,10 +735,6 @@ class SlimPseudoBlock(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the RMS norms learn a per-channel gain.
-    det_compress
-        Whether :class:`VectorToPseudoscalar` compresses its determinant with :func:`torch.asinh`.
-    split_norm
-        Whether the norms normalize the three streams separately.
     """
 
     def __init__(
@@ -783,17 +750,15 @@ class SlimPseudoBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
-        det_compress: bool = True,
-        split_norm: bool = False,
     ) -> None:
         super().__init__()
 
-        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine, split_norm=split_norm)
+        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine)
         self.norm1 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
         self.norm2 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
         # no gain: the mixing weights absorb it, and the scalar gain would get no gradient
         self.norm_mix = SlimPseudoRMSNorm(
-            v_channels, s_channels, p_channels, elementwise_affine=False, split_norm=split_norm
+            v_channels, s_channels, p_channels, elementwise_affine=False
         )
 
         self.attention = SlimPseudoSelfAttention(
@@ -803,14 +768,12 @@ class SlimPseudoBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
-            split_norm=split_norm,
         )
 
         self.mixing = SlimPseudoMixing(
             v_channels=v_channels,
             s_channels=s_channels,
             p_channels=p_channels,
-            det_compress=det_compress,
         )
 
         self.mlp = SlimPseudoMLP(
