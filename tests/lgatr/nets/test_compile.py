@@ -41,7 +41,8 @@ SLIM_KWARGS = dict(
     num_heads=2,
 )
 
-CHANNELS = [(1, 1, 1 ,1), (2, 2, 2, 2)]
+CHANNELS = [(1, 1, 1, 1), (2, 2, 2, 2)]
+
 
 def _lgatr(compile: bool, **kwargs):
     return LGATr(compile=compile, **GA_KWARGS, **kwargs), (
@@ -140,11 +141,17 @@ def test_compile_kwargs_are_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="compiled backward needs CUDA")
 @pytest.mark.parametrize("subgroup", [True, False])
-@pytest.mark.parametrize("channels", [1,2])
+@pytest.mark.parametrize("channels", [1, 2])
 def test_compiled_backward_varying_length(subgroup: bool, channels: int) -> None:
     # Test forward and backward with varying input lengths for a compiled network with the full
     # group and the subgroup symmetries. Contiguous layout issues can appear with 1 channel.
-    kwargs = {**GA_KWARGS, "in_mv_channels": channels, "in_s_channels": channels, "out_mv_channels": channels, "out_s_channels": channels}
+    kwargs = {
+        **GA_KWARGS,
+        "in_mv_channels": channels,
+        "in_s_channels": channels,
+        "out_mv_channels": channels,
+        "out_s_channels": channels,
+    }
     primitives = PrimitivesConfig(subgroup=subgroup)
     compiled = LGATr(compile=True, primitives=primitives, **kwargs).cuda()
     eager = LGATr(compile=False, primitives=primitives, **kwargs).cuda()
