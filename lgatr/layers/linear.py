@@ -193,7 +193,9 @@ class EquiLinear(nn.Module):
                 mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
                 outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
             else:
-                outputs_s = self.mvs2s(multivectors[..., 0])
+                # the slice needs to be made contiguous, otherwise it fails with torch.compile
+                # and dynamic shapes
+                outputs_s = self.mvs2s(multivectors[..., 0].contiguous())
             if self.s2s is not None and scalars is not None:
                 outputs_s = outputs_s + self.s2s(scalars)
         else:
