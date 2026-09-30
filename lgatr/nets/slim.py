@@ -9,6 +9,7 @@ from torch.utils.checkpoint import checkpoint
 from ..layers.slim_layers import SlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
+from .slim_pseudo import LGATrSlimPseudo
 
 
 class LGATrSlim(nn.Module):
@@ -60,6 +61,12 @@ class LGATrSlim(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the block :class:`SlimRMSNorm` instances learn a per-channel gain.
+    split_norm
+        Whether the norms normalize the vector and scalar streams separately instead of with one
+        shared factor.
+    pseudo_det
+        Whether each block adds a learned determinant of the vectors to the scalars. The
+        determinant is parity-odd, so the scalar outputs are no longer parity-even.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     naive_amp
@@ -89,11 +96,8 @@ class LGATrSlim(nn.Module):
         hidden_p_channels: int = 0,
         **kwargs,
     ):
-        # LGATrSlim is the public entry point for the slim family: requesting pseudoscalar
-        # channels transparently builds the pseudoscalar-enabled network instead.
-        from .slim_pseudo import LGATrSlimPseudo
-
-        if cls is LGATrSlim and hidden_p_channels + out_p_channels != 0:
+        # Switch class to LGATrSlimPseudo if any pseudoscalar channels are requested
+        if cls is LGATrSlim and hidden_p_channels + out_p_channels > 0:
             if len(args) > 7:
                 raise ValueError(
                     "Positional arguments conflict with pseudoscalar channels. "
@@ -128,6 +132,8 @@ class LGATrSlim(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        split_norm: bool = False,
+        pseudo_det: bool = False,
         checkpoint_blocks: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
@@ -157,6 +163,8 @@ class LGATrSlim(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
+                    split_norm=split_norm,
+                    pseudo_det=pseudo_det,
                 )
                 for _ in range(num_blocks)
             ]

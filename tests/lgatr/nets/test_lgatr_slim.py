@@ -67,12 +67,13 @@ def test_SlimDropout_equivariance(dropout_prob: float) -> None:
 
 
 @pytest.mark.parametrize("zero_channels", [None, "v", "s"])
-def test_SlimRMSNorm_equivariance(zero_channels: str | None) -> None:
+@pytest.mark.parametrize("split_norm", [False, True])
+def test_SlimRMSNorm_equivariance(zero_channels: str | None, split_norm: bool) -> None:
     # SlimRMSNorm preserves shapes and is SO(1, 3)-equivariant, including the zero-channel edge
     # cases where the affine weight is frozen (weight.numel() == 0).
     v_channels = 0 if zero_channels == "v" else BATCH_DIMS[-1]
     s_channels = 0 if zero_channels == "s" else BATCH_DIMS[-1]
-    layer = SlimRMSNorm(v_channels, s_channels)
+    layer = SlimRMSNorm(v_channels, s_channels, split_norm=split_norm)
     if zero_channels == "v":
         assert not layer.weight_v.requires_grad
     if zero_channels == "s":
@@ -228,12 +229,15 @@ def test_SlimMLP_equivariance(
 @pytest.mark.parametrize("v_channels,s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.5])
 @pytest.mark.parametrize("norm_elementwise_affine", [False, True])
+@pytest.mark.parametrize("split_norm,pseudo_det", [(False, False), (True, True)])
 def test_SlimBlock_equivariance(
     v_channels: int,
     s_channels: int,
     num_heads: int,
     dropout_prob: float | None,
     norm_elementwise_affine: bool,
+    split_norm: bool,
+    pseudo_det: bool,
 ) -> None:
     # SlimBlock is SO(1, 3)-equivariant at eval time.
     layer = SlimBlock(
@@ -242,6 +246,8 @@ def test_SlimBlock_equivariance(
         num_heads=num_heads,
         dropout_prob=dropout_prob,
         norm_elementwise_affine=norm_elementwise_affine,
+        split_norm=split_norm,
+        pseudo_det=pseudo_det,
     )
     layer.eval()
     s = torch.randn(*BATCH_DIMS, s_channels)

@@ -28,7 +28,6 @@ from .slim_pseudo_layers import (
     SlimPseudoDropout,
     SlimPseudoGLU,
     SlimPseudoLinear,
-    SlimPseudoMixing,
     SlimPseudoMLP,
     SlimPseudoRMSNorm,
     SlimPseudoSelfAttention,

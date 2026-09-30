@@ -1,9 +1,8 @@
 """Building blocks for the slim-pseudo (vector + scalar + pseudoscalar) L-GATr network.
 
 Every layer is its :mod:`~lgatr.layers.slim_layers` counterpart plus a pseudoscalar stream that
-is treated like the scalars. The streams only couple through :class:`SlimPseudoMixing`, inserted
-once per :class:`SlimPseudoBlock`, and through attention and the pseudoscalar gates, which are
-computed from scalars.
+is treated like the scalars. The streams only couple through attention and through one
+:class:`VectorToPseudoscalar` per :class:`SlimPseudoBlock`.
 """
 
 import math
@@ -67,7 +66,6 @@ class VectorToPseudoscalar(nn.Module):
     def __init__(self, in_v_channels: int, out_p_channels: int) -> None:
         super().__init__()
         self._in_v_channels = in_v_channels
-        self._out_p_channels = out_p_channels
         self.weight = nn.Parameter(torch.empty(out_p_channels, 4, in_v_channels))
         self.reset_parameters()
 
@@ -153,6 +151,9 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         Small numerical offset to avoid instabilities.
     elementwise_affine
         Whether to learn a per-channel gain for each stream.
+    split_norm
+        Whether to normalize the vector, scalar, and pseudoscalar streams with three separate
+        factors instead of one shared factor. Empty streams are passed through unchanged.
     """
 
     def __init__(
@@ -162,8 +163,9 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         p_channels: int,
         epsilon: float = 0.01,
         elementwise_affine: bool = True,
+        split_norm: bool = False,
     ) -> None:
-        super().__init__(v_channels, s_channels, epsilon, elementwise_affine)
+        super().__init__(v_channels, s_channels, epsilon, elementwise_affine, split_norm)
         if elementwise_affine:
             self.weight_p = nn.Parameter(torch.ones(p_channels))
             # zero-size params get grads only sometimes under compile, breaking DDP
@@ -200,15 +202,25 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         s_squared_norm = scalars.square()
         p_squared_norm = pseudoscalars.square()
 
-        total_features = (
-            v_squared_norm.shape[-1] + s_squared_norm.shape[-1] + p_squared_norm.shape[-1]
-        )
-        sum_squared_norms = v_squared_norm.sum(-1) + s_squared_norm.sum(-1) + p_squared_norm.sum(-1)
-        norm = torch.rsqrt(sum_squared_norms / total_features + self.epsilon)
+        if self.split_norm:
+            v_norm, s_norm, p_norm = (
+                torch.rsqrt(x.sum(-1) / max(x.shape[-1], 1) + self.epsilon)
+                for x in (v_squared_norm, s_squared_norm, p_squared_norm)
+            )
+        else:
+            total_features = (
+                v_squared_norm.shape[-1] + s_squared_norm.shape[-1] + p_squared_norm.shape[-1]
+            )
+            sum_squared_norms = (
+                v_squared_norm.sum(-1) + s_squared_norm.sum(-1) + p_squared_norm.sum(-1)
+            )
+            v_norm = s_norm = p_norm = torch.rsqrt(
+                sum_squared_norms / total_features + self.epsilon
+            )
 
-        outputs_v = vectors * norm[..., None, None]
-        outputs_s = scalars * norm[..., None]
-        outputs_p = pseudoscalars * norm[..., None]
+        outputs_v = vectors * v_norm[..., None, None]
+        outputs_s = scalars * s_norm[..., None]
+        outputs_p = pseudoscalars * p_norm[..., None]
         if self.elementwise_affine:
             outputs_v = outputs_v * self.weight_v
             outputs_s = outputs_s * self.weight_s
@@ -219,7 +231,7 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
 class SlimPseudoLinear(nn.Module):
     """:class:`~lgatr.layers.slim_layers.SlimLinear` plus a separate pseudoscalar linear map.
 
-    The three streams are kept separate; mixing happens in :class:`SlimPseudoMixing`.
+    The three streams are kept separate; mixing happens elsewhere.
 
     Parameters
     ----------
@@ -310,59 +322,10 @@ class SlimPseudoLinear(nn.Module):
         nn.init.uniform_(self.linear_p.weight, a=-bound, b=bound)
 
 
-class SlimPseudoMixing(nn.Module):
-    """The only layer that mixes the vector, scalar, and pseudoscalar streams.
-
-    Vectors feed the pseudoscalars through :class:`VectorToPseudoscalar` (parity-odd), and squared
-    pseudoscalars feed the scalars (parity-even). The layer returns updates for the scalar and
-    pseudoscalar streams; vectors are left untouched.
-
-    Parameters
-    ----------
-    v_channels
-        Number of vector channels.
-    s_channels
-        Number of scalar channels.
-    p_channels
-        Number of pseudoscalar channels.
-    """
-
-    def __init__(self, v_channels: int, s_channels: int, p_channels: int) -> None:
-        super().__init__()
-        self.vector_to_p = VectorToPseudoscalar(v_channels, p_channels)
-        self.p_to_s = nn.Linear(p_channels, s_channels, bias=False)
-        bound = 1.0 / math.sqrt(max(p_channels, 1))
-        nn.init.uniform_(self.p_to_s.weight, a=-bound, b=bound)
-
-    def forward(
-        self, vectors: torch.Tensor, pseudoscalars: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute the cross-stream updates.
-
-        Parameters
-        ----------
-        vectors
-            Lorentz vectors of shape ``(..., 4, v_channels)``.
-        pseudoscalars
-            Pseudoscalar features of shape ``(..., p_channels)``.
-
-        Returns
-        -------
-        outputs_s
-            Scalar update of shape ``(..., s_channels)``.
-        outputs_p
-            Pseudoscalar update of shape ``(..., p_channels)``.
-        """
-        outputs_s = self.p_to_s(pseudoscalars.square())
-        outputs_p = self.vector_to_p(vectors)
-        return outputs_s, outputs_p
-
-
 class SlimPseudoGLU(nn.Module):
     """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
-    The pseudoscalar gates are computed from scalar features; gating a parity-odd pre-activation
-    with a parity-even gate keeps the output parity-odd.
+    The pseudoscalar gates are computed from squared pseudoscalar features.
 
     Parameters
     ----------
@@ -399,15 +362,13 @@ class SlimPseudoGLU(nn.Module):
         nonlinearity_v: str | None = "sigmoid",
     ) -> None:
         super().__init__()
-        self._out_s_channels = out_s_channels
-        self._out_p_channels = out_p_channels
         self.linear = SlimPseudoLinear(
             in_v_channels=in_v_channels,
             out_v_channels=3 * out_v_channels,
             in_s_channels=in_s_channels,
-            out_s_channels=2 * out_s_channels + out_p_channels,
+            out_s_channels=2 * out_s_channels,
             in_p_channels=in_p_channels,
-            out_p_channels=out_p_channels,
+            out_p_channels=2 * out_p_channels,
         )
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
@@ -438,17 +399,16 @@ class SlimPseudoGLU(nn.Module):
         outputs_p
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
-        v_full, s_full, p_pre = self.linear(vectors, scalars, pseudoscalars)
+        v_full, s_full, p_full = self.linear(vectors, scalars, pseudoscalars)
         v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-1)
-        s_pre, s_gates, p_gates = s_full.split(
-            [self._out_s_channels, self._out_s_channels, self._out_p_channels], dim=-1
-        )
+        s_pre, s_gates = s_full.chunk(2, dim=-1)
+        p_pre, p_gates = p_full.chunk(2, dim=-1)
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
         outputs_v = self.nonlinearity_v(v_gates) * v_pre
         outputs_s = self.nonlinearity(s_gates) * s_pre
-        outputs_p = self.nonlinearity(p_gates) * p_pre
+        outputs_p = self.nonlinearity(p_gates.pow(2)) * p_pre
         return outputs_v, outputs_s, outputs_p
 
     @minimum_autocast_precision(torch.float32)
@@ -477,6 +437,8 @@ class SlimPseudoSelfAttention(nn.Module):
         Expansion ratio for the attention hidden channels.
     dropout_prob
         Dropout probability.
+    split_norm
+        Whether the QKV-norm normalizes the three streams separately.
     """
 
     def __init__(
@@ -487,6 +449,7 @@ class SlimPseudoSelfAttention(nn.Module):
         num_heads: int,
         attn_ratio: int = 1,
         dropout_prob: float | None = None,
+        split_norm: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
@@ -520,6 +483,7 @@ class SlimPseudoSelfAttention(nn.Module):
             self.hidden_s_channels,
             self.hidden_p_channels,
             elementwise_affine=False,
+            split_norm=split_norm,
         )
         if dropout_prob is not None:
             self.dropout = SlimPseudoDropout(dropout_prob)
@@ -708,8 +672,8 @@ class SlimPseudoMLP(nn.Module):
 class SlimPseudoBlock(nn.Module):
     """A single block of the pseudoscalar-extended L-GATr-slim network.
 
-    Pre-norm + self-attention + residual, then pre-norm + :class:`SlimPseudoMixing` + residual,
-    then pre-norm + MLP + residual.
+    Pre-norm + self-attention + residual, with the :class:`VectorToPseudoscalar` of the attention
+    vector output added to the pseudoscalar residual, then pre-norm + MLP + residual.
 
     Parameters
     ----------
@@ -735,6 +699,8 @@ class SlimPseudoBlock(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the RMS norms learn a per-channel gain.
+    split_norm
+        Whether the norms normalize the three streams separately.
     """
 
     def __init__(
@@ -750,16 +716,13 @@ class SlimPseudoBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        split_norm: bool = True,
     ) -> None:
         super().__init__()
 
-        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine)
+        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine, split_norm=split_norm)
         self.norm1 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
         self.norm2 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
-        # no gain: the mixing weights absorb it, and the scalar gain would get no gradient
-        self.norm_mix = SlimPseudoRMSNorm(
-            v_channels, s_channels, p_channels, elementwise_affine=False
-        )
 
         self.attention = SlimPseudoSelfAttention(
             v_channels=v_channels,
@@ -768,13 +731,10 @@ class SlimPseudoBlock(nn.Module):
             num_heads=num_heads,
             attn_ratio=attn_ratio,
             dropout_prob=dropout_prob,
+            split_norm=split_norm,
         )
 
-        self.mixing = SlimPseudoMixing(
-            v_channels=v_channels,
-            s_channels=s_channels,
-            p_channels=p_channels,
-        )
+        self.determinant = VectorToPseudoscalar(v_channels, p_channels)
 
         self.mlp = SlimPseudoMLP(
             v_channels=v_channels,
@@ -822,14 +782,7 @@ class SlimPseudoBlock(nn.Module):
 
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
-        outputs_p = pseudoscalars + h_p
-
-        h_v, _, h_p = self.norm_mix(outputs_v, outputs_s, outputs_p)
-
-        h_s, h_p = self.mixing(h_v, h_p)
-
-        outputs_s = outputs_s + h_s
-        outputs_p = outputs_p + h_p
+        outputs_p = pseudoscalars + h_p + self.determinant(h_v)
 
         h_v, h_s, h_p = self.norm2(outputs_v, outputs_s, outputs_p)
 

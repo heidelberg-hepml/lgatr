@@ -7,7 +7,6 @@ from lgatr.layers.slim_pseudo_layers import (
     SlimPseudoDropout,
     SlimPseudoGLU,
     SlimPseudoLinear,
-    SlimPseudoMixing,
     SlimPseudoMLP,
     SlimPseudoRMSNorm,
     SlimPseudoSelfAttention,
@@ -17,7 +16,6 @@ from lgatr.layers.slim_pseudo_layers import (
 from lgatr.nets.slim import LGATrSlim
 from lgatr.nets.slim_pseudo import LGATrSlimPseudo
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
-from tests.helpers.equivariance import RandomLorentzTransform
 
 # (in_v, out_v, in_s, out_s, in_p, out_p), covering the zero-channel edges on every slot. The slim
 # nets require scalars, so in_s is only zero on layers that are tested standalone.
@@ -112,9 +110,10 @@ def test_SlimPseudoDropout_equivariance(dropout_prob: float) -> None:
     check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
-def test_SlimPseudoRMSNorm_equivariance() -> None:
+@pytest.mark.parametrize("split_norm", [False, True])
+def test_SlimPseudoRMSNorm_equivariance(split_norm: bool) -> None:
     v_channels, s_channels, p_channels = 6, 4, 3
-    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels)
+    layer = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, split_norm=split_norm)
 
     v = torch.randn(*BATCH_DIMS, 4, v_channels)
     s = torch.randn(*BATCH_DIMS, s_channels)
@@ -181,32 +180,8 @@ def test_VectorToPseudoscalar_singular_input_has_finite_gradient() -> None:
     assert torch.isfinite(layer.weight.grad).all()
 
 
-def test_SlimPseudoMixing_equivariance() -> None:
-    # vectors -> pseudoscalars is parity-odd, squared pseudoscalars -> scalars parity-even
-    v_channels, s_channels, p_channels = 6, 5, 3
-    layer = SlimPseudoMixing(v_channels, s_channels, p_channels)
-    v = torch.randn(*BATCH_DIMS, 4, v_channels)
-    p = torch.randn(*BATCH_DIMS, p_channels)
-
-    outputs_s, outputs_p = layer(v, p)
-    assert outputs_s.shape == (*BATCH_DIMS, s_channels)
-    assert outputs_p.shape == (*BATCH_DIMS, p_channels)
-
-    parity_s, parity_p = layer(parity(v, -2), -p)
-    torch.testing.assert_close(parity_s, outputs_s, **TOLERANCES)
-    torch.testing.assert_close(parity_p, -outputs_p, **TOLERANCES)
-
-    def fn(vectors, pseudoscalars):
-        outputs_s, outputs_p = layer(vectors, pseudoscalars)
-        return torch.cat([outputs_s, outputs_p], dim=-1)
-
-    for _ in range(2):
-        transform = RandomLorentzTransform(vector_dim=-2)
-        torch.testing.assert_close(fn(transform(v), p), fn(v, p), **TOLERANCES)
-
-
-def test_LGATrSlimPseudo_one_mixing_per_block() -> None:
-    # the determinant and p -> s maps only live in the per-block mixing layer
+def test_LGATrSlimPseudo_one_det_per_block() -> None:
+    # the determinant is the only vector -> pseudoscalar map
     num_blocks = 3
     layer = LGATrSlimPseudo(
         num_blocks=num_blocks,
@@ -221,9 +196,8 @@ def test_LGATrSlimPseudo_one_mixing_per_block() -> None:
         out_p_channels=1,
         hidden_p_channels=4,
     )
-    mixings = [m for m in layer.modules() if isinstance(m, SlimPseudoMixing)]
     dets = [m for m in layer.modules() if isinstance(m, VectorToPseudoscalar)]
-    assert len(mixings) == len(dets) == num_blocks
+    assert len(dets) == num_blocks
 
 
 @pytest.mark.parametrize("in_v,out_v,in_s,out_s,in_p,out_p,initialization", LINEAR_CASES)
@@ -461,6 +435,7 @@ def test_SlimPseudoBlock_equivariance(
     [(32, 4, 3, 1), (16, 8, 2, 4)],
 )
 @pytest.mark.parametrize("num_blocks,checkpoint_blocks", [(1, False), (2, True)])
+@pytest.mark.parametrize("split_norm", [False, True])
 def test_LGATrSlimPseudo_equivariance(
     in_v_channels: int,
     in_s_channels: int,
@@ -474,6 +449,7 @@ def test_LGATrSlimPseudo_equivariance(
     num_heads: int,
     num_blocks: int,
     checkpoint_blocks: bool,
+    split_norm: bool,
 ) -> None:
     # The full network preserves shapes and is SO(1, 3)-equivariant and parity-covariant at eval
     # time. Built through LGATrSlim to exercise the dispatch as well.
@@ -491,6 +467,7 @@ def test_LGATrSlimPseudo_equivariance(
         hidden_p_channels=hidden_p_channels,
         dropout_prob=0.5,
         checkpoint_blocks=checkpoint_blocks,
+        split_norm=split_norm,
     )
     assert type(layer) is LGATrSlimPseudo
     layer.eval()

@@ -118,6 +118,9 @@ class SlimRMSNorm(nn.Module):
         Small numerical offset to avoid instabilities.
     elementwise_affine
         Whether to learn a per-channel gain for the vector and scalar streams.
+    split_norm
+        Whether to normalize the vector and scalar streams with two separate factors instead of
+        one shared factor.
     """
 
     def __init__(
@@ -126,6 +129,7 @@ class SlimRMSNorm(nn.Module):
         s_channels: int,
         epsilon: float = 0.01,
         elementwise_affine: bool = True,
+        split_norm: bool = False,
     ) -> None:
         super().__init__()
         self.epsilon = epsilon
@@ -141,6 +145,7 @@ class SlimRMSNorm(nn.Module):
         else:
             self.register_parameter("weight_v", None)
             self.register_parameter("weight_s", None)
+        self.split_norm = split_norm
 
     @minimum_autocast_precision(torch.float32, output="high")
     def forward(
@@ -164,12 +169,18 @@ class SlimRMSNorm(nn.Module):
         """
         v_squared_norm = (vectors.square() * self.metric[..., None]).sum(-2).abs()
         s_squared_norm = scalars.square()
-        total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
-        mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
-        norm = torch.rsqrt(mean_squared_norms + self.epsilon)
+        if self.split_norm:
+            v_norm, s_norm = (
+                torch.rsqrt(x.sum(-1) / max(x.shape[-1], 1) + self.epsilon)
+                for x in (v_squared_norm, s_squared_norm)
+            )
+        else:
+            total_features = v_squared_norm.shape[-1] + s_squared_norm.shape[-1]
+            mean_squared_norms = (v_squared_norm.sum(-1) + s_squared_norm.sum(-1)) / total_features
+            v_norm = s_norm = torch.rsqrt(mean_squared_norms + self.epsilon)
 
-        outputs_v = vectors * norm[..., None, None]
-        outputs_s = scalars * norm[..., None]
+        outputs_v = vectors * v_norm[..., None, None]
+        outputs_s = scalars * s_norm[..., None]
         if self.elementwise_affine:
             outputs_v = outputs_v * self.weight_v
             outputs_s = outputs_s * self.weight_s
@@ -604,6 +615,11 @@ class SlimBlock(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the RMS norms learn a per-channel gain.
+    split_norm
+        Whether the RMS norms normalize the vector and scalar streams separately.
+    pseudo_det
+        Whether to add a learned determinant of the vectors to the scalars after attention. The
+        determinant is parity-odd, so the scalars are no longer parity-even.
     """
 
     def __init__(
@@ -618,11 +634,14 @@ class SlimBlock(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        split_norm: bool = False,
+        pseudo_det: bool = False,
     ) -> None:
         super().__init__()
 
-        self.norm1 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
-        self.norm2 = SlimRMSNorm(v_channels, s_channels, elementwise_affine=norm_elementwise_affine)
+        norm_kwargs = dict(elementwise_affine=norm_elementwise_affine, split_norm=split_norm)
+        self.norm1 = SlimRMSNorm(v_channels, s_channels, **norm_kwargs)
+        self.norm2 = SlimRMSNorm(v_channels, s_channels, **norm_kwargs)
 
         self.attention = SlimSelfAttention(
             v_channels=v_channels,
@@ -641,6 +660,13 @@ class SlimBlock(nn.Module):
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
         )
+
+        if pseudo_det:
+            from .slim_pseudo_layers import VectorToPseudoscalar  # circular import
+
+            self.pseudo_det = VectorToPseudoscalar(v_channels, s_channels)
+        else:
+            self.pseudo_det = None
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, **attn_kwargs
@@ -673,6 +699,9 @@ class SlimBlock(nn.Module):
 
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
+
+        if self.pseudo_det is not None:
+            outputs_s = outputs_s + self.pseudo_det(outputs_v)
 
         h_v, h_s = self.norm2(outputs_v, outputs_s)
 

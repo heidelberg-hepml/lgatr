@@ -21,10 +21,9 @@ class LGATrSlimPseudo(nn.Module):
     :class:`~lgatr.nets.slim.LGATrSlim` with nonzero pseudoscalar channels.
 
     All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
-    treated like the scalars. The streams only mix in one
-    :class:`~lgatr.layers.slim_pseudo_layers.SlimPseudoMixing` layer per block (vectors to
-    pseudoscalars through a learned determinant, squared pseudoscalars to scalars), and through
-    attention and the scalar-computed pseudoscalar gates.
+    treated like the scalars. The streams only mix through attention and through one
+    :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` per block (vectors to
+    pseudoscalars through a learned determinant).
 
     Parameters
     ----------
@@ -65,6 +64,9 @@ class LGATrSlimPseudo(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the block :class:`SlimPseudoRMSNorm` instances learn a per-channel gain.
+    split_norm
+        Whether the norms normalize the vector, scalar, and pseudoscalar streams separately
+        instead of with one shared factor.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     naive_amp
@@ -106,6 +108,7 @@ class LGATrSlimPseudo(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
+        split_norm: bool = True,
         checkpoint_blocks: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
@@ -139,6 +142,7 @@ class LGATrSlimPseudo(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
+                    split_norm=split_norm,
                 )
                 for _ in range(num_blocks)
             ]
