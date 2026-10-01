@@ -325,7 +325,7 @@ class SlimPseudoLinear(nn.Module):
 class SlimPseudoGLU(nn.Module):
     """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
-    The pseudoscalar gates are computed from scalar features.
+    The pseudoscalar gates are computed from squared pseudoscalar features.
 
     Parameters
     ----------
@@ -366,17 +366,22 @@ class SlimPseudoGLU(nn.Module):
             in_v_channels=in_v_channels,
             out_v_channels=3 * out_v_channels,
             in_s_channels=in_s_channels,
-            out_s_channels=2 * out_s_channels + out_p_channels,
+            out_s_channels=2 * out_s_channels,
             in_p_channels=in_p_channels,
-            out_p_channels=out_p_channels,
+            out_p_channels=2 * out_p_channels,
         )
-        self._out_s_channels = out_s_channels
-        self._out_p_channels = out_p_channels
+        # Add bias to p^2 otherwise it is always non-negative and the gate is linear
+        self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
             get_nonlinearity(nonlinearity_v) if nonlinearity_v is not None else self.nonlinearity
         )
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
+
+    def reset_parameters(self, initialization: str) -> None:
+        """Re-initialize the weights with the given scheme."""
+        self.linear.reset_parameters(initialization)
+        nn.init.zeros_(self.bias_p)
 
     def forward(
         self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor
@@ -401,17 +406,16 @@ class SlimPseudoGLU(nn.Module):
         outputs_p
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
-        v_full, s_full, p_pre = self.linear(vectors, scalars, pseudoscalars)
+        v_full, s_full, p_full = self.linear(vectors, scalars, pseudoscalars)
         v_pre, v_gates_1, v_gates_2 = v_full.chunk(3, dim=-1)
-        s_pre, s_gates, p_gates = s_full.split(
-            [self._out_s_channels, self._out_s_channels, self._out_p_channels], dim=-1
-        )
+        s_pre, s_gates = s_full.chunk(2, dim=-1)
+        p_pre, p_gates = p_full.chunk(2, dim=-1)
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
         outputs_v = self.nonlinearity_v(v_gates) * v_pre
         outputs_s = self.nonlinearity(s_gates) * s_pre
-        outputs_p = self.nonlinearity(p_gates) * p_pre
+        outputs_p = self.nonlinearity(p_gates.pow(2) + self.bias_p) * p_pre
         return outputs_v, outputs_s, outputs_p
 
     @minimum_autocast_precision(torch.float32)

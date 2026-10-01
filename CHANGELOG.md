@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `det4x4`, an explicit cofactor expansion whose backward stays finite for linearly dependent
   vectors (unlike `torch.linalg.det`)
 - `LGATrSlimPseudo` adds one `VectorToPseudoscalar` of the attention output to the pseudoscalars
-  per block, and gates the pseudoscalars with scalar features; all other `SlimPseudo*`
+  per block, and gates the pseudoscalars with squared pseudoscalars; all other `SlimPseudo*`
   layers match their slim counterparts, including the `(..., 4, channels)` hidden vector layout
 - `split_norm` option for the slim RMS norms, normalizing each stream separately (default in
   `LGATrSlimPseudo`)

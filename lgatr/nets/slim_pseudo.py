@@ -21,9 +21,9 @@ class LGATrSlimPseudo(nn.Module):
     :class:`~lgatr.nets.slim.LGATrSlim` with nonzero pseudoscalar channels.
 
     All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
-    treated like the scalars. The streams only mix through attention, the scalar-computed
-    pseudoscalar gates, and one :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar`
-    per block (vectors to pseudoscalars through a learned determinant).
+    treated like the scalars. The streams only mix through attention and through one
+    :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` per block (vectors to
+    pseudoscalars through a learned determinant).
 
     Parameters
     ----------
