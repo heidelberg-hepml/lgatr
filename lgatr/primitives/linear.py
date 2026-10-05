@@ -99,7 +99,7 @@ def _equi_linear_dense(
     # path does 8-16x the necessary multiply-adds; _equi_linear_sparse trades it for narrow GEMMs.
     basis = _compute_pin_equi_linear_basis(config.subgroup, device=x.device, dtype=x.dtype)
     weight = (coeffs @ basis.flatten(-2)).unflatten(-1, (16, 16))
-    return torch.einsum("y x i j, ... x j -> ... y i", weight, x)
+    return torch.einsum("... x j, y x i j -> ... y i", x, weight)
 
 
 def _pair_coeffs(coeffs: torch.Tensor, subgroup: bool) -> torch.Tensor:
