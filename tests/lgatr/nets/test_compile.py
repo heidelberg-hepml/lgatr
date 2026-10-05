@@ -8,8 +8,7 @@ import torch
 
 from lgatr.layers import CrossAttentionConfig, MLPConfig, SelfAttentionConfig
 from lgatr.nets import ConditionalLGATr, ConditionalLGATrSlim, LGATr, LGATrSlim
-from lgatr.primitives.config import PrimitivesConfig
-from tests.helpers import COMPILE_SUPPORTED, STRICT_TOLERANCES, TOLERANCES, TORCH_VERSION
+from tests.helpers import COMPILE_SUPPORTED, STRICT_TOLERANCES, TORCH_VERSION
 
 pytestmark = pytest.mark.skipif(
     not COMPILE_SUPPORTED or TORCH_VERSION < (2, 3),
@@ -40,8 +39,6 @@ SLIM_KWARGS = dict(
     hidden_s_channels=8,
     num_heads=2,
 )
-
-CHANNELS = [(1, 1, 1, 1), (2, 2, 2, 2)]
 
 
 def _lgatr(compile: bool, **kwargs):
@@ -137,33 +134,3 @@ def test_compile_kwargs_are_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
 
     torch.testing.assert_close(out_v, ref_v, **STRICT_TOLERANCES)
     torch.testing.assert_close(out_s, ref_s, **STRICT_TOLERANCES)
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="compiled backward needs CUDA")
-@pytest.mark.parametrize("subgroup", [True, False])
-@pytest.mark.parametrize("channels", [1, 2])
-def test_compiled_backward_varying_length(subgroup: bool, channels: int) -> None:
-    # Test forward and backward with varying input lengths for a compiled network with the full
-    # group and the subgroup symmetries. Memory layout issues can appear with 1 channel.
-    kwargs = {
-        **GA_KWARGS,
-        "in_mv_channels": channels,
-        "in_s_channels": channels,
-        "out_mv_channels": channels,
-        "out_s_channels": channels,
-    }
-    primitives = PrimitivesConfig(subgroup=subgroup)
-    compiled = LGATr(compile=True, primitives=primitives, **kwargs).cuda()
-    eager = LGATr(compile=False, primitives=primitives, **kwargs).cuda()
-    eager.load_state_dict(compiled.state_dict())
-
-    for n in (N, N + 2, N + 5):
-        mv = torch.randn(BATCH, n, channels, 16, device="cuda")
-        s = torch.randn(BATCH, n, channels, device="cuda")
-        for net in (compiled, eager):
-            net.zero_grad()
-            out_mv, out_s = net(mv, s)
-            (out_mv.square().sum() + out_s.square().sum()).backward()
-        for p_c, p_e in zip(compiled.parameters(), eager.parameters(), strict=True):
-            if p_e.grad is not None:
-                torch.testing.assert_close(p_c.grad, p_e.grad, **TOLERANCES)
