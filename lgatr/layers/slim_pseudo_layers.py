@@ -165,7 +165,8 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         elementwise_affine: bool = True,
         split_norm: bool = False,
     ) -> None:
-        super().__init__(v_channels, s_channels, epsilon, elementwise_affine, split_norm)
+        super().__init__(v_channels, s_channels, epsilon, elementwise_affine)
+        self.split_norm = split_norm
         if elementwise_affine:
             self.weight_p = nn.Parameter(torch.ones(p_channels))
             # zero-size params get grads only sometimes under compile, breaking DDP

@@ -17,10 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LGATrSlimPseudo` adds one `VectorToPseudoscalar` of the attention output to the pseudoscalars
   per block, and gates the pseudoscalars with squared pseudoscalars; all other `SlimPseudo*`
   layers match their slim counterparts, including the `(..., 4, channels)` hidden vector layout
-- `split_norm` option for the slim RMS norms, normalizing each stream separately (default in
-  `LGATrSlimPseudo`)
-- `pseudo_det` option for `LGATrSlim`, adding a `VectorToPseudoscalar` to the scalars in each block
-- `LGATrSlim` dispatches to `LGATrSlimPseudo` when pseudoscalar channels are requested
+- `split_norm` option for the `LGATrSlimPseudo` RMS norms, normalizing each stream separately
+  (default `True`)
 - Unit tests and documentation for the pseudoscalar-enabled slim network
 
 ### Changed

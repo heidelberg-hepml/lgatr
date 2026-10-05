@@ -11,7 +11,6 @@ from lgatr.layers.slim_layers import (
     SlimSelfAttention,
 )
 from lgatr.nets.slim import LGATrSlim
-from lgatr.nets.slim_pseudo import LGATrSlimPseudo
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
 # (in_v, out_v, in_s, out_s), covering the zero-channel edges on every slot.
@@ -67,13 +66,12 @@ def test_SlimDropout_equivariance(dropout_prob: float) -> None:
 
 
 @pytest.mark.parametrize("zero_channels", [None, "v", "s"])
-@pytest.mark.parametrize("split_norm", [False, True])
-def test_SlimRMSNorm_equivariance(zero_channels: str | None, split_norm: bool) -> None:
+def test_SlimRMSNorm_equivariance(zero_channels: str | None) -> None:
     # SlimRMSNorm preserves shapes and is SO(1, 3)-equivariant, including the zero-channel edge
     # cases where the affine weight is frozen (weight.numel() == 0).
     v_channels = 0 if zero_channels == "v" else BATCH_DIMS[-1]
     s_channels = 0 if zero_channels == "s" else BATCH_DIMS[-1]
-    layer = SlimRMSNorm(v_channels, s_channels, split_norm=split_norm)
+    layer = SlimRMSNorm(v_channels, s_channels)
     if zero_channels == "v":
         assert not layer.weight_v.requires_grad
     if zero_channels == "s":
@@ -229,15 +227,12 @@ def test_SlimMLP_equivariance(
 @pytest.mark.parametrize("v_channels,s_channels,num_heads", [(32, 4, 1), (16, 8, 4)])
 @pytest.mark.parametrize("dropout_prob", [None, 0.5])
 @pytest.mark.parametrize("norm_elementwise_affine", [False, True])
-@pytest.mark.parametrize("split_norm,pseudo_det", [(False, False), (True, True)])
 def test_SlimBlock_equivariance(
     v_channels: int,
     s_channels: int,
     num_heads: int,
     dropout_prob: float | None,
     norm_elementwise_affine: bool,
-    split_norm: bool,
-    pseudo_det: bool,
 ) -> None:
     # SlimBlock is SO(1, 3)-equivariant at eval time.
     layer = SlimBlock(
@@ -246,8 +241,6 @@ def test_SlimBlock_equivariance(
         num_heads=num_heads,
         dropout_prob=dropout_prob,
         norm_elementwise_affine=norm_elementwise_affine,
-        split_norm=split_norm,
-        pseudo_det=pseudo_det,
     )
     layer.eval()
     s = torch.randn(*BATCH_DIMS, s_channels)
@@ -310,31 +303,3 @@ def test_LGATrSlim_equivariance(
     check_equivariance(
         layer, batch_dims=(*BATCH_DIMS, in_v_channels), fn_kwargs=dict(scalars=s), **TOLERANCES
     )
-
-
-def test_LGATrSlim_dispatches_to_pseudo():
-    layer = LGATrSlim(
-        num_blocks=1,
-        in_v_channels=3,
-        out_v_channels=2,
-        hidden_v_channels=8,
-        in_s_channels=4,
-        out_s_channels=5,
-        hidden_s_channels=6,
-        num_heads=2,
-        in_p_channels=2,
-        out_p_channels=3,
-        hidden_p_channels=4,
-    )
-
-    assert type(layer) is LGATrSlimPseudo
-
-    vectors = torch.randn(7, 11, 3, 4)
-    scalars = torch.randn(7, 11, 4)
-    pseudoscalars = torch.randn(7, 11, 2)
-
-    out_v, out_s, out_p = layer(vectors, scalars, pseudoscalars)
-
-    assert out_v.shape == (7, 11, 2, 4)
-    assert out_s.shape == (7, 11, 5)
-    assert out_p.shape == (7, 11, 3)

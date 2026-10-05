@@ -10,8 +10,8 @@ For tasks where conditional inputs are required, you can process the condition w
 and then include this processed condition using a :class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr`.
 In addition :class:`~lgatr.nets.slim.LGATrSlim` and :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`
 provide more efficient versions of the respective networks using only scalar and vector representations.
-For tasks that also require parity-odd scalar features, :class:`~lgatr.nets.lgatr_slim.LGATrSlim`
-accepts pseudoscalar channel arguments and dispatches internally to the corresponding slim-pseudo implementation.
+For tasks that also require parity-odd scalar features, :class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`
+adds a pseudoscalar stream to :class:`~lgatr.nets.slim.LGATrSlim`.
 
 .. autosummary::
    :toctree: generated/

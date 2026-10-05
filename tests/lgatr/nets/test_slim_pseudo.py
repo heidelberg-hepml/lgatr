@@ -13,7 +13,6 @@ from lgatr.layers.slim_pseudo_layers import (
     VectorToPseudoscalar,
     det4x4,
 )
-from lgatr.nets.slim import LGATrSlim
 from lgatr.nets.slim_pseudo import LGATrSlimPseudo
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
@@ -452,8 +451,8 @@ def test_LGATrSlimPseudo_equivariance(
     split_norm: bool,
 ) -> None:
     # The full network preserves shapes and is SO(1, 3)-equivariant and parity-covariant at eval
-    # time. Built through LGATrSlim to exercise the dispatch as well.
-    layer = LGATrSlim(
+    # time.
+    layer = LGATrSlimPseudo(
         num_blocks=num_blocks,
         in_v_channels=in_v_channels,
         out_v_channels=out_v_channels,
@@ -469,7 +468,6 @@ def test_LGATrSlimPseudo_equivariance(
         checkpoint_blocks=checkpoint_blocks,
         split_norm=split_norm,
     )
-    assert type(layer) is LGATrSlimPseudo
     layer.eval()
     s = torch.randn(*BATCH_DIMS, in_s_channels)
     p = torch.randn(*BATCH_DIMS, in_p_channels)

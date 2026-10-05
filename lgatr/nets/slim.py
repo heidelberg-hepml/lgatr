@@ -9,7 +9,6 @@ from torch.utils.checkpoint import checkpoint
 from ..layers.slim_layers import SlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
-from .slim_pseudo import LGATrSlimPseudo
 
 
 class LGATrSlim(nn.Module):
@@ -37,15 +36,6 @@ class LGATrSlim(nn.Module):
         Number of hidden scalar channels.
     num_heads
         Number of attention heads.
-    in_p_channels
-        Number of input pseudoscalar channels. If ``hidden_p_channels`` or ``out_p_channels`` is
-        nonzero, construction dispatches to :class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`.
-    out_p_channels
-        Number of output pseudoscalar channels. If nonzero, construction dispatches to
-        :class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`.
-    hidden_p_channels
-        Number of hidden pseudoscalar channels. If nonzero, construction dispatches to
-        :class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`.
     nonlinearity
         Nonlinearity for the MLP layers.
     nonlinearity_v
@@ -61,12 +51,6 @@ class LGATrSlim(nn.Module):
         Dropout probability.
     norm_elementwise_affine
         Whether the block :class:`SlimRMSNorm` instances learn a per-channel gain.
-    split_norm
-        Whether the norms normalize the vector and scalar streams separately instead of with one
-        shared factor.
-    pseudo_det
-        Whether each block adds a learned determinant of the vectors to the scalars. The
-        determinant is parity-odd, so the scalar outputs are no longer parity-even.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
     naive_amp
@@ -88,30 +72,6 @@ class LGATrSlim(nn.Module):
         values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.
     """
 
-    def __new__(
-        cls,
-        *args,
-        in_p_channels: int = 0,
-        out_p_channels: int = 0,
-        hidden_p_channels: int = 0,
-        **kwargs,
-    ):
-        # Switch class to LGATrSlimPseudo if any pseudoscalar channels are requested
-        if cls is LGATrSlim and hidden_p_channels + out_p_channels > 0:
-            if len(args) > 7:
-                raise ValueError(
-                    "Positional arguments conflict with pseudoscalar channels. "
-                    "Only num_blocks and the vector/scalar channels can be passed positionally."
-                )
-            return LGATrSlimPseudo(
-                *args,
-                in_p_channels=in_p_channels,
-                out_p_channels=out_p_channels,
-                hidden_p_channels=hidden_p_channels,
-                **kwargs,
-            )
-        return super().__new__(cls)
-
     def __init__(
         self,
         num_blocks: int,
@@ -122,9 +82,6 @@ class LGATrSlim(nn.Module):
         out_s_channels: int,
         hidden_s_channels: int,
         num_heads: int,
-        in_p_channels: int = 0,
-        out_p_channels: int = 0,
-        hidden_p_channels: int = 0,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
         mlp_ratio: int = 2,
@@ -132,8 +89,6 @@ class LGATrSlim(nn.Module):
         num_layers_mlp: int = 2,
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
-        split_norm: bool = False,
-        pseudo_det: bool = False,
         checkpoint_blocks: bool = False,
         naive_amp: bool = False,
         compile: bool = False,
@@ -163,8 +118,6 @@ class LGATrSlim(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
-                    split_norm=split_norm,
-                    pseudo_det=pseudo_det,
                 )
                 for _ in range(num_blocks)
             ]

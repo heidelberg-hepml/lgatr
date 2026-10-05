@@ -47,7 +47,7 @@ Overview of features in L-GATr:
 - Additional attention backends, installation via `pip install lgatr[varlen-attention]`, `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel` first, because these extra imports require modern versions of `pip`, `setuptools` and `wheel`.
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `PrimitivesConfig` objects
-- `LGATrSlimPseudo` as a slim variant with an additional pseudoscalar stream and a dedicated vector-to-pseudoscalar map; `LGATrSlim` dispatches to it whenever pseudoscalar channels are requested
+- `LGATrSlimPseudo` as a slim variant with an additional pseudoscalar stream and a dedicated vector-to-pseudoscalar map
 
 Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb), [ConditionalLGATr](examples/demo_conditional_lgatr.ipynb) and [LGATrSlim](examples/demo_lgatr_slim.ipynb).
 

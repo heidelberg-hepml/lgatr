@@ -193,9 +193,7 @@ class EquiLinear(nn.Module):
                 mv0_15 = torch.cat([multivectors[..., 0:1], multivectors[..., 15:16]], dim=-1)
                 outputs_s = self.mvs2s(mv0_15.flatten(start_dim=-2))
             else:
-                # contiguous: a strided slice saved for backward gets a hint-specialized stride
-                # under torch.compile with dynamic shapes, failing on the next sequence length
-                outputs_s = self.mvs2s(multivectors[..., 0].contiguous())
+                outputs_s = self.mvs2s(multivectors[..., 0])
             if self.s2s is not None and scalars is not None:
                 outputs_s = outputs_s + self.s2s(scalars)
         else:
