@@ -368,7 +368,7 @@ class SlimPseudoLinear(nn.Module):
 class SlimPseudoGLU(nn.Module):
     """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
-    The pseudoscalar gates are computed from squared pseudoscalar features.
+    The pseudoscalar gates are computed from absolute values of pseudoscalar features.
 
     Parameters
     ----------
@@ -413,7 +413,7 @@ class SlimPseudoGLU(nn.Module):
             in_p_channels=in_p_channels,
             out_p_channels=2 * out_p_channels,
         )
-        # Add bias to p^2, otherwise it is always non-negative and the gate is approx. linear
+        # Add bias to |p|, otherwise it is always non-negative and the gate is approx. linear
         self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
         if self.bias_p.numel() == 0:
             self.bias_p.requires_grad_(False)
@@ -461,7 +461,7 @@ class SlimPseudoGLU(nn.Module):
 
         outputs_v = self.nonlinearity_v(v_gates) * v_pre
         outputs_s = self.nonlinearity(s_gates) * s_pre
-        outputs_p = self.nonlinearity(p_gates.pow(2) + self.bias_p) * p_pre
+        outputs_p = self.nonlinearity(p_gates.abs() + self.bias_p) * p_pre
         return outputs_v, outputs_s, outputs_p
 
     @minimum_autocast_precision(torch.float32)

@@ -20,9 +20,9 @@ class LGATrSlimPseudo(nn.Module):
     """L-GATr-slim network with an additional pseudoscalar stream.
 
     All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
-    treated like the scalars and gated by squared pseudoscalars. The streams mix through one
-    :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` per block (vectors to
-    pseudoscalars through a learned determinant, requires ``hidden_v_channels >= 4``)
+    treated like the scalars and gated by absolute values of pseudoscalars. The streams mix
+    through one :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` per block 
+    (vectors to pseudoscalars through a learned determinant, requires ``hidden_v_channels >= 4``)
 
     Parameters
     ----------

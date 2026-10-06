@@ -9,16 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `LGATrSlimPseudo` (`lgatr.nets.slim_pseudo`): an `LGATrSlim` variant with a third, pseudoscalar
-  stream, built from the `SlimPseudo*` layers in `lgatr.layers.slim_pseudo_layers`
-- `VectorToPseudoscalar`: parity-odd map from four learned Lorentz vectors to pseudoscalars via
-  `det4x4`, an explicit cofactor expansion whose backward stays finite for linearly dependent
-  vectors
-- `LGATrSlimPseudo` adds one `VectorToPseudoscalar` of the attention output to the pseudoscalars
-  per block, and gates the pseudoscalars with squared pseudoscalars
-- `split_norm` option for the `LGATrSlimPseudo` RMS norms, normalizing each stream separately
-  (default `True`)
-- Unit tests and documentation for `LGATrSlimPseudo`
+- `SlimPseudo*` layers in `lgatr.layers.slim_pseudo_layers`, copying the `Slim*` layers with an
+  additional pseudoscalar stream
+- `LGATrSlimPseudo` (`lgatr.nets.slim_pseudo`): an `LGATrSlim` variant built from the 
+  `SlimPseudo*` layers
+- Unit tests and documentation for `LGATrSlimPseudo` and its layers
 
 ### Changed
 
