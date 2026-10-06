@@ -403,6 +403,9 @@ class SlimPseudoGLU(nn.Module):
         )
         # Add bias to p^2, otherwise it is always non-negative and the gate is approx. linear
         self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
+        if self.bias_p.numel() == 0:
+            self.bias_p.requires_grad_(False)
+
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
             get_nonlinearity(nonlinearity_v) if nonlinearity_v is not None else self.nonlinearity
@@ -490,9 +493,20 @@ class SlimPseudoSelfAttention(nn.Module):
         split_norm: bool = False,
     ) -> None:
         super().__init__()
+        # split min channels to avoid dead streams when one of the input streams is empty
+        # set min to 4 or 2+2 like LGATrSlim
+        if s_channels == 0:
+            min_s_channels = 0
+            min_p_channels = 4
+        elif p_channels == 0:
+            min_s_channels = 4
+            min_p_channels = 0
+        else:
+            min_s_channels = 2
+            min_p_channels = 2
         self.hidden_v_channels = max(attn_ratio * v_channels // num_heads, 1)
-        self.hidden_s_channels = max(attn_ratio * s_channels // num_heads, 4)
-        self.hidden_p_channels = max(attn_ratio * p_channels // num_heads, 1)
+        self.hidden_s_channels = max(attn_ratio * s_channels // num_heads, min_s_channels)
+        self.hidden_p_channels = max(attn_ratio * p_channels // num_heads, min_p_channels)
         self.num_heads = num_heads
 
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)

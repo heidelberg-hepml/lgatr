@@ -40,14 +40,14 @@ class LGATrSlimPseudo(nn.Module):
         Number of output scalar channels.
     hidden_s_channels
         Number of hidden scalar channels.
-    num_heads
-        Number of attention heads.
     in_p_channels
         Number of input pseudoscalar channels.
     out_p_channels
         Number of output pseudoscalar channels.
     hidden_p_channels
         Number of hidden pseudoscalar channels.
+    num_heads
+        Number of attention heads.
     nonlinearity
         Nonlinearity for the MLP layers.
     nonlinearity_v
@@ -96,10 +96,10 @@ class LGATrSlimPseudo(nn.Module):
         in_s_channels: int,
         out_s_channels: int,
         hidden_s_channels: int,
+        in_p_channels: int,
+        out_p_channels: int,
+        hidden_p_channels: int,
         num_heads: int,
-        in_p_channels: int = 0,
-        out_p_channels: int = 0,
-        hidden_p_channels: int = 0,
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
         mlp_ratio: int = 2,
@@ -117,7 +117,7 @@ class LGATrSlimPseudo(nn.Module):
         super().__init__()
 
         assert hidden_p_channels > 0, (
-            "LGATrSlimPseudo needs at hidden pseudoscalar channels, otherwise use LGATrSlim."
+            "LGATrSlimPseudo needs hidden pseudoscalar channels, otherwise use LGATrSlim."
         )
         assert (in_s_channels > 0 and hidden_s_channels > 0) or (
             in_s_channels == 0 and hidden_s_channels == 0 and out_s_channels == 0
