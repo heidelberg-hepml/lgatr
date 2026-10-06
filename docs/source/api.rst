@@ -119,7 +119,6 @@ L-GATr-slim Layers
 
 In addition to the full L-GATr network, we provide a slimmed-down version that uses only scalar and vector representations instead of full multivectors.
 This approach allows a more efficient implementation while achieving similar performance on all high-energy physics tasks we have tested so far.
-The pseudoscalar-extended slim variant keeps the same lightweight structure while adding explicit parity-odd channels.
 
 .. autosummary::
    :toctree: generated/
@@ -134,10 +133,18 @@ The pseudoscalar-extended slim variant keeps the same lightweight structure whil
    lgatr.layers.slim_layers.SlimLinear
    lgatr.layers.slim_layers.SlimRMSNorm
    lgatr.layers.slim_layers.SlimDropout
+
+The pseudoscalar-extended slim variant keeps the same lightweight structure while adding parity-odd channels.
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
    lgatr.layers.slim_pseudo_layers.SlimPseudoBlock
    lgatr.layers.slim_pseudo_layers.SlimPseudoSelfAttention
    lgatr.layers.slim_pseudo_layers.SlimPseudoMLP
    lgatr.layers.slim_pseudo_layers.SlimPseudoGLU
    lgatr.layers.slim_pseudo_layers.SlimPseudoLinear
    lgatr.layers.slim_pseudo_layers.SlimPseudoRMSNorm
+   lgatr.layers.slim_pseudo_layers.SlimPseudoDropout
    lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar

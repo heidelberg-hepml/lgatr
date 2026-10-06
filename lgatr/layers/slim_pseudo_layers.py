@@ -22,8 +22,39 @@ from .slim_layers import (
 )
 
 
+def _require_tensor(**named: torch.Tensor | None) -> None:
+    """Raise ValueError if any named tensor is None or has zero channels."""
+    for name, tensor in named.items():
+        if tensor is None or tensor.shape[-1] == 0:
+            raise ValueError(f"{name} must be a non-empty tensor.")
+
+
+def _freeze_dead_tail(
+    norm: nn.Module, mlp: nn.Module, out_v_channels: int, out_s_channels: int, out_p_channels: int
+) -> None:
+    """Freeze last-block params that cannot receive grads when an output stream is empty."""
+    if out_v_channels == 0:
+        if norm.weight_v is not None:
+            norm.weight_v.requires_grad_(False)
+        for name, p in mlp.named_parameters():
+            if name.endswith("weight_v"):
+                p.requires_grad_(False)
+    if out_s_channels == 0:
+        if norm.weight_s is not None:
+            norm.weight_s.requires_grad_(False)
+        for name, p in mlp.named_parameters():
+            if "linear_s" in name:
+                p.requires_grad_(False)
+    if out_p_channels == 0:
+        if norm.weight_p is not None:
+            norm.weight_p.requires_grad_(False)
+        for name, p in mlp.named_parameters():
+            if "linear_p" in name:
+                p.requires_grad_(False)
+
+
 def _det3x3(m: torch.Tensor) -> torch.Tensor:
-    """Determinant of a batch of 3x3 matrices ``(..., 3, 3)`` via the rule of Sarrus."""
+    """Determinant of a batch of 3x3 matrices ``(..., 3, 3)``."""
     return (
         m[..., 0, 0] * (m[..., 1, 1] * m[..., 2, 2] - m[..., 1, 2] * m[..., 2, 1])
         - m[..., 0, 1] * (m[..., 1, 0] * m[..., 2, 2] - m[..., 1, 2] * m[..., 2, 0])
@@ -32,19 +63,15 @@ def _det3x3(m: torch.Tensor) -> torch.Tensor:
 
 
 def det4x4(m: torch.Tensor) -> torch.Tensor:
-    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion in fp64.
+    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion.
 
     The expansion is a polynomial, so forward and backward stay finite for any finite input.
-    LU-based :func:`torch.linalg.det` and :func:`torch.linalg.slogdet` return ``inf``/``nan`` on
-    CUDA for nearly singular matrices with tiny (~1e-32) columns, which occur in training. fp64
-    avoids the cancellation of the expansion for nearly dependent vectors.
     """
-    m64 = m.double()
-    det = m64.new_zeros(m.shape[:-2])
+    det = m.new_zeros(m.shape[:-2])
     for j in range(4):
-        minor = torch.cat([m64[..., 1:, :j], m64[..., 1:, j + 1 :]], dim=-1)
-        det = det + ((-1.0) ** j) * m64[..., 0, j] * _det3x3(minor)
-    return det.to(m.dtype)
+        minor = torch.cat([m[..., 1:, :j], m[..., 1:, j + 1 :]], dim=-1)
+        det = det + ((-1.0) ** j) * m[..., 0, j] * _det3x3(minor)
+    return det
 
 
 class VectorToPseudoscalar(nn.Module):
@@ -53,7 +80,9 @@ class VectorToPseudoscalar(nn.Module):
     The module first projects the input channels to four learned Lorentz vectors for each output
     pseudoscalar channel, then takes the determinant of the resulting 4x4 matrix. The determinant
     of four four-vectors is a parity-odd Lorentz scalar (an oriented 4-volume), so the output flips
-    sign under spatial inversion.
+    sign under a CP transformation.
+    This module requires at least four input vector channels, otherwise the projected vector
+    channels are colinear and the determinant is zero.
 
     Parameters
     ----------
@@ -65,6 +94,7 @@ class VectorToPseudoscalar(nn.Module):
 
     def __init__(self, in_v_channels: int, out_p_channels: int) -> None:
         super().__init__()
+        assert in_v_channels >= 4, "VectorToPseudoscalar needs at least 4 input vector channels."
         self._in_v_channels = in_v_channels
         self.weight = nn.Parameter(torch.empty(out_p_channels, 4, in_v_channels))
         self.reset_parameters()
@@ -371,7 +401,7 @@ class SlimPseudoGLU(nn.Module):
             in_p_channels=in_p_channels,
             out_p_channels=2 * out_p_channels,
         )
-        # Add bias to p^2 otherwise it is always non-negative and the gate is linear
+        # Add bias to p^2, otherwise it is always non-negative and the gate is approx. linear
         self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
         self.nonlinearity = get_nonlinearity(nonlinearity)
         self.nonlinearity_v = (
@@ -428,8 +458,8 @@ class SlimPseudoGLU(nn.Module):
 class SlimPseudoSelfAttention(nn.Module):
     """Self-attention for Lorentz vectors, scalars, and pseudoscalars.
 
-    Pseudoscalars enter queries, keys, and values like scalars; their contribution to the
-    attention logits is a product of two pseudoscalars and therefore parity-even.
+    Pseudoscalars enter queries, keys, and values like scalars: their contribution to the
+    attention logits is a product of two pseudoscalars and therefore CP-even.
 
     Parameters
     ----------
@@ -616,8 +646,7 @@ class SlimPseudoMLP(nn.Module):
 
         v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
         s_channels_list = [s_channels] + [mlp_ratio * s_channels] * (num_layers - 1) + [s_channels]
-        p_channels_list = [p_channels] * (num_layers + 1)
-
+        p_channels_list = [p_channels] + [mlp_ratio * p_channels] * (num_layers - 1) + [p_channels]
         for i in range(num_layers - 1):
             layers.append(
                 SlimPseudoGLU(
@@ -728,6 +757,8 @@ class SlimPseudoBlock(nn.Module):
     ) -> None:
         super().__init__()
 
+        assert p_channels > 0, "SlimPseudoBlock requires p_channels > 0, otherwise use SlimBlock."
+
         norm_kwargs = dict(elementwise_affine=norm_elementwise_affine, split_norm=split_norm)
         self.norm1 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
         self.norm2 = SlimPseudoRMSNorm(v_channels, s_channels, p_channels, **norm_kwargs)
@@ -742,7 +773,10 @@ class SlimPseudoBlock(nn.Module):
             split_norm=split_norm,
         )
 
-        self.determinant = VectorToPseudoscalar(v_channels, p_channels)
+        if v_channels >= 4:
+            self.determinant = VectorToPseudoscalar(v_channels, p_channels)
+        else:
+            self.determinant = None
 
         self.mlp = SlimPseudoMLP(
             v_channels=v_channels,
@@ -790,7 +824,9 @@ class SlimPseudoBlock(nn.Module):
 
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
-        outputs_p = pseudoscalars + h_p + self.determinant(h_v)
+        outputs_p = pseudoscalars + h_p
+        if self.determinant is not None:
+            outputs_p = outputs_p + self.determinant(h_v)
 
         h_v, h_s, h_p = self.norm2(outputs_v, outputs_s, outputs_p)
 

@@ -6,8 +6,12 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.slim_layers import _freeze_dead_tail, _require_scalars
-from ..layers.slim_pseudo_layers import SlimPseudoBlock, SlimPseudoLinear
+from ..layers.slim_pseudo_layers import (
+    SlimPseudoBlock,
+    SlimPseudoLinear,
+    _freeze_dead_tail,
+    _require_tensor,
+)
 from ..utils.autocast import naive_amp
 from ..utils.compile import compile_model
 
@@ -15,15 +19,10 @@ from ..utils.compile import compile_model
 class LGATrSlimPseudo(nn.Module):
     """L-GATr-slim network with an additional pseudoscalar stream.
 
-    A slimmer L-GATr variant that operates on Lorentz vectors, scalars, and pseudoscalars (no full
-    multivector representation). Stacks ``num_blocks`` :class:`SlimPseudoBlock` modules between
-    initial and final :class:`SlimPseudoLinear` layers. Usually instantiated indirectly via
-    :class:`~lgatr.nets.slim.LGATrSlim` with nonzero pseudoscalar channels.
-
     All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
-    treated like the scalars. The streams only mix through attention and through one
+    treated like the scalars and gated by squared pseudoscalars. The streams mix through one
     :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` per block (vectors to
-    pseudoscalars through a learned determinant).
+    pseudoscalars through a learned determinant, requires ``hidden_v_channels >= 4``)
 
     Parameters
     ----------
@@ -116,7 +115,19 @@ class LGATrSlimPseudo(nn.Module):
         activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
-        self._in_p_channels = in_p_channels
+
+        assert hidden_p_channels > 0, (
+            "LGATrSlimPseudo needs at hidden pseudoscalar channels, otherwise use LGATrSlim."
+        )
+        assert (in_s_channels > 0 and hidden_s_channels > 0) or (
+            in_s_channels == 0 and hidden_s_channels == 0 and out_s_channels == 0
+        ), "Scalars cannot be used without scalar inputs and hidden channels."
+        assert hidden_v_channels >= 4 or in_p_channels > 0, (
+            "Pseudoscalars need pseudoscalar inputs or at least 4 hidden vector channels."
+        )
+
+        self._in_p_channels = in_p_channels > 0
+        self._in_s_channels = in_s_channels > 0
         self._naive_amp = naive_amp
 
         self.linear_in = SlimPseudoLinear(
@@ -159,12 +170,12 @@ class LGATrSlimPseudo(nn.Module):
         self._checkpoint_blocks = checkpoint_blocks
 
         if num_blocks:
-            # the pseudoscalar gates come from the scalar linears, so those stay alive with out_p
             _freeze_dead_tail(
                 self.blocks[-1].norm2,
                 self.blocks[-1].mlp,
                 out_v_channels,
-                max(out_s_channels, out_p_channels),
+                out_s_channels,
+                out_p_channels,
             )
 
         if compile:
@@ -177,7 +188,7 @@ class LGATrSlimPseudo(nn.Module):
     def forward(
         self,
         vectors: torch.Tensor,
-        scalars: torch.Tensor,
+        scalars: torch.Tensor | None = None,
         pseudoscalars: torch.Tensor | None = None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -188,7 +199,8 @@ class LGATrSlimPseudo(nn.Module):
         vectors
             Lorentz vectors of shape ``(..., items, in_v_channels, 4)``.
         scalars
-            Scalar features of shape ``(..., items, in_s_channels)``.
+            Scalar features of shape ``(..., items, in_s_channels)``. May be ``None`` only when
+            the model expects no input scalar channels.
         pseudoscalars
             Pseudoscalar features of shape ``(..., items, in_p_channels)``. May be ``None`` only
             when the model expects no input pseudoscalar channels.
@@ -204,22 +216,24 @@ class LGATrSlimPseudo(nn.Module):
         outputs_p
             Pseudoscalar features of shape ``(..., items, out_p_channels)``.
         """
-        _require_scalars(scalars=scalars)
+        if self._in_s_channels:
+            _require_tensor(scalars=scalars)
+        if self._in_p_channels:
+            _require_tensor(pseudoscalars=pseudoscalars)
         with naive_amp(self._naive_amp):
             return self._forward(vectors, scalars, pseudoscalars, **attn_kwargs)
 
     def _forward(
         self,
         vectors: torch.Tensor,
-        scalars: torch.Tensor,
+        scalars: torch.Tensor | None,
         pseudoscalars: torch.Tensor | None,
         **attn_kwargs,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if scalars is None:
+            scalars = vectors.new_zeros(*vectors.shape[:-2], 0)
         if pseudoscalars is None:
-            assert self._in_p_channels == 0, (
-                "Pseudoscalar input cannot be None if the model expects pseudoscalar channels."
-            )
-            pseudoscalars = scalars.new_zeros(*scalars.shape[:-1], 0)
+            pseudoscalars = vectors.new_zeros(*vectors.shape[:-2], 0)
 
         # hidden layers keep vectors channel-last (..., 4, channels) as in LGATrSlim
         h_v, h_s, h_p = self.linear_in(vectors.transpose(-2, -1), scalars, pseudoscalars)

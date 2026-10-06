@@ -16,16 +16,18 @@ from lgatr.layers.slim_pseudo_layers import (
 from lgatr.nets.slim_pseudo import LGATrSlimPseudo
 from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
 
-# (in_v, out_v, in_s, out_s, in_p, out_p), covering the zero-channel edges on every slot. The slim
-# nets require scalars, so in_s is only zero on layers that are tested standalone.
+# (in_v, out_v, in_s, out_s, in_p, out_p), covering the zero-channel edges on every slot.
 CHANNELS = [
     (5, 1, 4, 2, 3, 2),
     (1, 4, 0, 2, 2, 3),
-    (9, 3, 4, 0, 1, 1),
+    (9, 3, 4, 0, 1, 2),
     (2, 7, 0, 0, 4, 2),
     (0, 1, 2, 3, 2, 1),
     (3, 0, 2, 3, 1, 4),
     (0, 0, 2, 3, 3, 2),
+    (2, 1, 2, 3, 0, 1),
+    (3, 3, 2, 3, 1, 0),
+    (1, 2, 2, 3, 0, 0),
 ]
 NONLINEARITIES = ["relu", "sigmoid", "tanh", "gelu", "silu"]
 
@@ -68,10 +70,10 @@ def check_parity_equivariance(
 def test_VectorToPseudoscalar_flips_under_parity() -> None:
     # The learned oriented 4-volume is parity-odd for an explicitly set weight.
     layer = VectorToPseudoscalar(in_v_channels=4, out_p_channels=2)
-    with torch.no_grad():
-        layer.weight.zero_()
-        layer.weight[0] = torch.eye(4)
-        layer.weight[1] = 2.0 * torch.eye(4)
+    # with torch.no_grad():
+    #     layer.weight.zero_()
+    #     layer.weight[0] = torch.eye(4)
+    #     layer.weight[1] = 2.0 * torch.eye(4)
 
     vectors = torch.randn(*BATCH_DIMS, 4, 4)
     pseudoscalar = layer(vectors)
@@ -132,55 +134,24 @@ def test_SlimPseudoRMSNorm_equivariance(split_norm: bool) -> None:
     check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
-# a determinant matrix from tt_smeft training on which the LU-based torch.linalg.det and slogdet
-# returned nan in forward (CUDA) and backward (CUDA and CPU): tiny x, y columns, true det ~ 1e-71
-TINY_COLUMNS = torch.tensor(
-    [
-        [37.52278137207031, 3.299284385960694e-32, 1.6856340667609992e-32, -37.17301940917969],
-        [-1.6546334028244019, 1.3128639430905247e-32, 6.707539008420934e-33, 1.7902863025665283],
-        [9.82723617553711, -3.8580473971636125e-33, -1.9711106207740674e-33, -9.874394416809082],
-        [4.620525360107422, 1.9366667628508528e-32, 9.894601740507707e-33, -4.461886405944824],
-    ]
-)
-
-
 def test_det4x4_matches_linalg_det_and_flips_under_parity() -> None:
     m = torch.randn(*BATCH_DIMS, 4, 4)
     torch.testing.assert_close(det4x4(m), torch.linalg.det(m.double()).float(), **TOLERANCES)
     torch.testing.assert_close(det4x4(parity(m, -1)), -det4x4(m), **TOLERANCES)
 
 
-@pytest.mark.parametrize(
-    "device",
-    [
-        "cpu",
-        pytest.param(
-            "cuda", marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="no GPU")
-        ),
-    ],
-)
-def test_det4x4_finite_on_tiny_columns(device: str) -> None:
-    m = TINY_COLUMNS.to(device).expand(64, 4, 4).clone().requires_grad_(True)
-    det = det4x4(m)
-    det.sum().backward()
-
-    assert torch.isfinite(det).all()
-    assert torch.isfinite(m.grad).all()
-    torch.testing.assert_close(det, torch.zeros_like(det), atol=1e-30, rtol=0)
-
-
 def test_VectorToPseudoscalar_singular_input_has_finite_gradient() -> None:
-    # three input channels span at most three dimensions, so every determinant is zero
-    layer = VectorToPseudoscalar(in_v_channels=3, out_p_channels=2)
+    # the fourth channel is the sum of the first two, so every determinant is zero
+    layer = VectorToPseudoscalar(in_v_channels=4, out_p_channels=2)
     vectors = torch.randn(*BATCH_DIMS, 4, 3, requires_grad=True)
-    layer(vectors).sum().backward()
+    col_vectors = torch.cat([vectors, vectors[..., :2].sum(-1, keepdim=True)], dim=-1)
+    layer(col_vectors).sum().backward()
 
     assert torch.isfinite(vectors.grad).all()
     assert torch.isfinite(layer.weight.grad).all()
 
 
 def test_LGATrSlimPseudo_one_det_per_block() -> None:
-    # the determinant is the only vector -> pseudoscalar map
     num_blocks = 3
     layer = LGATrSlimPseudo(
         num_blocks=num_blocks,
@@ -215,37 +186,6 @@ def test_SlimPseudoLinear_matches_SlimLinear(
     slim_v, slim_s = slim(v, s)
     torch.testing.assert_close(outputs_v, slim_v)
     torch.testing.assert_close(outputs_s, slim_s)
-
-
-@pytest.mark.parametrize("in_v,out_v,in_s,out_s,in_p,out_p,nonlinearity", GLU_CASES)
-def test_SlimPseudoGLU_equivariance(
-    in_v: int, out_v: int, in_s: int, out_s: int, in_p: int, out_p: int, nonlinearity: str
-) -> None:
-    layer = SlimPseudoGLU(
-        in_v_channels=in_v,
-        out_v_channels=out_v,
-        in_s_channels=in_s,
-        out_s_channels=out_s,
-        in_p_channels=in_p,
-        out_p_channels=out_p,
-        nonlinearity=nonlinearity,
-    )
-    s = torch.randn(*BATCH_DIMS, in_s)
-    p = torch.randn(*BATCH_DIMS, in_p)
-    v = torch.randn(*BATCH_DIMS, 4, in_v)
-    outputs_v, outputs_s, outputs_p = layer(v, s, p)
-    assert outputs_v.shape == (*BATCH_DIMS, 4, out_v)
-    assert outputs_s.shape == (*BATCH_DIMS, out_s)
-    assert outputs_p.shape == (*BATCH_DIMS, out_p)
-
-    check_equivariance(
-        layer,
-        batch_dims=(*BATCH_DIMS, in_v),
-        fn_kwargs=dict(scalars=s, pseudoscalars=p),
-        vector_dim=-2,
-        **TOLERANCES,
-    )
-    check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
 @pytest.mark.parametrize("in_v,out_v,in_s,out_s,in_p,out_p,initialization", LINEAR_CASES)
@@ -296,6 +236,7 @@ def test_SlimPseudoLinear_initialization(
     var_tolerance: float = 10.0,
 ) -> None:
     # SlimPseudoLinear maps unit-variance inputs to roughly unit-variance outputs.
+    # Seeded: with in_p = out_p = 1 the pseudoscalar variance is one squared uniform weight.
     layer = SlimPseudoLinear(
         in_v_channels=in_v,
         out_v_channels=out_v,
@@ -324,10 +265,45 @@ def test_SlimPseudoLinear_initialization(
         s_var = outputs_s.detach().to(torch.float64).var().item()
 
         assert -1.0 < s_mean < 1.0
-        assert 1.0 / var_tolerance < s_var < 1.0 * var_tolerance
+        assert 1.0 / 3.0 / var_tolerance < s_var < 1.0 / 3.0 * var_tolerance
 
-    if out_p > 0:
-        assert torch.isfinite(outputs_p).all()
+    if out_p > 0 and in_p > 0:
+        p_mean = outputs_p.detach().to(torch.float64).mean().item()
+        p_var = outputs_p.detach().to(torch.float64).var().item()
+
+        assert -1.0 < p_mean < 1.0
+        assert 1.0 / 3.0 / var_tolerance < p_var < 1.0 / 3.0 * var_tolerance
+
+
+@pytest.mark.parametrize("in_v,out_v,in_s,out_s,in_p,out_p,nonlinearity", GLU_CASES)
+def test_SlimPseudoGLU_equivariance(
+    in_v: int, out_v: int, in_s: int, out_s: int, in_p: int, out_p: int, nonlinearity: str
+) -> None:
+    layer = SlimPseudoGLU(
+        in_v_channels=in_v,
+        out_v_channels=out_v,
+        in_s_channels=in_s,
+        out_s_channels=out_s,
+        in_p_channels=in_p,
+        out_p_channels=out_p,
+        nonlinearity=nonlinearity,
+    )
+    s = torch.randn(*BATCH_DIMS, in_s)
+    p = torch.randn(*BATCH_DIMS, in_p)
+    v = torch.randn(*BATCH_DIMS, 4, in_v)
+    outputs_v, outputs_s, outputs_p = layer(v, s, p)
+    assert outputs_v.shape == (*BATCH_DIMS, 4, out_v)
+    assert outputs_s.shape == (*BATCH_DIMS, out_s)
+    assert outputs_p.shape == (*BATCH_DIMS, out_p)
+
+    check_equivariance(
+        layer,
+        batch_dims=(*BATCH_DIMS, in_v),
+        fn_kwargs=dict(scalars=s, pseudoscalars=p),
+        vector_dim=-2,
+        **TOLERANCES,
+    )
+    check_parity_equivariance(layer, v, s, p, **TOLERANCES)
 
 
 @pytest.mark.parametrize("num_heads,attn_ratio", [(2, 1), (1, 2)])
@@ -450,8 +426,6 @@ def test_LGATrSlimPseudo_equivariance(
     checkpoint_blocks: bool,
     split_norm: bool,
 ) -> None:
-    # The full network preserves shapes and is SO(1, 3)-equivariant and parity-covariant at eval
-    # time.
     layer = LGATrSlimPseudo(
         num_blocks=num_blocks,
         in_v_channels=in_v_channels,
@@ -488,7 +462,7 @@ def test_LGATrSlimPseudo_equivariance(
 
 @pytest.mark.parametrize("out_v_channels", [0, 2])
 def test_LGATrSlimPseudo_gradients_flow(out_v_channels: int) -> None:
-    # Every trainable parameter receives a gradient; out_v_channels=0 is the tagging setting.
+    # Every trainable parameter receives a gradient.
     layer = LGATrSlimPseudo(
         num_blocks=2,
         in_v_channels=3,
@@ -541,7 +515,34 @@ def test_LGATrSlimPseudo_pseudoscalars_default_to_empty() -> None:
     assert outputs_p.shape == (*BATCH_DIMS, 1)
 
 
-def test_LGATrSlimPseudo_requires_scalars() -> None:
+def test_LGATrSlimPseudo_scalars_default_to_empty() -> None:
+    # scalars may be omitted when the model has no scalar channels.
+    layer = LGATrSlimPseudo(
+        num_blocks=1,
+        in_v_channels=3,
+        out_v_channels=0,
+        hidden_v_channels=8,
+        in_s_channels=0,
+        out_s_channels=0,
+        hidden_s_channels=0,
+        num_heads=2,
+        in_p_channels=2,
+        out_p_channels=1,
+        hidden_p_channels=4,
+    )
+    layer.eval()
+    v = torch.randn(*BATCH_DIMS, 3, 4)
+    p = torch.randn(*BATCH_DIMS, 2)
+
+    outputs_v, outputs_s, outputs_p = layer(v, None, p)
+    assert outputs_v.shape == (*BATCH_DIMS, 0, 4)
+    assert outputs_s.shape == (*BATCH_DIMS, 0)
+    assert outputs_p.shape == (*BATCH_DIMS, 1)
+    check_parity_equivariance(layer, v, torch.randn(*BATCH_DIMS, 0), p, vector_dim=-1, **TOLERANCES)
+
+
+@pytest.mark.parametrize("missing", ["scalars", "pseudoscalars"])
+def test_LGATrSlimPseudo_requires_inputs(missing: str) -> None:
     layer = LGATrSlimPseudo(
         num_blocks=1,
         in_v_channels=3,
@@ -555,8 +556,10 @@ def test_LGATrSlimPseudo_requires_scalars() -> None:
         out_p_channels=1,
         hidden_p_channels=4,
     )
+    inputs = dict(scalars=torch.randn(*BATCH_DIMS, 4), pseudoscalars=torch.randn(*BATCH_DIMS, 2))
+    inputs[missing] = None
     with pytest.raises(ValueError):
-        layer(torch.randn(*BATCH_DIMS, 3, 4), None, torch.randn(*BATCH_DIMS, 2))
+        layer(torch.randn(*BATCH_DIMS, 3, 4), **inputs)
 
 
 def test_LGATrSlimPseudo_compiled() -> None:

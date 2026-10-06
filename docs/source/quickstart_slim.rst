@@ -43,8 +43,8 @@ You can construct a simple :class:`~lgatr.nets.slim.LGATrSlim` model as follows:
    )
 
 If your task requires an explicit parity-odd scalar channel, use
-:class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`, which carries a third, pseudoscalar stream alongside the vector and scalar streams. All layers act on the streams like
-their slim counterparts; beyond attention, the streams mix once per block in
+:class:`~lgatr.nets.slim_pseudo.LGATrSlimPseudo`, which carries a third, pseudoscalar stream
+alongside the vector and scalar streams. It includes the additional layer
 :class:`~lgatr.layers.slim_pseudo_layers.VectorToPseudoscalar` (vectors to pseudoscalars through a
 learned determinant):
 
@@ -99,7 +99,7 @@ For ``LGATrSlimPseudo``, provide an additional pseudoscalar tensor and read out 
 
 .. code-block:: python
 
-   pseudoscalars = torch.zeros(128, 20, 0)  # in_p_channels=0 -> may also be omitted
+   pseudoscalars = torch.zeros(128, 20, 0)  # can be omitted if in_p_channels=0
    output_v, output_s, output_p = lgatr(
       vectors=vectors,
       scalars=scalars,
