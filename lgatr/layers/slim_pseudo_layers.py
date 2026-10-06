@@ -18,7 +18,6 @@ from .slim_layers import (
     SlimLinear,
     SlimRMSNorm,
     _call_attention,
-    _post_attention_reshape,
 )
 
 
@@ -27,6 +26,19 @@ def _require_tensor(**named: torch.Tensor | None) -> None:
     for name, tensor in named.items():
         if tensor is None or tensor.shape[-1] == 0:
             raise ValueError(f"{name} must be a non-empty tensor.")
+
+def _post_attention_reshape(
+    out: torch.Tensor, hidden_v_channels: int, hidden_s_channels: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    h_v = out[..., : hidden_v_channels * 4].unflatten(-1, (4, hidden_v_channels))
+    h_s = out[..., hidden_v_channels * 4 : hidden_v_channels * 4 + hidden_s_channels]
+    h_p = out[..., hidden_v_channels * 4 + hidden_s_channels :]
+
+    h_v = h_v.movedim(-4, -2).flatten(-2, -1)
+    h_s = h_s.movedim(-2, -3).flatten(-2, -1)
+    h_p = h_p.movedim(-2, -3).flatten(-2, -1)
+
+    return h_v, h_s, h_p
 
 
 def _freeze_dead_tail(
@@ -509,6 +521,7 @@ class SlimPseudoSelfAttention(nn.Module):
         self.hidden_p_channels = max(attn_ratio * p_channels // num_heads, min_p_channels)
         self.num_heads = num_heads
 
+        self.metric: torch.Tensor
         self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
         self.linear_in = SlimPseudoLinear(
@@ -608,9 +621,7 @@ class SlimPseudoSelfAttention(nn.Module):
 
         q, k, v = self._pre_attention_reshape(qkv_v, qkv_s, qkv_p)
         out = _call_attention(q, k, v, **attn_kwargs)
-        s_end = 4 * self.hidden_v_channels + self.hidden_s_channels
-        h_v, h_s = _post_attention_reshape(out[..., :s_end], self.hidden_v_channels)
-        h_p = out[..., s_end:].movedim(-2, -3).flatten(-2, -1)
+        h_v, h_s, h_p = _post_attention_reshape(out, self.hidden_v_channels, self.hidden_s_channels)
 
         outputs_v, outputs_s, outputs_p = self.linear_out(h_v, h_s, h_p)
 
