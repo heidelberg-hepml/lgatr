@@ -43,11 +43,11 @@ Overview of features in L-GATr:
 
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
 - `LGATrSlim` and `ConditionalLGATrSlim` as efficient variants that use only scalar and vector representations
+- `LGATrSlimPseudo` as a slim variant with an additional pseudoscalar stream and a dedicated vector-to-pseudoscalar map
 - Set `compile=True` for typically 2x-3x speedup, and `compile_kwargs={"dynamic": True}` for variable-length sequences
 - Additional attention backends, installation via `pip install lgatr[varlen-attention]`, `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel` first, because these extra imports require modern versions of `pip`, `setuptools` and `wheel`.
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `PrimitivesConfig` objects
-- `LGATrSlimPseudo` as a slim variant with an additional pseudoscalar stream and a dedicated vector-to-pseudoscalar map
 
 Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github.io/lgatr/) and our example notebooks for [LGATr](examples/demo_lgatr.ipynb), [ConditionalLGATr](examples/demo_conditional_lgatr.ipynb) and [LGATrSlim](examples/demo_lgatr_slim.ipynb).
 
@@ -60,6 +60,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 - https://github.com/gregorkrz/jetclustering: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
 - https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model ([paper](https://arxiv.org/abs/2603.08802))
+- https://github.com/heidelberg-hepml/top-polarization: Use the CP-symmetry of L-GATr / L-GATr-slim with pseudoscalar channels for classification tasks ([paper](https://arxiv.org/abs/2610.XXXXX))
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
