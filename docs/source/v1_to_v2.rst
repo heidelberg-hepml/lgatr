@@ -40,8 +40,8 @@ API changes
   - ``use_bivector`` → ``bivector``
   - ``use_geometric_product`` → ``geometric_product``
 
-- The ``compile_mode`` and ``compile_dynamic`` arguments are replaced by a single
-  ``compile_kwargs`` dict that is passed on to :func:`torch.compile`.
+- The ``compile``, ``compile_mode`` and ``compile_dynamic`` arguments are removed. Compile the
+  network with ``net.compile(...)`` instead, see :doc:`efficiency`.
 
 Default changes
 ---------------
@@ -60,8 +60,8 @@ Default changes
   improves stability in extreme cases, because the vector branch can not blow up. Set
   ``nonlinearity_v=None`` to fall back to ``nonlinearity`` and recover the v1 behavior.
 
-- ``compile=True`` no longer implies ``dynamic=True``. Set ``compile_kwargs={"dynamic": True}``
-  to recover the old behavior.
+- Compilation no longer implies ``dynamic=True``. Use ``net.compile(dynamic=True)`` to recover
+  the old behavior.
 
 - The vector gate in :class:`~lgatr.layers.slim_layers.SlimGLU` is scaled by ``1/sqrt(4)`` to
   correct for variance increase from the Minkowski product, similar to the ``1/sqrt(d_k)``

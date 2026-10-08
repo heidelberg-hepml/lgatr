@@ -1,13 +1,10 @@
 """Equivariant transformer for vector and scalar data."""
 
-from collections.abc import Mapping
-
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 from ..layers.slim_layers import SlimBlock, SlimLinear, _freeze_dead_tail, _require_scalars
-from ..utils.compile import compile_model
 
 
 class LGATrSlim(nn.Module):
@@ -55,19 +52,6 @@ class LGATrSlim(nn.Module):
     lightcone
         Whether all vector inputs and outputs are in the light-cone coordinates of one frame
         per event, see :func:`~lgatr.interface.lightcone.get_lightcone_frame`.
-    compile
-        Whether to wrap the model with :func:`torch.compile`.
-    compile_kwargs
-        Dict forwarded verbatim to :func:`torch.compile` (via
-        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
-        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
-    activation_memory_budget
-        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
-        ``compile=True``. ``None`` (the default) leaves torch's global setting untouched. Setting
-        ``1.0`` recomputes only cheap pointwise/reduction ops in the backward pass (torch default);
-        lower values let the partitioner also recompute compute-intensive ops, ranked by
-        memory-saved-per-FLOP, trading backward FLOPs for a smaller activation-memory peak. Smaller
-        values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.
     """
 
     def __init__(
@@ -89,9 +73,6 @@ class LGATrSlim(nn.Module):
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
         lightcone: bool = False,
-        compile: bool = False,
-        compile_kwargs: Mapping | None = None,
-        activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
 
@@ -132,13 +113,6 @@ class LGATrSlim(nn.Module):
         if num_blocks:
             _freeze_dead_tail(
                 self.blocks[-1].norm2, self.blocks[-1].mlp, out_v_channels, out_s_channels
-            )
-
-        if compile:
-            compile_model(
-                self,
-                compile_kwargs=compile_kwargs,
-                activation_memory_budget=activation_memory_budget,
             )
 
     def forward(

@@ -75,6 +75,6 @@ Next steps
 ----------
 
 - Have a look at the :doc:`api`
-- Try the `LGATrSlim <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr_slim.ipynb>`_ notebook and test the `torch.compile` option.
+- Try the `LGATrSlim <https://github.com/heidelberg-hepml/lgatr/blob/main/examples/demo_lgatr_slim.ipynb>`_ notebook and compile the network with ``net.compile()``.
 - Custom :doc:`attention_backends`
 - How to implement :doc:`symmetry_breaking`

@@ -14,8 +14,8 @@ from ..layers import (
     SelfAttentionConfig,
 )
 from ..layers.mlp.config import MLPConfig
+from ..primitives.compile import warmup_after_apply
 from ..primitives.config import PrimitivesConfig
-from ..utils.compile import compile_model, warmup_after_apply
 
 
 class ConditionalLGATr(nn.Module):
@@ -61,21 +61,6 @@ class ConditionalLGATr(nn.Module):
         Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the transformer blocks.
-    compile
-        Whether to wrap the model with :func:`torch.compile`. Primitive caches are warmed
-        automatically whenever the model is moved or cast (``.to()``, ``.cuda()``, ``.float()``,
-        etc.), so the captured graph is free of host-to-device copies.
-    compile_kwargs
-        Dict forwarded verbatim to :func:`torch.compile` (via
-        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
-        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
-    activation_memory_budget
-        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
-        ``compile=True``. ``None`` (the default) leaves torch's global setting untouched. Setting
-        ``1.0`` recomputes only cheap pointwise/reduction ops in the backward pass (torch default);
-        lower values let the partitioner also recompute compute-intensive ops, ranked by
-        memory-saved-per-FLOP, trading backward FLOPs for a smaller activation-memory peak. Smaller
-        values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.
     """
 
     def __init__(
@@ -96,9 +81,6 @@ class ConditionalLGATr(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        compile: bool = False,
-        compile_kwargs: Mapping | None = None,
-        activation_memory_budget: float | None = None,
     ) -> None:
         super().__init__()
         primitives = PrimitivesConfig() if primitives is None else PrimitivesConfig.cast(primitives)
@@ -146,13 +128,6 @@ class ConditionalLGATr(nn.Module):
             out_s_channels=out_s_channels,
         )
         self._checkpoint_blocks = checkpoint_blocks
-
-        if compile:
-            compile_model(
-                self,
-                compile_kwargs=compile_kwargs,
-                activation_memory_budget=activation_memory_budget,
-            )
 
     def _apply(self, fn, *args, **kwargs):
         """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""

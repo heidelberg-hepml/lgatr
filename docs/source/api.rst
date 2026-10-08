@@ -101,17 +101,17 @@ coordinates, for the ``lightcone=True`` option of the networks.
 L-GATr Utilities
 ----------------
 
-Helpers used by the L-GATr networks: a wrapper around :func:`torch.compile` for the ``compile=True``
-constructor path, and a :func:`~lgatr.primitives.compile.warmup_caches` helper that pre-populates
-the primitive caches for a given ``(device, dtype)``. :mod:`lgatr.utils.autocast` additionally
-offers a decorator that pins inputs to a minimum precision. Within L-GATr it is only used by the
-light-cone coordinate maps in :mod:`lgatr.interface.lightcone`, which have to stay in float32.
+Helpers used by the L-GATr networks: a :func:`~lgatr.primitives.compile.warmup_caches` helper that
+pre-populates the primitive caches for a given ``(device, dtype)``, the
+:func:`~lgatr.primitives.compile.warmup_after_apply` hook that calls it whenever a network is moved
+or cast, and an autocast decorator that pins inputs to a minimum precision. Within L-GATr the
+decorator is only used by the light-cone coordinate maps in :mod:`lgatr.interface.lightcone`, which
+have to stay in float32.
 
 .. autosummary::
    :toctree: generated/
    :recursive:
 
-   lgatr.utils.compile
    lgatr.primitives.compile
    lgatr.utils.autocast
 

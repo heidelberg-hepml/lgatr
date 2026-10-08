@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - `naive_amp` option of all networks, the `naive_amp` context manager, and the float32 precision islands in the primitives and in `LGATrSlim`/`ConditionalLGATrSlim`
+- `compile`, `compile_kwargs` and `activation_memory_budget` network arguments together with `lgatr.utils.compile`; compile with `net.compile(...)` instead, which unlike the old per-instance `forward` override keeps working after `copy.deepcopy` and `torch.save`
 
 ### Fixed
 
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix memory leak in `sparse_linear=True` under `torch.compile`
 - Fix `xformers` and `varlen` attention backends returning the padded head dim or failing to compile with dynamic head dims
 - Fix compiled `xformers` training in float16/bfloat16 with self-attention block-diagonal masks
+- Fix backward of compiled `LGATr` with the full symmetry group and `in_mv_channels=1` under dynamic shapes
 
 ## [2.0.0] - 29.07.2026
 
