@@ -41,21 +41,19 @@ SLIM_KWARGS = dict(
 )
 
 
-def _lgatr(compile: bool, **kwargs):
-    return LGATr(compile=compile, **GA_KWARGS, **kwargs), (
+def _lgatr():
+    return LGATr(**GA_KWARGS), (
         torch.randn(BATCH, N, IN_C, 16),
         torch.randn(BATCH, N, IN_C),
     )
 
 
-def _conditional_lgatr(compile: bool, **kwargs):
+def _conditional_lgatr():
     net = ConditionalLGATr(
-        compile=compile,
         mv_channels_cond=IN_C,
         s_channels_cond=IN_C,
         crossattention=CrossAttentionConfig(num_heads=2),
         **GA_KWARGS,
-        **kwargs,
     )
     return net, (
         torch.randn(BATCH, N, IN_C, 16),
@@ -65,17 +63,15 @@ def _conditional_lgatr(compile: bool, **kwargs):
     )
 
 
-def _slim(compile: bool, **kwargs):
-    return LGATrSlim(compile=compile, **SLIM_KWARGS, **kwargs), (
+def _slim():
+    return LGATrSlim(**SLIM_KWARGS), (
         torch.randn(BATCH, N, IN_C, 4),
         torch.randn(BATCH, N, IN_C),
     )
 
 
-def _conditional_slim(compile: bool, **kwargs):
-    net = ConditionalLGATrSlim(
-        compile=compile, v_channels_cond=IN_C, s_channels_cond=IN_C, **SLIM_KWARGS, **kwargs
-    )
+def _conditional_slim():
+    net = ConditionalLGATrSlim(v_channels_cond=IN_C, s_channels_cond=IN_C, **SLIM_KWARGS)
     return net, (
         torch.randn(BATCH, N, IN_C, 4),
         torch.randn(BATCH, N_COND, IN_C, 4),
@@ -96,41 +92,12 @@ BUILDERS = {
 def test_compiled_matches_eager(name: str) -> None:
     # A compiled network produces the same outputs as the same weights run eagerly. Equivariance
     # itself is covered eagerly in the per-network test modules.
-    compiled, inputs = BUILDERS[name](compile=True)
-    eager, _ = BUILDERS[name](compile=False)
-    eager.load_state_dict(compiled.state_dict())
-    compiled.eval()
-    eager.eval()
+    net, inputs = BUILDERS[name]()
+    net.eval()
+    ref_v, ref_s = net(*inputs)
 
-    out_v, out_s = compiled(*inputs)
-    ref_v, ref_s = eager(*inputs)
-
-    torch.testing.assert_close(out_v, ref_v, **STRICT_TOLERANCES)
-    torch.testing.assert_close(out_s, ref_s, **STRICT_TOLERANCES)
-
-
-def test_compile_kwargs_are_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
-    # compile_kwargs reaches torch.compile verbatim, and the resulting static-shape graph still
-    # matches eager. Spying on torch.compile is what pins the forwarding down: output parity holds
-    # whether or not the kwargs arrive, so on its own it would not test anything here.
-    recorded = []
-    real_compile = torch.compile
-
-    def spy(fn, **kwargs):
-        recorded.append(kwargs)
-        return real_compile(fn, **kwargs)
-
-    monkeypatch.setattr(torch, "compile", spy)
-    compiled, inputs = BUILDERS["slim"](compile=True, compile_kwargs=dict(dynamic=False))
-    assert recorded == [dict(dynamic=False)]
-
-    eager, _ = BUILDERS["slim"](compile=False)
-    eager.load_state_dict(compiled.state_dict())
-    compiled.eval()
-    eager.eval()
-
-    out_v, out_s = compiled(*inputs)
-    ref_v, ref_s = eager(*inputs)
+    net.compile()
+    out_v, out_s = net(*inputs)
 
     torch.testing.assert_close(out_v, ref_v, **STRICT_TOLERANCES)
     torch.testing.assert_close(out_s, ref_s, **STRICT_TOLERANCES)

@@ -3,8 +3,8 @@ Efficient implementation
 
 This page gives advice on how to make :class:`~lgatr.nets.slim.LGATrSlim` and
 :class:`~lgatr.nets.lgatr.LGATr` run faster and use less memory if required.
-Both tricks are turned off by default, although we recommend to always set
-``compile=True``.
+Both tricks are turned off by default, although we recommend to always compile the
+network with ``net.compile()``.
 
 torch.compile
 --------------------------
@@ -36,10 +36,9 @@ The optimal solution for the problem of inefficient kernels is to write optimize
 triton or CUDA kernels for these operations, or even to create efficient
 implementations at the hardware level. Torchs native ``torch.compile`` tool serves
 as a cheap variant that dynamically combines operations and selects optimized kernels.
-Both :class:`~lgatr.nets.slim.LGATrSlim`-type / :class:`~lgatr.nets.lgatr.LGATr`-type
-networks support a ``compile=True`` option which internally applies ``torch.compile``
-on ``self.forward``, and also supports a dict of ``compile_kwargs`` that is passed
-on without modifications. For instance,
+The networks are plain :class:`torch.nn.Module` instances, so they are compiled in place
+with :meth:`torch.nn.Module.compile`, which passes all keyword arguments on to
+``torch.compile``. For instance,
 
 .. code-block:: python
 
@@ -55,25 +54,28 @@ on without modifications. For instance,
         hidden_s_channels=32,
         attention=dict(num_heads=4),
         mlp=dict(),
-        compile=True,
-        compile_kwargs={
-            "dynamic": True,
-            "fullgraph": True,
-            "mode": "default",
-        },
     )
+    net.compile(dynamic=True, fullgraph=True, mode="default")
+
+Unlike ``net = torch.compile(net)``, this keeps the module type and the ``state_dict`` keys
+unchanged. A copy made with :func:`copy.deepcopy` or saved with :func:`torch.save` runs
+uncompiled until it is compiled again. :class:`~lgatr.nets.lgatr.LGATr` and
+:class:`~lgatr.nets.conditional_lgatr.ConditionalLGATr` warm their primitive caches whenever
+they are moved or cast (``.to()``, ``.cuda()``, ``.float()``, etc.), so the captured graph is
+free of host-to-device copies.
 
 We find that ``torch.compile`` significantly reduces time and memory consumption,
 and recommend to always turn it on (on GPU and CPU). For varying
-shapes, we recommend setting ``compile_kwargs={"dynamic": True}``. If used correctly, the
-only cost to pay for ``compile=True`` is a ~1min compilation overhead on the first
+shapes, we recommend ``net.compile(dynamic=True)``. If used correctly, the
+only cost to pay for compiling is a ~1min compilation overhead on the first
 network call.
 
 Old torch versions limit what can be compiled. On ``torch<2.3`` the inductor backend
-cannot generate code for the attention scale under dynamic shapes, so ``compile=True``
-requires ``compile_kwargs={"dynamic": False}`` there. On ``torch<2.2`` compiling
-additionally requires ``setuptools<82``, because torch imports ``pkg_resources``, which
-setuptools removed in version 82.
+cannot generate code for the attention scale under dynamic shapes, so compiling
+requires ``dynamic=False`` there. :meth:`torch.nn.Module.compile` exists since
+``torch>=2.2``, so use ``net = torch.compile(net)`` on older versions. On ``torch<2.2``
+compiling additionally requires ``setuptools<82``, because torch imports ``pkg_resources``,
+which setuptools removed in version 82.
 
 Automatic mixed precision
 --------------------------------------------
