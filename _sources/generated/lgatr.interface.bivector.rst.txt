@@ -1,0 +1,13 @@
+﻿lgatr.interface.bivector
+========================
+
+.. automodule:: lgatr.interface.bivector
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      embed_bivector
+      extract_bivector
+   

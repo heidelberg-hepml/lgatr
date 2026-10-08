@@ -1,0 +1,19 @@
+﻿lgatr.utils.autocast
+====================
+
+.. automodule:: lgatr.utils.autocast
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      autocast_dtype
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      minimum_autocast_precision
+      naive_amp
+   

@@ -1,0 +1,8 @@
+﻿lgatr.nets.slim.LGATrSlim
+=========================
+
+.. autoclass:: lgatr.nets.slim.LGATrSlim
+   :members:
+   :inherited-members: False
+   :undoc-members:
+   :show-inheritance:
