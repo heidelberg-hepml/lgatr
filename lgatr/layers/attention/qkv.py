@@ -32,7 +32,7 @@ class QKVModule(nn.Module):
             out_s_channels=3 * config.hidden_s_channels * config.num_heads,
             bias=False,
         )
-        self.norm_qkv = EquiLayerNorm()
+        self.norm_qkv = EquiLayerNorm(primitives=primitives)
         self.config = config
 
     def forward(
@@ -160,7 +160,7 @@ class MultiQueryQKVModule(nn.Module):
             out_s_channels=config.hidden_s_channels,
             bias=False,
         )
-        self.norm_qkv = EquiLayerNorm()
+        self.norm_qkv = EquiLayerNorm(primitives=primitives)
         self.config = config
 
     def forward(

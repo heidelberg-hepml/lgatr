@@ -2,16 +2,17 @@
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
+from .config import PrimitivesConfig
 from .invariants import abs_squared_norm
 
 
-@minimum_autocast_precision(torch.float32)
 def equi_layer_norm(
     x: torch.Tensor,
     channel_dim: int = -2,
     gain: float | torch.Tensor = 1.0,
     epsilon: float | torch.Tensor = 0.01,
+    *,
+    config: PrimitivesConfig,
 ) -> torch.Tensor:
     """Equivariant LayerNorm for multivectors.
 
@@ -33,6 +34,8 @@ def equi_layer_norm(
     epsilon
         Small numerical offset to avoid instabilities. The default is intentionally larger than
         usual to balance the fact that some multivector components do not contribute to the norm.
+    config
+        LGATr primitives configuration.
 
     Returns
     -------
@@ -41,7 +44,7 @@ def equi_layer_norm(
     """
 
     # Compute mean_channels |inputs|^2
-    abs_squared_norms = abs_squared_norm(x)
+    abs_squared_norms = abs_squared_norm(x, config=config)
     abs_squared_norms = torch.mean(abs_squared_norms, dim=channel_dim, keepdim=True)
 
     # Ensure against low-norm tensors (which can arise even when `x.var(dim=-1)` is high b/c some

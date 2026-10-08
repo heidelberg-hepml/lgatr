@@ -3,6 +3,7 @@ import torch
 from torch import nn
 
 from lgatr.layers.layer_norm import EquiLayerNorm
+from lgatr.primitives.config import PrimitivesConfig
 from tests.helpers import TOLERANCES, check_pin_equivariance
 
 BATCH_DIMS = (7, 9)
@@ -14,7 +15,12 @@ def test_equi_layer_norm_layer_equivariance(elementwise_affine: bool) -> None:
     # EquiLayerNorm is Pin-equivariant, including with a non-trivial per-grade affine gain.
     # The normalization itself is covered by tests/lgatr/primitives/test_normalization.py.
     mv_channels = BATCH_DIMS[-1]
-    layer = EquiLayerNorm(mv_channels, NUM_SCALARS, elementwise_affine=elementwise_affine)
+    layer = EquiLayerNorm(
+        mv_channels,
+        NUM_SCALARS,
+        elementwise_affine=elementwise_affine,
+        primitives=PrimitivesConfig(),
+    )
     if elementwise_affine:
         # default init is all-ones, which is indistinguishable from off, so randomize
         nn.init.normal_(layer.weight_mv)
@@ -27,7 +33,7 @@ def test_equi_layer_norm_layer_equivariance(elementwise_affine: bool) -> None:
 
 def test_equi_layer_norm_none_scalars() -> None:
     # EquiLayerNorm propagates scalars=None.
-    layer = EquiLayerNorm()
+    layer = EquiLayerNorm(primitives=PrimitivesConfig())
     inputs = torch.randn(4, 5, 16)
     outputs_mv, outputs_s = layer(inputs, scalars=None)
     assert outputs_mv.shape == inputs.shape

@@ -71,7 +71,7 @@ class GeometricBilinear(nn.Module):
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
         )
-        self.norm = EquiLayerNorm()
+        self.norm = EquiLayerNorm(primitives=primitives)
 
     def forward(
         self,

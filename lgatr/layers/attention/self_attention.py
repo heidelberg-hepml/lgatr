@@ -27,6 +27,7 @@ class SelfAttention(nn.Module):
 
     def __init__(self, config: SelfAttentionConfig, primitives: PrimitivesConfig) -> None:
         super().__init__()
+        self.primitives = primitives
 
         # QKV computation
         self.qkv_module = (
@@ -105,6 +106,7 @@ class SelfAttention(nn.Module):
             q_s,
             k_s,
             v_s,
+            config=self.primitives,
             **attn_kwargs,
         )
         if self.use_head_scale:

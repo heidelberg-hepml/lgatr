@@ -10,7 +10,6 @@ from ..layers.slim_layers import (
     _freeze_dead_tail,
     _require_scalars,
 )
-from ..utils.autocast import naive_amp
 
 
 class ConditionalLGATrSlim(nn.Module):
@@ -58,10 +57,10 @@ class ConditionalLGATrSlim(nn.Module):
         Whether the :class:`SlimRMSNorm` instances learn per-channel gains.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks.
-    naive_amp
-        Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
-        autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
-        metric contractions stay fp32 while the scalar GEMMs run in bf16.
+    lightcone
+        Whether all vector inputs (conditions included) and outputs are in the light-cone
+        coordinates of one frame per event, see
+        :func:`~lgatr.interface.lightcone.get_lightcone_frame`.
     """
 
     def __init__(
@@ -84,10 +83,9 @@ class ConditionalLGATrSlim(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        naive_amp: bool = False,
+        lightcone: bool = False,
     ) -> None:
         super().__init__()
-        self._naive_amp = naive_amp
 
         self.linear_in = SlimLinear(
             in_v_channels=in_v_channels,
@@ -111,6 +109,7 @@ class ConditionalLGATrSlim(nn.Module):
                     num_layers_mlp=num_layers_mlp,
                     dropout_prob=dropout_prob,
                     norm_elementwise_affine=norm_elementwise_affine,
+                    lightcone=lightcone,
                 )
                 for _ in range(num_blocks)
             ]
@@ -164,25 +163,6 @@ class ConditionalLGATrSlim(nn.Module):
             Scalar features of shape ``(..., items, out_s_channels)``.
         """
         _require_scalars(scalars=scalars, scalars_cond=scalars_cond)
-        with naive_amp(self._naive_amp):
-            return self._forward(
-                vectors,
-                vectors_cond,
-                scalars,
-                scalars_cond,
-                attn_kwargs=attn_kwargs,
-                crossattn_kwargs=crossattn_kwargs,
-            )
-
-    def _forward(
-        self,
-        vectors: torch.Tensor,
-        vectors_cond: torch.Tensor,
-        scalars: torch.Tensor,
-        scalars_cond: torch.Tensor,
-        attn_kwargs: dict | None = None,
-        crossattn_kwargs: dict | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
         attn_kwargs = attn_kwargs if attn_kwargs is not None else {}
         crossattn_kwargs = crossattn_kwargs if crossattn_kwargs is not None else {}
 

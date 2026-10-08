@@ -13,7 +13,6 @@ from ..layers.linear import EquiLinear
 from ..layers.mlp.config import MLPConfig
 from ..primitives.compile import warmup_after_apply
 from ..primitives.config import PrimitivesConfig
-from ..utils.autocast import naive_amp
 
 
 class LGATr(nn.Module):
@@ -60,10 +59,6 @@ class LGATr(nn.Module):
         Whether the block :class:`EquiLayerNorm` instances learn an affine gain.
     checkpoint_blocks
         Whether to use gradient checkpointing for the blocks. Saves memory at the cost of speed.
-    naive_amp
-        Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
-        autocast dtype (e.g. bf16). When ``False`` (default), under autocast the multivector stream
-        and metric contractions stay fp32 while the scalar GEMMs run in bf16.
     """
 
     def __init__(
@@ -83,7 +78,6 @@ class LGATr(nn.Module):
         dropout_prob: float | None = None,
         norm_elementwise_affine: bool = True,
         checkpoint_blocks: bool = False,
-        naive_amp: bool = False,
     ) -> None:
         super().__init__()
         primitives = PrimitivesConfig() if primitives is None else PrimitivesConfig.cast(primitives)
@@ -127,7 +121,6 @@ class LGATr(nn.Module):
         self._reinsert_s_channels = reinsert_s_channels
         self._reinsert_mv_channels = reinsert_mv_channels
         self._checkpoint_blocks = checkpoint_blocks
-        self._naive_amp = naive_amp
 
     def _apply(self, fn, *args, **kwargs):
         """Warm primitive caches after every ``.to()`` / ``.cuda()`` / ``.float()`` / etc."""
@@ -160,15 +153,6 @@ class LGATr(nn.Module):
             Output scalars of shape ``(..., items, out_s_channels)``, or None if
             ``out_s_channels == 0``.
         """
-        with naive_amp(self._naive_amp):
-            return self._forward(multivectors, scalars, **attn_kwargs)
-
-    def _forward(
-        self,
-        multivectors: torch.Tensor,
-        scalars: torch.Tensor | None = None,
-        **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         # Channels that will be re-inserted in any query / key computation
         (
             additional_qk_features_mv,

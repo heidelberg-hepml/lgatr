@@ -71,16 +71,28 @@ class ConditionalLGATrBlock(nn.Module):
         # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the
         # query and condition normalizations and both follow norm_elementwise_affine.
         self.norm1 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm2 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm3 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm_cond = EquiLayerNorm(
-            mv_channels_cond, s_channels_cond, elementwise_affine=norm_elementwise_affine
+            mv_channels_cond,
+            s_channels_cond,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
 
         # Self-attention layer

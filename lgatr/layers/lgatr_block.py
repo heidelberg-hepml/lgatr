@@ -54,10 +54,16 @@ class LGATrBlock(nn.Module):
 
         # Normalization layers
         self.norm1 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm2 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
 
         # Self-attention layer
