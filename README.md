@@ -44,7 +44,7 @@ Overview of features in L-GATr:
 - L-GATr encoder and decoder as `LGATr` and `ConditionalLGATr`
 - `LGATrSlim` and `ConditionalLGATrSlim` as efficient variants that use only scalar and vector representations
 - `LGATrSlimPseudo` as a slim variant with an additional pseudoscalar stream and a dedicated vector-to-pseudoscalar map
-- Set `compile=True` for typically 2x-3x speedup, and `compile_kwargs={"dynamic": True}` for variable-length sequences
+- Call `net.compile()` for typically 2x-3x speedup, and `net.compile(dynamic=True)` for variable-length sequences
 - Additional attention backends, installation via `pip install lgatr[varlen-attention]`, `pip install lgatr[xformers-attention]`, `pip install lgatr[flex-attention]`, `pip install lgatr[flash-attention]` or any combination. You might have to run `python -m pip install --upgrade pip setuptools wheel` first, because these extra imports require modern versions of `pip`, `setuptools` and `wheel`.
 - Interface to the geometric algebra: Embedding and extracting multivectors; spurions for symmetry breaking at the input level
 - Many hyperparameters to play with, organized via the `SelfAttentionConfig`, `CrossAttentionConfig`, `MLPConfig` and `PrimitivesConfig` objects

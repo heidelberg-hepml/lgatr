@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sparse `geometric_product` and `equi_linear` use plain ops instead of custom autograd functions, which `torch.compile` handles just as well
 - Avoid unnecessary contiguous copies of the queries, keys and values in the xformers attention backend
 
+### Removed
+
+- `compile`, `compile_kwargs` and `activation_memory_budget` network arguments together with `lgatr.utils.compile`; compile with `net.compile(...)` instead, which unlike the old per-instance `forward` override keeps working after `copy.deepcopy` and `torch.save`
+
 ### Fixed
 
 - Attention backends are imported together with `lgatr` again instead of lazily on first use
