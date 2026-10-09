@@ -52,7 +52,7 @@ learned determinant):
 
    from lgatr import LGATrSlimPseudo
 
-   lgatr = LGATrSlimPseudo(
+   lgatrslimpseudo = LGATrSlimPseudo(
       num_blocks=2,
       in_v_channels=1,
       out_v_channels=1,
@@ -100,7 +100,7 @@ For ``LGATrSlimPseudo``, provide an additional pseudoscalar tensor and read out 
 .. code-block:: python
 
    pseudoscalars = torch.zeros(128, 20, 0)  # can be omitted if in_p_channels=0
-   output_v, output_s, output_p = lgatr(
+   output_v, output_s, output_p = lgatrslimpseudo(
       vectors=vectors,
       scalars=scalars,
       pseudoscalars=pseudoscalars,

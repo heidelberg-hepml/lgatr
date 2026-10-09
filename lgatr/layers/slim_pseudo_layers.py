@@ -1,8 +1,8 @@
 """Building blocks for the slim-pseudo (vector + scalar + pseudoscalar) L-GATr network.
 
 Every layer is its :mod:`~lgatr.layers.slim_layers` counterpart plus a pseudoscalar stream that
-is treated like the scalars. The streams only couple through attention and through one
-:class:`VectorToPseudoscalar` per :class:`SlimPseudoBlock`.
+is treated like the scalars. The streams only couple through attention and through
+:class:`PseudoDeterminant`.
 """
 
 import math
@@ -15,6 +15,7 @@ from ..utils.autocast import minimum_autocast_precision
 from ..utils.misc import get_nonlinearity
 from .slim_layers import (
     SlimDropout,
+    SlimGLU,
     SlimLinear,
     SlimRMSNorm,
     _call_attention,
@@ -86,7 +87,7 @@ def det4x4(m: torch.Tensor) -> torch.Tensor:
     return det
 
 
-class VectorToPseudoscalar(nn.Module):
+class PseudoDeterminant(nn.Module):
     """Map vectors to pseudoscalars through a learned oriented 4-volume.
 
     The module first projects the input channels to four learned Lorentz vectors for each output
@@ -106,7 +107,7 @@ class VectorToPseudoscalar(nn.Module):
 
     def __init__(self, in_v_channels: int, out_p_channels: int) -> None:
         super().__init__()
-        assert in_v_channels >= 4, "VectorToPseudoscalar needs at least 4 input vector channels."
+        assert in_v_channels >= 4, "PseudoDeterminant needs at least 4 input vector channels."
         self._in_v_channels = in_v_channels
         self.weight = nn.Parameter(torch.empty(out_p_channels, 4, in_v_channels))
         self.reset_parameters()
@@ -122,7 +123,7 @@ class VectorToPseudoscalar(nn.Module):
         nn.init.uniform_(self.weight, a=-bound, b=bound)
 
     @minimum_autocast_precision(torch.float32)
-    def forward(self, vectors: torch.Tensor) -> torch.Tensor:
+    def forward(self, vectors: torch.Tensor, scalars: torch.Tensor, pseudoscalars: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute pseudoscalars from vector inputs.
 
         Parameters
@@ -136,7 +137,8 @@ class VectorToPseudoscalar(nn.Module):
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
         projected = torch.einsum("...Mc,pac->...paM", vectors, self.weight)
-        return det4x4(projected)
+        pseudoscalars = pseudoscalars + det4x4(projected)
+        return vectors, scalars, pseudoscalars
 
 
 class SlimPseudoDropout(SlimDropout):
@@ -171,9 +173,9 @@ class SlimPseudoDropout(SlimDropout):
         outputs_p
             Pseudoscalar features with dropout, same shape as ``pseudoscalars``.
         """
-        outputs_v, outputs_s = super().forward(vectors, scalars)
         if not self.training or self._dropout_prob == 0.0:
-            return outputs_v, outputs_s, pseudoscalars
+            return vectors, scalars, pseudoscalars
+        outputs_v, outputs_s = super().forward(vectors, scalars)
         outputs_p = dropout(pseudoscalars, p=self._dropout_prob, training=True)
         return outputs_v, outputs_s, outputs_p
 
@@ -271,7 +273,7 @@ class SlimPseudoRMSNorm(SlimRMSNorm):
         return outputs_v, outputs_s, outputs_p
 
 
-class SlimPseudoLinear(nn.Module):
+class SlimPseudoLinear(SlimLinear):
     """:class:`~lgatr.layers.slim_layers.SlimLinear` plus a separate pseudoscalar linear map.
 
     The three streams are kept separate; mixing happens elsewhere.
@@ -309,10 +311,7 @@ class SlimPseudoLinear(nn.Module):
         bias: bool = True,
         initialization: str = "default",
     ) -> None:
-        super().__init__()
-        self._in_p_channels = in_p_channels
-
-        self.linear_vs = SlimLinear(
+        super().__init__(
             in_v_channels=in_v_channels,
             out_v_channels=out_v_channels,
             in_s_channels=in_s_channels,
@@ -320,6 +319,7 @@ class SlimPseudoLinear(nn.Module):
             bias=bias,
             initialization=initialization,
         )
+        self._in_p_channels = in_p_channels
         self.linear_p = nn.Linear(in_p_channels, out_p_channels, bias=False)
         self._reset_p(initialization)
 
@@ -350,13 +350,13 @@ class SlimPseudoLinear(nn.Module):
         outputs_p
             Pseudoscalar features of shape ``(..., out_p_channels)``.
         """
-        outputs_v, outputs_s = self.linear_vs(vectors, scalars)
+        outputs_v, outputs_s = super().forward(vectors, scalars)
         outputs_p = self.linear_p(pseudoscalars)
         return outputs_v, outputs_s, outputs_p
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
         """Re-initialize the weights with the given scheme."""
-        self.linear_vs.reset_parameters(initialization, additional_factor)
+        super().reset_parameters(initialization, additional_factor)
         self._reset_p(initialization, additional_factor)
 
     def _reset_p(self, initialization: str, additional_factor: float = 1.0) -> None:
@@ -365,7 +365,7 @@ class SlimPseudoLinear(nn.Module):
         nn.init.uniform_(self.linear_p.weight, a=-bound, b=bound)
 
 
-class SlimPseudoGLU(nn.Module):
+class SlimPseudoGLU(SlimGLU):
     """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
     The pseudoscalar gates are computed from absolute values of pseudoscalar features.
@@ -404,7 +404,14 @@ class SlimPseudoGLU(nn.Module):
         nonlinearity: str = "gelu",
         nonlinearity_v: str | None = "sigmoid",
     ) -> None:
-        super().__init__()
+        super().__init__(
+            in_v_channels=0, # self.linear replaced by SlimPseudoLinear
+            out_v_channels=0,
+            in_s_channels=0,
+            out_s_channels=0,
+            nonlinearity=nonlinearity,
+            nonlinearity_v=nonlinearity_v
+        )
         self.linear = SlimPseudoLinear(
             in_v_channels=in_v_channels,
             out_v_channels=3 * out_v_channels,
@@ -417,12 +424,6 @@ class SlimPseudoGLU(nn.Module):
         self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
         if self.bias_p.numel() == 0:
             self.bias_p.requires_grad_(False)
-
-        self.nonlinearity = get_nonlinearity(nonlinearity)
-        self.nonlinearity_v = (
-            get_nonlinearity(nonlinearity_v) if nonlinearity_v is not None else self.nonlinearity
-        )
-        self.register_buffer("metric", torch.tensor([1.0, -1.0, -1.0, -1.0]), persistent=False)
 
     def reset_parameters(self, initialization: str) -> None:
         """Re-initialize the weights with the given scheme."""
@@ -463,11 +464,6 @@ class SlimPseudoGLU(nn.Module):
         outputs_s = self.nonlinearity(s_gates) * s_pre
         outputs_p = self.nonlinearity(p_gates.abs() + self.bias_p) * p_pre
         return outputs_v, outputs_s, outputs_p
-
-    @minimum_autocast_precision(torch.float32)
-    def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
-        # 0.5 = 1/sqrt(4) controls the scale, like 1/sqrt(d_k) in attention
-        return 0.5 * ((v_gates_1 * v_gates_2) * self.metric[..., None]).sum(dim=-2, keepdim=True)
 
 
 class SlimPseudoSelfAttention(nn.Module):
@@ -664,6 +660,7 @@ class SlimPseudoMLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
+        vectors_det: bool = True,
     ) -> None:
         super().__init__()
         assert num_layers >= 2, f"SlimPseudoMLP needs num_layers >= 2, got {num_layers}"
@@ -672,6 +669,10 @@ class SlimPseudoMLP(nn.Module):
         v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
         s_channels_list = [s_channels] + [mlp_ratio * s_channels] * (num_layers - 1) + [s_channels]
         p_channels_list = [p_channels] + [mlp_ratio * p_channels] * (num_layers - 1) + [p_channels]
+
+        if v_channels >= 4 and vectors_det:
+            layers.append(PseudoDeterminant(v_channels, p_channels))
+
         for i in range(num_layers - 1):
             layers.append(
                 SlimPseudoGLU(
@@ -734,8 +735,7 @@ class SlimPseudoMLP(nn.Module):
 class SlimPseudoBlock(nn.Module):
     """A single block of the pseudoscalar-extended L-GATr-slim network.
 
-    Pre-norm + self-attention + residual, with the :class:`VectorToPseudoscalar` of the attention
-    vector output added to the pseudoscalar residual, then pre-norm + MLP + residual.
+    Pre-norm + self-attention + residual, then pre-norm + MLP + residual.
 
     Parameters
     ----------
@@ -798,11 +798,6 @@ class SlimPseudoBlock(nn.Module):
             split_norm=split_norm,
         )
 
-        if v_channels >= 4:
-            self.determinant = VectorToPseudoscalar(v_channels, p_channels)
-        else:
-            self.determinant = None
-
         self.mlp = SlimPseudoMLP(
             v_channels=v_channels,
             s_channels=s_channels,
@@ -850,8 +845,6 @@ class SlimPseudoBlock(nn.Module):
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
         outputs_p = pseudoscalars + h_p
-        if self.determinant is not None:
-            outputs_p = outputs_p + self.determinant(h_v)
 
         h_v, h_s, h_p = self.norm2(outputs_v, outputs_s, outputs_p)
 

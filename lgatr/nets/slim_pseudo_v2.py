@@ -1,19 +1,19 @@
-"""Equivariant transformer for vector, scalar, and pseudoscalar data."""
+"""Equivariant transformer for vector, scalar, and pseudoscalar data (layers built on slim_layers).
 
-from collections.abc import Mapping
+Select it with ``_target_: lgatr.nets.slim_pseudo_v2.LGATrSlimPseudo``.
+"""
 
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from ..layers.slim_pseudo_layers import (
+from ..layers.slim_layers import _require_scalars
+from ..layers.slim_pseudo_layers_v2 import (
     SlimPseudoBlock,
     SlimPseudoLinear,
     _freeze_dead_tail,
-    _require_tensor,
 )
 from ..utils.autocast import naive_amp
-from ..utils.compile import compile_model
 
 
 class LGATrSlimPseudo(nn.Module):
@@ -21,7 +21,7 @@ class LGATrSlimPseudo(nn.Module):
 
     All operations are those of :class:`~lgatr.nets.slim.LGATrSlim`, with the pseudoscalars
     treated like the scalars and gated by absolute values of pseudoscalars. The streams mix
-    through one :class:`~lgatr.layers.slim_pseudo_layers.PseudoDeterminant` per block 
+    through one :class:`~lgatr.layers.slim_pseudo_layers.PseudoDeterminant` per block
     (vectors to pseudoscalars through a learned determinant, requires ``hidden_v_channels >= 4``)
 
     Parameters
@@ -126,6 +126,7 @@ class LGATrSlimPseudo(nn.Module):
         self._in_p_channels = in_p_channels > 0
         self._in_s_channels = in_s_channels > 0
         self._naive_amp = naive_amp
+        self._out_s_channels = out_s_channels
 
         self.linear_in = SlimPseudoLinear(
             in_v_channels=in_v_channels,
@@ -181,7 +182,7 @@ class LGATrSlimPseudo(nn.Module):
         scalars: torch.Tensor | None = None,
         pseudoscalars: torch.Tensor | None = None,
         **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Forward pass.
 
         Parameters
@@ -207,9 +208,9 @@ class LGATrSlimPseudo(nn.Module):
             Pseudoscalar features of shape ``(..., items, out_p_channels)``.
         """
         if self._in_s_channels:
-            _require_tensor(scalars=scalars)
+            _require_scalars(scalars=scalars)
         if self._in_p_channels:
-            _require_tensor(pseudoscalars=pseudoscalars)
+            _require_scalars(pseudoscalars=pseudoscalars)
         with naive_amp(self._naive_amp):
             return self._forward(vectors, scalars, pseudoscalars, **attn_kwargs)
 
@@ -219,20 +220,25 @@ class LGATrSlimPseudo(nn.Module):
         scalars: torch.Tensor | None,
         pseudoscalars: torch.Tensor | None,
         **attn_kwargs,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         if scalars is None:
             scalars = vectors.new_zeros(*vectors.shape[:-2], 0)
         if pseudoscalars is None:
             pseudoscalars = vectors.new_zeros(*vectors.shape[:-2], 0)
 
         # hidden layers keep vectors channel-last (..., 4, channels) as in LGATrSlim
-        h_v, h_s, h_p = self.linear_in(vectors.transpose(-2, -1), scalars, pseudoscalars)
+        # and carry scalars and pseudoscalars merged as [s | p]
+        h_v, h_sp = self.linear_in(
+            vectors.transpose(-2, -1), torch.cat([scalars, pseudoscalars], dim=-1)
+        )
 
         for block in self.blocks:
             if self._checkpoint_blocks:
-                h_v, h_s, h_p = checkpoint(block, h_v, h_s, h_p, use_reentrant=False, **attn_kwargs)
+                h_v, h_sp = checkpoint(block, h_v, h_sp, use_reentrant=False, **attn_kwargs)
             else:
-                h_v, h_s, h_p = block(h_v, h_s, h_p, **attn_kwargs)
+                h_v, h_sp = block(h_v, h_sp, **attn_kwargs)
 
-        outputs_v, outputs_s, outputs_p = self.linear_out(h_v, h_s, h_p)
+        outputs_v, outputs_sp = self.linear_out(h_v, h_sp)
+        outputs_s = outputs_sp[..., : self._out_s_channels]
+        outputs_p = outputs_sp[..., self._out_s_channels :]
         return outputs_v.transpose(-2, -1), outputs_s, outputs_p

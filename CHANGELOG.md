@@ -9,11 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `SlimPseudo*` layers in `lgatr.layers.slim_pseudo_layers`, copying the `Slim*` layers with an
-  additional pseudoscalar stream
-- `LGATrSlimPseudo` (`lgatr.nets.slim_pseudo`): an `LGATrSlim` variant built from the 
-  `SlimPseudo*` layers
-- Unit tests and documentation for `LGATrSlimPseudo` and its layers
+- `LGATrSlimPseudo` network, a variant of `LGATrSlim` with pseudoscalar channels constructed from `SlimPseudo*` layers
 
 ### Changed
 

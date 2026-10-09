@@ -31,5 +31,5 @@ from .slim_pseudo_layers import (
     SlimPseudoMLP,
     SlimPseudoRMSNorm,
     SlimPseudoSelfAttention,
-    VectorToPseudoscalar,
+    PseudoDeterminant,
 )
