@@ -357,7 +357,8 @@ class SlimPseudoLinear(SlimLinear):
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
         """Re-initialize the weights with the given scheme."""
         super().reset_parameters(initialization, additional_factor)
-        self._reset_p(initialization, additional_factor)
+        if hasattr(self, "linear_p"):
+            self._reset_p(initialization, additional_factor)
 
     def _reset_p(self, initialization: str, additional_factor: float = 1.0) -> None:
         factor = 0.1 * additional_factor if initialization == "small" else additional_factor
