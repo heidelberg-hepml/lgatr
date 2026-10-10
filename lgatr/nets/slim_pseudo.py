@@ -1,6 +1,9 @@
-"""Equivariant transformer for vector, scalar, and pseudoscalar data."""
-
-from collections.abc import Mapping
+"""
+Equivariant transformer for vector, scalar, and pseudoscalar data.
+It copies the structure of :class:`~lgatr.nets.slim.LGATrSlim` with an additional pseudoscalar
+stream. The conditional version is not provided, but can easily be constructed in the same manner
+from :class:`~lgatr.nets.conditional_slim.ConditionalLGATrSlim`.
+"""
 
 import torch
 from torch import nn
@@ -13,7 +16,6 @@ from ..layers.slim_pseudo_layers import (
     _require_tensor,
 )
 from ..utils.autocast import naive_amp
-from ..utils.compile import compile_model
 
 
 class LGATrSlimPseudo(nn.Module):
@@ -72,19 +74,6 @@ class LGATrSlimPseudo(nn.Module):
         Whether to bypass the fp32 precision islands so the whole forward runs in the surrounding
         autocast dtype (e.g. bf16). When ``False`` (default), under autocast the vector stream and
         metric contractions stay fp32 while the scalar GEMMs run in bf16.
-    compile
-        Whether to wrap the model with :func:`torch.compile`.
-    compile_kwargs
-        Dict forwarded verbatim to :func:`torch.compile` (via
-        :func:`lgatr.utils.compile.compile_model`) when ``compile=True`` (e.g. ``mode``,
-        ``dynamic``, ``fullgraph``). Omitted keys fall back to torch's own defaults.
-    activation_memory_budget
-        Fraction in ``[0, 1]`` forwarded to :func:`lgatr.utils.compile.compile_model` when
-        ``compile=True``. ``None`` (the default) leaves torch's global setting untouched. Setting
-        ``1.0`` recomputes only cheap pointwise/reduction ops in the backward pass (torch default);
-        lower values let the partitioner also recompute compute-intensive ops, ranked by
-        memory-saved-per-FLOP, trading backward FLOPs for a smaller activation-memory peak. Smaller
-        values (down to ~0.3) reduce the activation-memory peak at a modest backward-compute cost.
     """
 
     def __init__(
