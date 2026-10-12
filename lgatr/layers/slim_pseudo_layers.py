@@ -76,15 +76,17 @@ def _det3x3(m: torch.Tensor) -> torch.Tensor:
 
 
 def det4x4(m: torch.Tensor) -> torch.Tensor:
-    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion.
+    """Determinant of a batch of 4x4 matrices ``(..., 4, 4)`` via cofactor expansion in fp64.
 
     The expansion is a polynomial, so forward and backward stay finite for any finite input.
+    fp64 helps to compute cancellations in the cofactors sum.
     """
-    det = m.new_zeros(m.shape[:-2])
+    m64 = m.double()
+    det = m64.new_zeros(m.shape[:-2])
     for j in range(4):
-        minor = torch.cat([m[..., 1:, :j], m[..., 1:, j + 1 :]], dim=-1)
-        det = det + ((-1.0) ** j) * m[..., 0, j] * _det3x3(minor)
-    return det
+        minor = torch.cat([m64[..., 1:, :j], m64[..., 1:, j + 1 :]], dim=-1)
+        det = det + ((-1.0) ** j) * m64[..., 0, j] * _det3x3(minor)
+    return det.to(m.dtype)
 
 
 class PseudoDeterminant(nn.Module):
@@ -369,7 +371,7 @@ class SlimPseudoLinear(SlimLinear):
 class SlimPseudoGLU(SlimGLU):
     """:class:`~lgatr.layers.slim_layers.SlimGLU` with an additional pseudoscalar stream.
 
-    The pseudoscalar gates are computed from absolute values of pseudoscalar features.
+    The pseudoscalar gates are computed from squared pseudoscalar features.
 
     Parameters
     ----------
@@ -421,7 +423,7 @@ class SlimPseudoGLU(SlimGLU):
             in_p_channels=in_p_channels,
             out_p_channels=2 * out_p_channels,
         )
-        # Add bias to |p|, otherwise it is always non-negative and the gate is approx. linear
+        # Add bias to p^2, otherwise it is always non-negative and the gate is approx. linear
         self.bias_p = nn.Parameter(torch.zeros(out_p_channels))
         if self.bias_p.numel() == 0:
             self.bias_p.requires_grad_(False)
@@ -463,7 +465,7 @@ class SlimPseudoGLU(SlimGLU):
 
         outputs_v = self.nonlinearity_v(v_gates) * v_pre
         outputs_s = self.nonlinearity(s_gates) * s_pre
-        outputs_p = self.nonlinearity(p_gates.abs() + self.bias_p) * p_pre
+        outputs_p = self.nonlinearity(p_gates.pow(2) + self.bias_p) * p_pre
         return outputs_v, outputs_s, outputs_p
 
 
@@ -661,7 +663,6 @@ class SlimPseudoMLP(nn.Module):
         mlp_ratio: int = 2,
         num_layers: int = 2,
         dropout_prob: float | None = None,
-        vectors_det: bool = True,
     ) -> None:
         super().__init__()
         assert num_layers >= 2, f"SlimPseudoMLP needs num_layers >= 2, got {num_layers}"
@@ -670,9 +671,6 @@ class SlimPseudoMLP(nn.Module):
         v_channels_list = [v_channels] + [mlp_ratio * v_channels] * (num_layers - 1) + [v_channels]
         s_channels_list = [s_channels] + [mlp_ratio * s_channels] * (num_layers - 1) + [s_channels]
         p_channels_list = [p_channels] + [mlp_ratio * p_channels] * (num_layers - 1) + [p_channels]
-
-        if v_channels >= 4 and vectors_det:
-            layers.append(PseudoDeterminant(v_channels, p_channels))
 
         for i in range(num_layers - 1):
             layers.append(
@@ -736,7 +734,8 @@ class SlimPseudoMLP(nn.Module):
 class SlimPseudoBlock(nn.Module):
     """A single block of the pseudoscalar-extended L-GATr-slim network.
 
-    Pre-norm + self-attention + residual, then pre-norm + MLP + residual.
+    Pre-norm + self-attention + residual, with the :class:`PseudoDeterminant` of the attention
+    vector output added to the pseudoscalar residual, then pre-norm + MLP + residual.
 
     Parameters
     ----------
@@ -809,6 +808,8 @@ class SlimPseudoBlock(nn.Module):
             num_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
         )
+        # the determinant of fewer than 4 vector channels is zero
+        self.determinant = PseudoDeterminant(v_channels, p_channels) if v_channels >= 4 else None
 
     def forward(
         self,
@@ -842,6 +843,9 @@ class SlimPseudoBlock(nn.Module):
         h_v, h_s, h_p = self.norm1(vectors, scalars, pseudoscalars)
 
         h_v, h_s, h_p = self.attention(h_v, h_s, h_p, **attn_kwargs)
+
+        if self.determinant is not None:
+            h_v, h_s, h_p = self.determinant(h_v, h_s, h_p)
 
         outputs_v = vectors + h_v
         outputs_s = scalars + h_s
