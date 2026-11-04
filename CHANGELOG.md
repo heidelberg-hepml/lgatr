@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix memory leak in `sparse_linear=True` under `torch.compile`
 - Fix `xformers` and `varlen` attention backends returning the padded head dim or failing to compile with dynamic head dims
 - Fix compiled `xformers` training in float16/bfloat16 with self-attention block-diagonal masks
+- Handle float16 NaNs from activations beyond the float16 range
 - Fix backward of compiled `LGATr` with the full symmetry group and `in_mv_channels=1` under dynamic shapes
 
 ## [2.0.0] - 29.07.2026

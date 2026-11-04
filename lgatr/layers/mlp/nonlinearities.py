@@ -3,7 +3,7 @@
 import torch
 from torch import nn
 
-from ...utils.misc import get_nonlinearity
+from ...utils.misc import get_nonlinearity, saturate
 
 
 class ScalarGatedNonlinearity(nn.Module):
@@ -45,7 +45,7 @@ class ScalarGatedNonlinearity(nn.Module):
         """
 
         gates = multivectors[..., 0:1]
-        outputs_mv = self.nonlinearity(gates) * multivectors
+        outputs_mv = saturate(self.nonlinearity(gates) * multivectors)
         outputs_s = self.nonlinearity(scalars) if scalars is not None else None
 
         return outputs_mv, outputs_s

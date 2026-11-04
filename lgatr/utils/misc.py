@@ -1,4 +1,4 @@
-"""Misc utilities: residual addition and an activation-callable lookup."""
+"""Misc utilities: float16 saturation, residual addition and an activation-callable lookup."""
 
 from collections.abc import Callable
 from functools import partial
@@ -7,18 +7,47 @@ import torch
 import torch.nn.functional as F
 
 
+class _Saturate(torch.autograd.Function):
+    generate_vmap_rule = True
+
+    @staticmethod
+    def forward(x: torch.Tensor) -> torch.Tensor:
+        limit = torch.finfo(x.dtype).max
+        return x.clamp(-limit, limit)
+
+    @staticmethod
+    def setup_context(ctx, inputs, output) -> None:
+        pass
+
+    @staticmethod
+    def backward(ctx, grad: torch.Tensor) -> torch.Tensor:
+        return grad
+
+
+def saturate(x: torch.Tensor | None) -> torch.Tensor | None:
+    """Clamp a float16 tensor to the finite float16 range; other dtypes and None pass through.
+
+    Overflowed values (``±inf``) become ``±65504`` instead of turning into NaN downstream. The
+    gradient is passed through unchanged, so no mask has to be saved for the backward pass.
+    Only float16 is affected because bfloat16 and float32 share the much larger float32 range.
+    """
+    if x is None or x.dtype != torch.float16:
+        return x
+    return _Saturate.apply(x)
+
+
 def residual_add(a: torch.Tensor | None, b: torch.Tensor | None) -> torch.Tensor | None:
-    """Residual addition that propagates None.
+    """Residual addition that propagates None and saturates float16 overflow.
 
     Returns None if both operands are None, the non-None operand if exactly one is None, and
-    ``a + b`` otherwise. Used by transformer blocks to add residual connections on the optional
-    scalar stream without special-casing each call site.
+    ``saturate(a + b)`` otherwise. Used by transformer blocks for all residual connections, so
+    the optional scalar stream needs no special-casing at each call site.
     """
     if a is None:
         return b
     if b is None:
         return a
-    return a + b
+    return saturate(a + b)
 
 
 def get_nonlinearity(label: str) -> Callable[[torch.Tensor], torch.Tensor]:

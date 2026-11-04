@@ -7,7 +7,7 @@ from torch import nn
 from torch.nn.functional import dropout, dropout1d
 
 from ..primitives.attention import scaled_dot_product_attention
-from ..utils.misc import get_nonlinearity
+from ..utils.misc import get_nonlinearity, residual_add, saturate
 
 
 def _require_scalars(**named: torch.Tensor | None) -> None:
@@ -275,7 +275,7 @@ class SlimLinear(nn.Module):
             outputs_s = self.linear_s(scalars)
         else:
             outputs_s = scalars.new_zeros(*scalars.shape[:-1], self._out_s_channels)
-        return outputs_v, outputs_s
+        return saturate(outputs_v), saturate(outputs_s)
 
     def reset_parameters(self, initialization: str, additional_factor: float = 1.0) -> None:
         """Re-initialize the weights with the given scheme."""
@@ -376,8 +376,8 @@ class SlimGLU(nn.Module):
 
         v_gates = self._get_inner_product(v_gates_1, v_gates_2)
 
-        outputs_v = self.nonlinearity_v(v_gates) * v_pre
-        outputs_s = self.nonlinearity(s_gates) * s_pre
+        outputs_v = saturate(self.nonlinearity_v(v_gates) * v_pre)
+        outputs_s = saturate(self.nonlinearity(s_gates) * s_pre)
         return outputs_v, outputs_s
 
     def _get_inner_product(self, v_gates_1: torch.Tensor, v_gates_2: torch.Tensor) -> torch.Tensor:
@@ -706,15 +706,15 @@ class SlimBlock(nn.Module):
             **attn_kwargs,
         )
 
-        outputs_v = vectors + h_v
-        outputs_s = scalars + h_s
+        outputs_v = residual_add(vectors, h_v)
+        outputs_s = residual_add(scalars, h_s)
 
         h_v, h_s = self.norm2(outputs_v, outputs_s)
 
         h_v, h_s = self.mlp(h_v, h_s)
 
-        outputs_v = outputs_v + h_v
-        outputs_s = outputs_s + h_s
+        outputs_v = residual_add(outputs_v, h_v)
+        outputs_s = residual_add(outputs_s, h_s)
 
         return outputs_v, outputs_s
 
@@ -1014,8 +1014,8 @@ class ConditionalSlimBlock(nn.Module):
             h_s,
             **attn_kwargs,
         )
-        outputs_v = vectors + h_v
-        outputs_s = scalars + h_s
+        outputs_v = residual_add(vectors, h_v)
+        outputs_s = residual_add(scalars, h_s)
 
         # cross-attention block
         h_v, h_s = self.norm2(outputs_v, outputs_s)
@@ -1026,13 +1026,13 @@ class ConditionalSlimBlock(nn.Module):
             scalars_cond,
             **crossattn_kwargs,
         )
-        outputs_v = outputs_v + h_v
-        outputs_s = outputs_s + h_s
+        outputs_v = residual_add(outputs_v, h_v)
+        outputs_s = residual_add(outputs_s, h_s)
 
         # MLP block
         h_v, h_s = self.norm3(outputs_v, outputs_s)
         h_v, h_s = self.mlp(h_v, h_s)
-        outputs_v = outputs_v + h_v
-        outputs_s = outputs_s + h_s
+        outputs_v = residual_add(outputs_v, h_v)
+        outputs_s = residual_add(outputs_s, h_s)
 
         return outputs_v, outputs_s

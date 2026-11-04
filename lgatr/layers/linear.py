@@ -8,6 +8,7 @@ from torch import nn
 from ..interface import embed_scalar
 from ..primitives.config import PrimitivesConfig
 from ..primitives.linear import equi_linear
+from ..utils.misc import saturate
 
 
 class EquiLinear(nn.Module):
@@ -199,7 +200,7 @@ class EquiLinear(nn.Module):
         else:
             outputs_s = None
 
-        return outputs_mv, outputs_s
+        return saturate(outputs_mv), saturate(outputs_s)
 
     def reset_parameters(
         self,
