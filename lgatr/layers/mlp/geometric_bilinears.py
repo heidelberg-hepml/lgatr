@@ -5,6 +5,7 @@ from torch import nn
 
 from ...primitives import geometric_product
 from ...primitives.config import PrimitivesConfig
+from ...utils.misc import saturate
 from ..layer_norm import EquiLayerNorm
 from ..linear import EquiLinear
 
@@ -71,7 +72,7 @@ class GeometricBilinear(nn.Module):
             in_s_channels=in_s_channels,
             out_s_channels=out_s_channels,
         )
-        self.norm = EquiLayerNorm()
+        self.norm = EquiLayerNorm(primitives=primitives)
 
     def forward(
         self,
@@ -99,7 +100,7 @@ class GeometricBilinear(nn.Module):
         # GP
         left, _ = self.linear_left(multivectors, scalars=scalars)
         right, _ = self.linear_right(multivectors, scalars=scalars)
-        gp_outputs = geometric_product(left, right, config=self.primitives)
+        gp_outputs = saturate(geometric_product(left, right, config=self.primitives))
         if not self.primitives.bivector:
             gp_outputs[..., 5:11] = 0.0
 

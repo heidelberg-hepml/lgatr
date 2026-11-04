@@ -4,6 +4,7 @@ import torch
 from torch import nn
 
 from ..primitives import equi_layer_norm
+from ..primitives.config import PrimitivesConfig
 
 # Maps each of the 16 multivector components to its grade (grade dimensions [1, 4, 6, 4, 1]).
 _GRADE_INDEX = [0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4]
@@ -37,6 +38,8 @@ class EquiLayerNorm(nn.Module):
         usual to balance the fact that some multivector components do not contribute to the norm.
     elementwise_affine
         Whether to learn a per-channel-per-grade multivector gain and a per-channel scalar gain.
+    primitives
+        LGATr primitives configuration.
     """
 
     def __init__(
@@ -47,8 +50,11 @@ class EquiLayerNorm(nn.Module):
         epsilon: float = 0.01,
         gain: float = 1.0,
         elementwise_affine: bool = False,
+        *,
+        primitives: PrimitivesConfig,
     ) -> None:
         super().__init__()
+        self.primitives = primitives
         self.mv_channel_dim = mv_channel_dim
         self.register_buffer(
             "epsilon", torch.tensor(epsilon, dtype=torch.float32), persistent=False
@@ -89,7 +95,11 @@ class EquiLayerNorm(nn.Module):
         """
 
         outputs_mv = equi_layer_norm(
-            multivectors, channel_dim=self.mv_channel_dim, gain=self.gain, epsilon=self.epsilon
+            multivectors,
+            channel_dim=self.mv_channel_dim,
+            gain=self.gain,
+            epsilon=self.epsilon,
+            config=self.primitives,
         )
         if scalars is None:
             outputs_s = None

@@ -71,16 +71,28 @@ class ConditionalLGATrBlock(nn.Module):
         # norm3 (MLP). Cross-attention has no internal QKV norm, so norm2 and norm_cond are the
         # query and condition normalizations and both follow norm_elementwise_affine.
         self.norm1 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm2 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm3 = EquiLayerNorm(
-            mv_channels, s_channels, elementwise_affine=norm_elementwise_affine
+            mv_channels,
+            s_channels,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
         self.norm_cond = EquiLayerNorm(
-            mv_channels_cond, s_channels_cond, elementwise_affine=norm_elementwise_affine
+            mv_channels_cond,
+            s_channels_cond,
+            elementwise_affine=norm_elementwise_affine,
+            primitives=primitives,
         )
 
         # Self-attention layer
@@ -166,7 +178,7 @@ class ConditionalLGATrBlock(nn.Module):
         )
 
         # Self-attention block: skip connection
-        multivectors = multivectors + h_mv
+        multivectors = residual_add(multivectors, h_mv)
         scalars = residual_add(scalars, h_s)
 
         # Cross-attention block: pre layer norm
@@ -183,7 +195,7 @@ class ConditionalLGATrBlock(nn.Module):
         )
 
         # Cross-attention block: skip connection
-        outputs_mv = multivectors + h_mv
+        outputs_mv = residual_add(multivectors, h_mv)
         outputs_s = residual_add(scalars, h_s)
 
         # MLP block: pre layer norm
@@ -193,7 +205,7 @@ class ConditionalLGATrBlock(nn.Module):
         h_mv, h_s = self.mlp(h_mv, scalars=h_s)
 
         # MLP block: skip connection
-        outputs_mv = outputs_mv + h_mv
+        outputs_mv = residual_add(outputs_mv, h_mv)
         outputs_s = residual_add(outputs_s, h_s)
 
         return outputs_mv, outputs_s

@@ -34,6 +34,9 @@ class PrimitivesConfig:
         If False, the :class:`GeometricBilinear` layer is replaced by a
         :class:`ScalarGatedNonlinearity` followed by an :class:`EquiLinear` layer. This is a toy
         switch to explore the effect of the geometric product.
+    lightcone
+        Whether all multivector inputs and outputs are in the light-cone coordinates of one frame
+        per event, see :func:`~lgatr.interface.lightcone.to_lightcone_mv`.
     sparse_gp
         If True, evaluate :func:`geometric_product` by gathering and reducing only the nonzero
         basis entries, 6.25% of the dense 3-tensor. Under ``torch.compile`` this is both faster
@@ -51,6 +54,8 @@ class PrimitivesConfig:
 
     bivector: bool = True
     geometric_product: bool = True
+
+    lightcone: bool = False
 
     sparse_gp: bool = True
     sparse_linear: bool = False

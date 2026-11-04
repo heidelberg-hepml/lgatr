@@ -3,13 +3,17 @@
 import pytest
 import torch
 
+from lgatr.interface import to_lightcone_mv
 from lgatr.primitives.config import PrimitivesConfig
 from lgatr.primitives.linear import equi_linear, grade_involute, grade_project, reverse
 from tests.helpers import (
     BATCH_DIMS,
+    STRICT_TOLERANCES,
     TOLERANCES,
     check_against_clifford,
     check_pin_equivariance,
+    outputs_and_input_grads,
+    random_lightcone_frame,
 )
 
 
@@ -77,3 +81,26 @@ def test_equi_linear_sparse_equivariance(subgroup: bool, spin: bool) -> None:
     check_pin_equivariance(
         equi_linear, 1, fn_kwargs=fn_kwargs, batch_dims=BATCH_DIMS, spin=spin, **TOLERANCES
     )
+
+
+@pytest.mark.parametrize("subgroup", [True, False])
+@pytest.mark.parametrize("sparse_linear", [False, True])
+def test_equi_linear_lightcone_matches_cartesian(subgroup: bool, sparse_linear: bool) -> None:
+    # The light-cone coordinates are an exact change of basis: with the same coefficients, the
+    # outputs and gradients are the mapped Cartesian ones.
+    in_c, out_c = 4, 7
+    x = torch.randn(*BATCH_DIMS, in_c, 16, dtype=torch.float64)
+    coeffs = torch.randn(out_c, in_c, 10 if subgroup else 5, dtype=torch.float64)
+    frame = random_lightcone_frame(x)
+    config = PrimitivesConfig(subgroup=subgroup, sparse_linear=sparse_linear)
+    config_lc = PrimitivesConfig(subgroup=subgroup, sparse_linear=sparse_linear, lightcone=True)
+
+    outputs, grad_x, grad_coeffs = outputs_and_input_grads(
+        lambda x, w: equi_linear(x, w, config=config), x, coeffs
+    )
+    outputs_lc, grad_x_lc, grad_coeffs_lc = outputs_and_input_grads(
+        lambda x, w: equi_linear(x, w, config=config_lc), to_lightcone_mv(x, frame), coeffs
+    )
+    torch.testing.assert_close(outputs_lc, to_lightcone_mv(outputs, frame), **STRICT_TOLERANCES)
+    torch.testing.assert_close(grad_x_lc, to_lightcone_mv(grad_x, frame), **STRICT_TOLERANCES)
+    torch.testing.assert_close(grad_coeffs_lc, grad_coeffs, **STRICT_TOLERANCES)

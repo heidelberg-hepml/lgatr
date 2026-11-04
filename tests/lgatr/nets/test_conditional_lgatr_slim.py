@@ -1,9 +1,10 @@
 import pytest
 import torch
 
+from lgatr.interface import from_lightcone, get_lightcone_frame, to_lightcone
 from lgatr.layers.slim_layers import ConditionalSlimBlock, SlimCrossAttention
 from lgatr.nets.conditional_slim import ConditionalLGATrSlim
-from tests.helpers import BATCH_DIMS, TOLERANCES, check_equivariance
+from tests.helpers import BATCH_DIMS, STRICT_TOLERANCES, TOLERANCES, check_equivariance
 
 BATCH_DIMS = BATCH_DIMS[:-1]
 V_CHANNELS, V_CHANNELS_COND = 24, 6
@@ -143,3 +144,53 @@ def test_ConditionalLGATrSlim_equivariance(
         fn_kwargs=dict(scalars=s, scalars_cond=s_cond),
         **TOLERANCES,
     )
+
+
+def _outputs_and_grads(model, *inputs):
+    outputs_v, outputs_s = model(*inputs)
+    (outputs_v.square().sum() + outputs_s.square().sum()).backward()
+    grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
+    return outputs_v.detach(), outputs_s.detach(), grads
+
+
+def test_ConditionalLGATrSlim_lightcone_matches_cartesian() -> None:
+    # The light-cone coordinates are an exact change of basis: with the same weights, a network
+    # fed the mapped vectors computes the same function and gradients, up to rounding.
+    channels = dict(
+        in_v_channels=2,
+        v_channels_cond=2,
+        out_v_channels=2,
+        hidden_v_channels=8,
+        in_s_channels=3,
+        s_channels_cond=3,
+        out_s_channels=3,
+        hidden_s_channels=8,
+        num_blocks=2,
+        num_heads=2,
+    )
+    cartesian = ConditionalLGATrSlim(**channels).double().eval()
+    for block in cartesian.blocks:
+        # the "small" init of the q/kv projections hides most of the attention
+        block.selfattention.linear_in.reset_parameters("default")
+        block.crossattention.linear_in_q.reset_parameters("default")
+        block.crossattention.linear_in_kv.reset_parameters("default")
+    lightcone = ConditionalLGATrSlim(**channels, lightcone=True).double().eval()
+    lightcone.load_state_dict(cartesian.state_dict())
+
+    items, items_cond = 4, 3
+    s = torch.randn(*BATCH_DIMS, items, channels["in_s_channels"], dtype=torch.float64)
+    s_cond = torch.randn(*BATCH_DIMS, items_cond, channels["s_channels_cond"], dtype=torch.float64)
+    v = torch.randn(*BATCH_DIMS, items, channels["in_v_channels"], 4, dtype=torch.float64)
+    v_cond = torch.randn(
+        *BATCH_DIMS, items_cond, channels["v_channels_cond"], 4, dtype=torch.float64
+    )
+    frame = get_lightcone_frame(v.sum(dim=(-3, -2)))[..., None, None, :, :]
+
+    # the frame is orthogonal, so the loss is the same in both coordinates
+    outputs_v, outputs_s, grads = _outputs_and_grads(cartesian, v, v_cond, s, s_cond)
+    outputs_v_lc, outputs_s_lc, grads_lc = _outputs_and_grads(
+        lightcone, to_lightcone(v, frame), to_lightcone(v_cond, frame), s, s_cond
+    )
+    torch.testing.assert_close(from_lightcone(outputs_v_lc, frame), outputs_v, **STRICT_TOLERANCES)
+    torch.testing.assert_close(outputs_s_lc, outputs_s, **STRICT_TOLERANCES)
+    torch.testing.assert_close(grads_lc, grads, **STRICT_TOLERANCES)

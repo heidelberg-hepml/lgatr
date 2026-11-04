@@ -2,12 +2,12 @@
 
 import torch
 
-from ..utils.autocast import minimum_autocast_precision
+from ..utils.autocast import autocast_dtype, autocast_enabled
 from .attention_backends import get_attention_backend
-from .invariants import _load_inner_product_factors
+from .config import PrimitivesConfig
+from .invariants import _apply_metric
 
 
-@minimum_autocast_precision(torch.float32, output="high")
 def sdp_attention(
     q_mv: torch.Tensor,
     k_mv: torch.Tensor,
@@ -15,6 +15,8 @@ def sdp_attention(
     q_s: torch.Tensor | None = None,
     k_s: torch.Tensor | None = None,
     v_s: torch.Tensor | None = None,
+    *,
+    config: PrimitivesConfig,
     **attn_kwargs,
 ) -> tuple[torch.Tensor, torch.Tensor | None]:
     """Equivariant geometric attention based on scaled dot products.
@@ -45,6 +47,8 @@ def sdp_attention(
         Optional scalar keys of shape ``(..., items_in, s_channels)``. Must be None iff ``q_s`` is None.
     v_s
         Optional scalar values of shape ``(..., items_in, s_channels)``. Must be None iff ``q_s`` is None.
+    config
+        LGATr primitives configuration.
     **attn_kwargs
         Optional keyword arguments forwarded to the attention backend.
 
@@ -60,7 +64,7 @@ def sdp_attention(
         raise ValueError("q_s, k_s, and v_s must either all be None or all be provided.")
 
     # Construct queries and keys by concatenating relevant MV components and aux scalars
-    q = (q_mv * _load_inner_product_factors(device=q_mv.device, dtype=q_mv.dtype)).flatten(-2, -1)
+    q = _apply_metric(q_mv, config.lightcone).flatten(-2, -1)
     k = k_mv.flatten(-2, -1)
     num_channels_out = v_mv.shape[-2]
     v = v_mv.flatten(-2, -1)
@@ -88,7 +92,8 @@ def scaled_dot_product_attention(
     """Execute scaled dot-product attention.
 
     The attention backend is determined dynamically based on the ``attn_kwargs`` provided
-    (see :func:`lgatr.primitives.attention_backends.get_attention_backend`).
+    (see :func:`lgatr.primitives.attention_backends.get_attention_backend`). Under autocast,
+    non-float64 inputs are cast to the autocast dtype of their device.
 
     Parameters
     ----------
@@ -108,4 +113,9 @@ def scaled_dot_product_attention(
     """
     backend = attn_kwargs.pop("backend", None)
     attention_backend = get_attention_backend(backend=backend, **attn_kwargs)
+    device_type = query.device.type
+    if autocast_enabled(device_type) and query.dtype != torch.float64:
+        # non-torch backends ignore autocast
+        dtype = autocast_dtype(device_type)
+        query, key, value = query.to(dtype), key.to(dtype), value.to(dtype)
     return attention_backend(query, key, value, **attn_kwargs)
