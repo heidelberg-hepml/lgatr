@@ -20,6 +20,7 @@ You can read more about L-GATr as well as L-GATr-slim in the [L-GATr documentati
 - [Lorentz-Equivariant Geometric Algebra Transformers for High-Energy Physics](https://arxiv.org/abs/2405.14806) (L-GATr; for ML audience)
 - [A Lorentz-Equivariant Transformer for All of the LHC](https://arxiv.org/abs/2411.00446) (L-GATr; for HEP audience)
 - [Economical Jet Taggers - Equivariant, Slim, and Quantized](https://arxiv.org/abs/2512.17011) (L-GATr-slim)
+- [Top Spin and CP from equivariant transformers](https://arxiv.org/abs/2611.05463) (L-GATr-slim with pseudoscalar channels)
 
 ![](img/gatr.png)
 
@@ -60,7 +61,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 - https://github.com/gregorkrz/jetclustering: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
 - https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model ([paper](https://arxiv.org/abs/2603.08802))
-- https://github.com/heidelberg-hepml/top-polarization: Use the CP-symmetry of L-GATr / L-GATr-slim with pseudoscalar channels for classification tasks ([paper](https://arxiv.org/abs/2610.XXXXX))
+- https://github.com/heidelberg-hepml/top-polarization: Use the CP-symmetry of L-GATr / L-GATr-slim with pseudoscalar channels for classification tasks ([paper](https://arxiv.org/abs/2611.05463))
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
@@ -110,5 +111,14 @@ If you find this code useful in your research, please cite our papers
   volume = {36},
   eprint = {2305.18415},
   url = {https://arxiv.org/abs/2305.18415},
+}
+@article{Bahl:2026kig,
+    author = "Bahl, Henning and Menen, Marco and Petitjean, Antoine and Plehn, Tilman",
+    title = "{Top Spin and CP from Equivariant Transformers}",
+    eprint = "2611.05463",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-ph",
+    month = "11",
+    year = "2026"
 }
 ```
