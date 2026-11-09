@@ -59,6 +59,7 @@ Please have a look at the [L-GATr documentation](https://heidelberg-hepml.github
 - https://github.com/gregorkrz/jetclustering: IRC-safe jet clustering with L-GATr, starting from the https://github.com/heidelberg-hepml/lorentz-gatr repo. ([paper](https://ml4physicalsciences.github.io/2025/files/NeurIPS_ML4PS_2025_59.pdf))
 - https://github.com/heidelberg-hepml/tagger-quantization: Quantized jet taggers, including float8+ternary weight implementations of L-GATr and L-GATr-slim. ([paper](https://arxiv.org/abs/2512.17011))
 - https://github.com/stanford-ai4physics/physics-priors: L-GATr/L-GATr-slim classifiers applied to tasks where high precision is required, and compared with the OmniLearn foundation model ([paper](https://arxiv.org/abs/2603.08802))
+- https://github.com/heidelberg-hepml/top-polarization: L-GATr-slim applied to top quark spin and CP classification, with the [slim-pseudo branch](https://github.com/heidelberg-hepml/lgatr/tree/slim-pseudo). ([paper](https://arxiv.org/abs/2606.04592))
 
 Let us know if you use `lgatr`, so we can add your repo to the list!
 
